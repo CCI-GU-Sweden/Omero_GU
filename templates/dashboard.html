@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OMERO Imports Dashboard</title>
+    <!-- Include Plotly.js -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -32,43 +33,66 @@
             
             <button onclick="updateDashboard()">Update Dashboard</button>
         </div>
-        
-        <div class="dashboard-charts">
-            <div id="file-count-chart" class="chart"></div>
-            <div id="total-upload-chart" class="chart"></div>
+
+        <!-- Layout for Cards and Graphs -->
+        <div class="dashboard-content">
+            <!-- Stats Cards Section -->
+			<div class="stats-cards">
+				<div class="card" id="data-generated-card">
+					<h3>Total Data Generated (MB)</h3>
+					<p id="total-data-generated">--</p>
+					<p id="data-change">Change: --</p>
+				</div>
+
+				<div class="card" id="uploads-card">
+					<h3>Total Images Uploaded</h3>
+					<p id="total-uploads">--</p>
+					<p id="upload-change">Change: --%</p>
+				</div>
+			</div>
+
+            <!-- Charts Section -->
+            <div class="dashboard-charts">
+                <div id="total-upload-chart" class="chart"></div>
+				<div id="file-count-chart" class="chart"></div>
+            </div>
         </div>
     </div>
 
     <script>
-        function updateDashboard() {
-            const timePeriod = document.getElementById('time-period').value;
-            const granularity = document.getElementById('granularity').value;
-            const microscope = document.getElementById('microscope').value;
+		function updateDashboard() {
+			const timePeriod = document.getElementById('time-period').value;
+			const granularity = document.getElementById('granularity').value;
+			const microscope = document.getElementById('microscope').value;
 
-            fetch(`/update_dashboard?time_period=${timePeriod}&granularity=${granularity}&microscope=${microscope}`)
-                .then(response => response.json())
-                .then(data => {
-                    Plotly.newPlot('file-count-chart', JSON.parse(data.file_count_chart));
-                    Plotly.newPlot('total-upload-chart', JSON.parse(data.total_upload_chart));
-                })
-                .catch(error => console.error('Error:', error));
-        }
+			fetch(`/update_dashboard?time_period=${timePeriod}&granularity=${granularity}&microscope=${microscope}`)
+				.then(response => response.json())
+				.then(data => {
+					Plotly.newPlot('file-count-chart', JSON.parse(data.file_count_chart));
+					Plotly.newPlot('total-upload-chart', JSON.parse(data.total_upload_chart));
 
-        // Populate microscope dropdown
-        fetch('/get_microscopes')
-            .then(response => response.json())
-            .then(data => {
-                const microscopeSelect = document.getElementById('microscope');
-                data.microscopes.forEach(scope => {
-                    const option = document.createElement('option');
-                    option.value = scope;
-                    option.textContent = scope;
-                    microscopeSelect.appendChild(option);
-                });
-            });
+					// Update stats cards
+					document.getElementById('total-data-generated').innerText = data.total_data_generated_mb !== undefined ? data.total_data_generated_mb : '--';
+					document.getElementById('data-change').innerText = data.data_change !== null ? `${data.data_change} MB` : '--';
 
-        // Initial dashboard update
-        updateDashboard();
+					document.getElementById('total-uploads').innerText = data.total_uploads !== undefined ? data.total_uploads : '--';
+					document.getElementById('upload-change').innerText = data.upload_change_percentage !== null ? `${data.upload_change_percentage.toFixed(2)}%` : '--';
+				})
+				.catch(error => console.error('Error:', error));
+		}
+
+		// Populate microscope dropdown
+		fetch('/get_microscopes')
+			.then(response => response.json())
+			.then(data => {
+				const microscopeSelect = document.getElementById('microscope');
+				data.microscopes.forEach(scope => {
+					const option = document.createElement('option');
+					option.value = scope;
+					option.textContent = scope;
+					microscopeSelect.appendChild(option);
+				});
+		});
     </script>
 </body>
 </html>

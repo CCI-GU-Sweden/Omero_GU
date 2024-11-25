@@ -37,20 +37,74 @@ body {
     border-radius: 4px;
 }
 
+/* Main content layout */
+.dashboard-content {
+    display: flex; /* Use flexbox for layout */
+}
+
+/* Stats Cards Layout */
+.stats-cards {
+    display: flex;
+    flex-direction: column; /* Stack cards vertically */
+    gap: 20px; /* Space between cards */
+    margin-right: 20px; /* Space between cards and charts */
+}
+
+/* Chart Layout */
 .dashboard-charts {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    display: flex; /* Use flexbox for charts */
+    flex-direction: column; /* Stack charts vertically */
 }
 
-@media (max-width: 1024px) {
-    .dashboard-charts {
-        grid-template-columns: 1fr 1fr;
-    }
+/* Card Styles */
+.card {
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-@media (max-width: 768px) {
-    .dashboard-charts {
-        grid-template-columns: 1fr;
-    }
+/* Card Colors and Text Styles */
+/* Card 1 - Total Data Generated */
+#data-generated-card {
+    background-color: #4CAF50; /* Gentle green */
+    color: white; /* Text color for title and main number */
+}
+/* Card 2 - Total Images Uploaded */
+#uploads-card {
+    background-color: #FFA500; /* Gentle orange */
+    color: white; /* Text color for title and main number */
+}
+
+#data-generated-card h3,
+#uploads-card h3 {
+    margin: 0;
+}
+
+#data-generated-card p,
+#uploads-card p {
+    margin: 5px 0;
+}
+
+/* Main number styling */
+#total-data-generated,
+#total-uploads {
+    font-size: 1.5em; /* Increase size to 50% larger */
+    font-weight: bold; /* Make it bold */
+    text-align: center; /* Center text */
+}
+
+/* Secondary number styling */
+#data-change,
+#upload-change {
+    color: #D3D3D3; /* Gray for secondary text */
+    text-align: center; /* Center text */
+}
+
+/* Chart */
+.chart {
+    height: 390px; /* Set a fixed height for charts */
+    margin-bottom: 20px; /* Add margin below each chart */
+	border-radius: 8px; /* Add rounded corners */
+    overflow: hidden; /* Ensure that any overflow content is clipped */
+    background-color: white; /* Optional: Set a background color if needed 
 }
