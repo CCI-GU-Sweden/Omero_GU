@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enter OMERO Session Token</title>
+</head>
+<body>
+    <h1>Enter OMERO Session Token</h1>
+    <form action="{{ url_for('enter_token') }}" method="post">
+        <label for="session_token">Session Token:</label>
+        <input type="text" id="session_token" name="session_token" required>
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>
