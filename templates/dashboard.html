@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OMERO Imports Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <h1 class="dashboard-header">OMERO Imports Dashboard</h1>
+        
+        <div class="dashboard-filters">
+            <select id="time-period">
+                <option value="last_year">Last Year</option>
+                <option value="last_month">Last Month</option>
+                <option value="last_week">Last Week</option>
+            </select>
+            
+            <select id="granularity">
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+                <option value="year">Year</option>
+            </select>
+            
+            <select id="microscope">
+                <option value="all">All Microscopes</option>
+                <!-- Microscope options will be populated dynamically -->
+            </select>
+            
+            <button onclick="updateDashboard()">Update Dashboard</button>
+        </div>
+        
+        <div class="dashboard-charts">
+            <div id="file-count-chart" class="chart"></div>
+            <div id="total-upload-chart" class="chart"></div>
+        </div>
+    </div>
+
+    <script>
+        function updateDashboard() {
+            const timePeriod = document.getElementById('time-period').value;
+            const granularity = document.getElementById('granularity').value;
+            const microscope = document.getElementById('microscope').value;
+
+            fetch(`/update_dashboard?time_period=${timePeriod}&granularity=${granularity}&microscope=${microscope}`)
+                .then(response => response.json())
+                .then(data => {
+                    Plotly.newPlot('file-count-chart', JSON.parse(data.file_count_chart));
+                    Plotly.newPlot('total-upload-chart', JSON.parse(data.total_upload_chart));
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Populate microscope dropdown
+        fetch('/get_microscopes')
+            .then(response => response.json())
+            .then(data => {
+                const microscopeSelect = document.getElementById('microscope');
+                data.microscopes.forEach(scope => {
+                    const option = document.createElement('option');
+                    option.value = scope;
+                    option.textContent = scope;
+                    microscopeSelect.appendChild(option);
+                });
+            });
+
+        // Initial dashboard update
+        updateDashboard();
+    </script>
+</body>
+</html>
