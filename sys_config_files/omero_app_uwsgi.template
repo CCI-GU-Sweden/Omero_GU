@@ -6,10 +6,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-user
+User=${WWW_USER}
 Group=www-data
-WorkingDirectory=/var/www/html/Omero_GU
-ExecStart=/var/www/html/Omero_GU/start_uwsgi.sh
+WorkingDirectory=${ROOT_DIR}
+ExecStart=${ROOT_DIR}/start_uwsgi.sh
 Restart=always
 
 [Install]
