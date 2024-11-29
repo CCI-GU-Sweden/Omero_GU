@@ -1,10 +1,12 @@
 #!/bin/bash
 
+source "sys_config_files/server_common.sh"
+
 #path to conda installation
-CONDA_ROOT_PATH=$HOME/miniconda3
+#CONDA_ROOT_PATH=$HOME/miniconda3
 
 # Define the environment name and path to the environment.yml file
-ENV_NAME="Omero_gu_app"
+#CONDA_ENV_NAME="Omero_gu_app"
 #ENV_YML_PATH="environment.yml"
 
 # Check if Miniconda exists
@@ -18,7 +20,7 @@ source $CONDA_ROOT_PATH/etc/profile.d/conda.sh
 
 
 # Activate the environment
-conda activate "$ENV_NAME"
+conda activate "$CONDA_ENV_NAME"
 
 # Start uWSGI
 uwsgi --ini uwsgi.ini

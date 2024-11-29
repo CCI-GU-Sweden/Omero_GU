@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Check if the script is run as root
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run this script as root using sudo"
+    exit 1
+fi
+
+
 source "server_common.sh"
 
 #stopping omero service
@@ -13,14 +20,18 @@ systemctl stop nginx
 echo "removing generated files and directory"
 rm -rf $GEN_DIR
 
+echo "remove symlink $WWW_ROOT_DIR/$WWW_SYMLINK_NAME"
+rm "$WWW_ROOT_DIR/$WWW_SYMLINK_NAME"
+
 echo "removing $SYSTEMD_DIR/$OMERO_SERVICE_FILE"
 rm "$SYSTEMD_DIR/$OMERO_SERVICE_FILE"
+
+echo "removing symlink $NGINX_ENABLED_DIR/$NGINX_SITE_FILE"
+rm "$NGINX_ENABLED_DIR/$NGINX_SITE_FILE"
 
 echo "removing $NGINX_AVAIL_DIR/$NGINX_SITE_FILE"
 rm "$NGINX_AVAIL_DIR/$NGINX_SITE_FILE"
 
-echo "removing symlink $NGINX_ENABLED_DIR/$NGINX_SITE_FILE"
-rm "removing symlink $NGINX_ENABLED_DIR/$NGINX_SITE_FILE"
 
 # Reload systemd configuration
 systemctl daemon-reload

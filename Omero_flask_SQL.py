@@ -342,7 +342,7 @@ def get_info_metadata(img, verbose:bool=True) -> dict:
 @app.route('/') #decorator!
 def index():
     logging.info("Enter index.html")
-    return render_template('index.html')
+    return render_template('index.html', login_url=OMERO_LOGIN_URL)
 
 @app.route('/login')
 def login():
