@@ -1,0 +1,11 @@
+#put this file in /etc/nginx/sites-available and symlink to it from /etc/nginx/sites-enabled
+
+server {
+     listen ${PORT};
+     server_name localhost ;
+     location / {
+         root ${ROOT_DIR};
+         include uwsgi_params;
+         uwsgi_pass unix:${ROOT_DIR}/omero_app.sock;
+     }
+ }

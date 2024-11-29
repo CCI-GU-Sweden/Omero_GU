@@ -1,0 +1,16 @@
+#put this file in /etc/systemd/system
+
+[Unit]
+Description=CCI Omero front-end running uwsgi and flask
+After=network.target
+
+[Service]
+Type=simple
+User=www-user
+Group=www-data
+WorkingDirectory=/var/www/html/Omero_GU
+ExecStart=/var/www/html/Omero_GU/start_uwsgi.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
