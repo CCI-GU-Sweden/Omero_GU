@@ -16,9 +16,9 @@ create user www-user (from now on all operations should be done as that user or 
 
 install miniconda3 in the home dir of www-user
 
-Clone repository to correct location
+Clone repository to correct location (/var/www/html/ )
 
-Copy files to correct locations
+Run the setup script!
 
 Restart services
 
