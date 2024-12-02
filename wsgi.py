@@ -1,4 +1,3 @@
-from Omero_flask_SQL import app
+from Omero_flask_SQL import create_app
 
-if __name__ == "__main__":
-    app.run()
+app = create_app()
