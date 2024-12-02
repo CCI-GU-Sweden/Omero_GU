@@ -5,6 +5,9 @@ LOG_FILE = "omero_app.log"
 
 SECRET_KEY = "s3cr3t"
 
+APP_NAME = "gu_omero_frontend"
+LOGGER_NAME="omero_logger"
+
 OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
 OMERO_LOGIN_URL = f'{OMERO_BASE_URL}/oauth/?url=%2Fwebclient%2F'
 OMERO_SESSION_TOKEN_URL = f'{OMERO_BASE_URL}/oauth/sessiontoken'
