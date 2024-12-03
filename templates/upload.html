@@ -23,7 +23,11 @@
 </head>
 <body>
     <h1>Upload Files to OMERO</h1>
-    
+
+    <select id="dropdown">
+        <option value="">Select Project</option>
+    </select>
+
     <form id="upload-form" action="{{ url_for('import_images') }}" method="post" enctype="multipart/form-data">
         <input type="file" id="file-input" name="files" multiple>
         <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none;">
@@ -43,8 +47,22 @@
         const uploadForm = document.getElementById('upload-form');
         const disconnectButton = document.getElementById('disconnect-button');
 
+       
+
+
         // Load previous files from localStorage
         let importedFiles = JSON.parse(localStorage.getItem('importedFiles')) || [];
+        // If it doesn't exist, create it with an empty array
+        if (importedFiles === null) {
+            importedFiles = [];
+            localStorage.setItem('importedFiles', JSON.stringify(importedFiles));
+            console.log("'importedFiles' created in localStorage");
+        } else {
+            // If it exists, parse the JSON string back into an array
+            importedFiles = JSON.parse(importedFiles);
+            console.log("'importedFiles' found in localStorage");
+        }
+
 
         // Function to render the file list on the page
 		function renderFileList() {
@@ -155,7 +173,7 @@
         disconnectButton.style.display = 'block';
 
         // Initial render of the file list
-        renderFileList();
+        //renderFileList();
     </script>
 </body>
 </html>

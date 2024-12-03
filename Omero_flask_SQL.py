@@ -257,7 +257,23 @@ def create_app(test_config=None):
             logger. error(f"Error during import process: {str(e)}")
             return jsonify({"error": str(e)}), 500
 
-            
+    @app.route('/get_projects', methods=['POST'])
+    def get_projects():
+        
+        session_key = session['omero_session_key']
+        host = session['omero_host']
+        
+        # Create a client using the session key
+#        client = omero.clients.BaseClient(host)
+#        client.joinSession(session_key)
+        
+        # Create a BlitzGateway connection using the client
+#        conn = BlitzGateway(client_obj=client)  
+        conn = omero_funcs.create_omero_connection(host,session_key)
+        projects = omero_funcs.get_user_projects(conn)
+        #options = ['Option 1', 'Option 2', 'Option 3']
+        return jsonify(projects)        
+    
     @app.route('/logout', methods=['POST'])
     def logout():
         session.clear()  # Clear the session
