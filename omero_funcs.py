@@ -69,6 +69,24 @@ def get_or_create_project(conn, project_name, verbose=False):
     
     return projID
 
+def get_user_projects(conn):
+    projects = []
+    for p in conn.listProjects():         # Initially we just load Projects
+        projects.append((p.getName(),p.getId()))
+        
+    return projects
+    
+def get_datasets_for_projects(conn, project_id):
+    project = conn.getObject("Project", project_id)
+    if not project:
+        raise Exception(f"Project with ID {project_id} not found")
+
+    datasets = []
+    for dataset in project.listChildren():      # lazy-loading of Datasets here
+        datasets.append((dataset.getName(),dataset.getId()))
+
+    return datasets
+
 
 def get_or_create_dataset(conn, project_id, dataset_name, verbose=False):
     project = conn.getObject("Project", project_id)
