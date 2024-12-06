@@ -24,9 +24,21 @@
 <body>
     <h1>Upload Files to OMERO</h1>
 
-    <select id="dropdown">
+<!--    <h3>Create a project (if you want to)</h3>
+    <form id="createProjectForm">
+        <label for="project-label">Enter text:</label>
+        <input type="text" id="project-naame" name="myInput">
+        <button type="button" id="project-submit">Submit</button>
+    </form> -->
+
+
+<!--    
+    <h3>Select project</h3>
+    <select id="project-dropdown">
         <option value="">Select Project</option>
     </select>
+-->
+<br/>
 
     <form id="upload-form" action="{{ url_for('import_images') }}" method="post" enctype="multipart/form-data">
         <input type="file" id="file-input" name="files" multiple>
@@ -38,6 +50,8 @@
     <div id="file-list"></div>
     <button id="disconnect-button" style="display:none;">Disconnect</button>
 
+    <script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script>
         const fileInput = document.getElementById('file-input');
         const folderInput = document.getElementById('folder-input');
@@ -46,37 +60,36 @@
         const fileList = document.getElementById('file-list');
         const uploadForm = document.getElementById('upload-form');
         const disconnectButton = document.getElementById('disconnect-button');
+        const projectDropdown = document.getElementById('project-dropdown');
 
-       
+        document.addEventListener('DOMContentLoaded', function() {
+            localStorage.setItem('importedFiles', '[]');
+            // Show the disconnect button
+            disconnectButton.style.display = 'block';
 
+            console.log("loaded....")
+        });
 
-        // Load previous files from localStorage
-        let importedFiles = JSON.parse(localStorage.getItem('importedFiles')) || [];
-        // If it doesn't exist, create it with an empty array
-        if (importedFiles === null) {
-            importedFiles = [];
-            localStorage.setItem('importedFiles', JSON.stringify(importedFiles));
-            console.log("'importedFiles' created in localStorage");
-        } else {
-            // If it exists, parse the JSON string back into an array
-            importedFiles = JSON.parse(importedFiles);
-            console.log("'importedFiles' found in localStorage");
+        function getImportedFiles(){
+            return  JSON.parse(localStorage.getItem('importedFiles'));
         }
-
 
         // Function to render the file list on the page
 		function renderFileList() {
+            let importedFiles = getImportedFiles();
 			fileList.innerHTML = '';
 			importedFiles.forEach(file => {
 				const fileItem = document.createElement('div');
 				fileItem.className = `file-item ${file.status}`; // Assign the updated status class
-				fileItem.textContent = `${file.name}: ${file.message}`;
+				fileItem.textContent = `${file.name}: ${file.message}${file.path ? `. Stored at ${file.path}` : ''}`;
 				fileList.appendChild(fileItem);
 				console.log(`Rendered: ${file.name} -> ${file.status}`);
 			});
 		}
 
         function handleFiles(files) {
+
+            let importedFiles = getImportedFiles();
             importButton.disabled = files.length === 0;
 
             Array.from(files).forEach(file => {
@@ -85,7 +98,8 @@
                         name: file.name,
                         size: file.size,
                         status: 'pending',
-                        message: 'Pending upload'
+                        message: 'Pending upload',
+                        path: ""
                     };
                     importedFiles.push(fileObj);
                 }
@@ -110,7 +124,7 @@
         // Handle form submission to upload files
 		uploadForm.addEventListener('submit', function (e) {
 			e.preventDefault();
-
+            let importedFiles = getImportedFiles();
 			const formData = new FormData();
 
 			importedFiles.forEach(fileObj => {
@@ -179,12 +193,6 @@
             })
             .catch(error => console.error('Error:', error));
 		});
-
-        // Show the disconnect button
-        disconnectButton.style.display = 'block';
-
-        // Initial render of the file list
-        renderFileList();
 
         window.onerror = function(message, source, lineno, colno, error) {
             fetch('/log-error', {
