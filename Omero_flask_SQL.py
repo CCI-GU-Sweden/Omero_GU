@@ -13,7 +13,8 @@ local web server: http://127.0.0.1:5000/
 """
 #Flask import
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-#omero and image import
+##omero and image import
+from omero.gateway import DatasetWrapper
 # import omero
 # from omero.cli import CLI
 # from omero.gateway import BlitzGateway
@@ -25,15 +26,14 @@ import datetime
 #image metadata import
 from pylibCZIrw import czi as pyczi
 #logging import
-import logging #info, warning, error and critical
+# import logging #info, warning, error and critical
 import database
 import omero_funcs
+import traceback
 
-import sys
-
+#import sys
 import config
-
-logger = logging.getLogger(config.APP_NAME)
+import logger
 
 processed_files = {} # In-memory storage for processed files (for the session)
 
@@ -42,11 +42,8 @@ def create_app(test_config=None):
     app = Flask(config.APP_NAME)
     app.secret_key = 'your_secret_key_here'  # Change this to a random secret key
 
-    logging.basicConfig(filename='omero_app.log', level=logging.DEBUG,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-    logging.getLogger(config.APP_NAME).addHandler(logging.StreamHandler(sys.stdout))
-    logger.info("________________________________________")
-    logger.info("Starting CCI omero frontend!")
+    level = logger.logging.DEBUG if app.debug else logger.logging.INFO
+    logger.setup_logger(level)
 
     # Define a directory for storing uploaded files
     UPLOAD_FOLDER = 'uploads'
@@ -77,8 +74,8 @@ def create_app(test_config=None):
                 port = '4064'
                 
                 try:
-                    session_key, omero_host = omero_funcs.connect_to_omero(hostname, port, session_token)
-                    if session_key:
+                    session_key, omero_host, isConn = omero_funcs.connect_to_omero(hostname, port, session_token)
+                    if session_key and isConn:
                         logger.info("Connection to the omero server successful")
                         session['omero_session_key'] = session_key
                         session['omero_host'] = omero_host
@@ -107,18 +104,8 @@ def create_app(test_config=None):
         session_key = session['omero_session_key']
         host = session['omero_host']
         
-        # Create a client using the session key
-#        client = omero.clients.BaseClient(host)
-#        client.joinSession(session_key)
-        
-        # Create a BlitzGateway connection using the client
-#        conn = BlitzGateway(client_obj=client)  
-        conn = omero_funcs.create_omero_connection(host,session_key)
         import_time_start = time.time()
-        logger.info("Connection to the Omero server done")
-        
-        if not conn:
-            return jsonify({"error": "Failed to connect to OMERO"}), 400
+        conn = omero_funcs.get_omero_connection()
 
         try:
             files = request.files.getlist('files')
@@ -163,7 +150,7 @@ def create_app(test_config=None):
                     projID = omero_funcs.get_or_create_project(conn, project_name)
                     dataID = omero_funcs.get_or_create_dataset(conn, projID, dataset_name)
                     
-                    logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
+                    logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID.getValue()}")
                     
                     # Check if image is already in the dataset
                     dataset = conn.getObject("Dataset", dataID)
@@ -178,19 +165,20 @@ def create_app(test_config=None):
 
                     else:
                         #import the file
-                        image_id = omero_funcs.import_image(conn, file_path, dataID, meta_dict)
+                        image_id = omero_funcs.import_image(conn, file_path, dataset, meta_dict)
                         processed_files[filename] = 'success'
                         logger.info(f"ezimport result for {filename}: {image_id}")
                         
                         imported_files.append({
                             "name": os.path.basename(filename),
                             "status": "success",
-                            "message": f"Successfully imported as Image ID: {image_id}"
+                            "message": f"Successfully imported as Image ID: {image_id}",
+                            "path" : f"{conn.getUser().getName()}/{project_name}/{dataset_name}"
                         })
 
 
                 except Exception as e:
-                    logger.error(f"Error during import of {filename}: {str(e)}")
+                    logger.error(f"Error during import of {filename}: {str(e)}, line: {traceback.format_exc()}")
                     processed_files[filename] = 'error'
                     imported_files.append({
                         "name": os.path.basename(filename),
@@ -259,27 +247,42 @@ def create_app(test_config=None):
 
     @app.route('/get_projects', methods=['POST'])
     def get_projects():
+
+        session_key = session['omero_session_key']
+        host = session['omero_host']
+        conn = omero_funcs.get_omero_connection()
+        projects = omero_funcs.get_user_projects(conn)
+
+        return jsonify(projects)        
+    
+    @app.route('/create_project', methods=['POST'])
+    def create_project():
         
         session_key = session['omero_session_key']
         host = session['omero_host']
         
-        # Create a client using the session key
-#        client = omero.clients.BaseClient(host)
-#        client.joinSession(session_key)
-        
-        # Create a BlitzGateway connection using the client
-#        conn = BlitzGateway(client_obj=client)  
-        conn = omero_funcs.create_omero_connection(host,session_key)
-        projects = omero_funcs.get_user_projects(conn)
+        conn = omero_funcs.get_omero_connection()
+        projects = omero_funcs.create_project(conn, request.projectName)
         #options = ['Option 1', 'Option 2', 'Option 3']
         return jsonify(projects)        
     
+    
+    @app.route('/log', methods=['POST'])
+    def log():
+        if request.is_json:
+            data = request.json
+            level = data.get('level')
+            msg = data.get('message')
+            logger.log(level, f"Client-side log: {msg}")
+            return jsonify({"status": "logged"})
+        else:
+            return 'content type not supported', 415
     
     @app.route('/log_error', methods=['POST'])
     def log_error():
         error_data = request.json
         # Process the error data (e.g., log it)
-        logger.info(f"Client-side error: {error_data}")
+        logger.error(f"Client-side error: {error_data}")
         return jsonify({"status": "Error logged"})
       
             
@@ -322,6 +325,7 @@ def get_info_metadata(img, verbose:bool=True) -> dict:
         if isinstance(img, str):
             # If img is a string (file path), use it directly
             with pyczi.open_czi(img) as czidoc:
+                czidoc
                 metadata = czidoc.metadata['ImageDocument']['Metadata']
     except FileNotFoundError:
         raise FileNotFoundError("The file does not exist.")
