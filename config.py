@@ -3,6 +3,9 @@
 LOG_DIR = "logs/"
 LOG_FILE = "omero_app.log"
 
+DB_DIR = "database"
+DB_NAME = 'omero_imports.db'
+
 SECRET_KEY = "s3cr3t"
 
 APP_NAME = "gu_omero_frontend"
@@ -17,4 +20,3 @@ CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
 
 UPLOAD_FOLDER = 'uploads'
 
-DB_NAME = 'omero_imports.db'

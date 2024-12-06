@@ -166,14 +166,41 @@
             localStorage.removeItem('importedFiles');
             importedFiles = [];
             renderFileList();
-            alert('You have been disconnected');
-        });
+            fetch('{{ url_for("logout") }}', {
+                method: 'POST',
+                //body: JSON.stringify(data),
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              })
+              .then(response => { 
+                alert('You have been disconnected, redirecting to ' + response.url);
+                window.location.href = response.url;
+            })
+            .catch(error => console.error('Error:', error));
+		});
 
         // Show the disconnect button
         disconnectButton.style.display = 'block';
 
         // Initial render of the file list
-        //renderFileList();
+        renderFileList();
+
+        window.onerror = function(message, source, lineno, colno, error) {
+            fetch('/log-error', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    source: source,
+                    lineno: lineno,
+                    colno: colno,
+                    error: error.stack
+                })
+            });
+        };
     </script>
 </body>
 </html>

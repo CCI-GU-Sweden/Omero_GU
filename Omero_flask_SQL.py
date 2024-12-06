@@ -68,10 +68,10 @@ def create_app(test_config=None):
 
     @app.route('/enter_token', methods=['GET', 'POST'])
     def enter_token():
-        logger. info("Enter enter_token.html")
+        logger.info("Enter enter_token.html")
         if request.method == 'POST':
             session_token = request.form.get('session_token')
-            logger. info("Session Uuid is:" + session_token)
+            logger.info("Session Uuid is:" + session_token)
             if session_token:
                 hostname = '130.241.39.241'
                 port = '4064'
@@ -79,7 +79,7 @@ def create_app(test_config=None):
                 try:
                     session_key, omero_host = omero_funcs.connect_to_omero(hostname, port, session_token)
                     if session_key:
-                        logger. info("Connection to the omero server successful")
+                        logger.info("Connection to the omero server successful")
                         session['omero_session_key'] = session_key
                         session['omero_host'] = omero_host
                         return redirect(url_for('upload'))
@@ -92,7 +92,7 @@ def create_app(test_config=None):
 
     @app.route('/upload')
     def upload():
-        logger. info("Enter upload")
+        logger.info("Enter upload")
         if 'omero_session_key' not in session or 'omero_host' not in session:
             return redirect(url_for('enter_token'))
         return render_template('upload.html')
@@ -100,7 +100,7 @@ def create_app(test_config=None):
     @app.route('/import_images', methods=['POST'])
     def import_images():
         import time
-        logger. info("Enter import_images")
+        logger.info("Enter import_images")
         if 'omero_session_key' not in session or 'omero_host' not in session:
             return jsonify({"error": "Not logged in"}), 401
         
@@ -115,7 +115,7 @@ def create_app(test_config=None):
 #        conn = BlitzGateway(client_obj=client)  
         conn = omero_funcs.create_omero_connection(host,session_key)
         import_time_start = time.time()
-        logger. info("Connection to the Omero server done")
+        logger.info("Connection to the Omero server done")
         
         if not conn:
             return jsonify({"error": "Failed to connect to OMERO"}), 400
@@ -124,7 +124,7 @@ def create_app(test_config=None):
             files = request.files.getlist('files')
             file_n = len(files)
             
-            logger. info(f"Received files: {[file.filename for file in files]}")
+            logger.info(f"Received files: {[file.filename for file in files]}")
             imported_files = []
             scopes = []
             total_file_size = 0
@@ -143,17 +143,17 @@ def create_app(test_config=None):
                 try:
                     # Save file to temporary directory
                     if file_size <= config.MAX_SIZE_FULL_UPLOAD: #direct save
-                        logger. info(f"File {filename} is smaller than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
+                        logger.info(f"File {filename} is smaller than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
                         img.save(file_path) #one go save
                     else: #chunk save
-                        logger. info(f"File {filename} is larger than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
+                        logger.info(f"File {filename} is larger than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
                         with open(file_path, 'wb') as f:
                             while chunk := img.stream.read(config.CHUNK_SIZE):
                                 f.write(chunk)
                     
                     # Read metadata from the file
                     meta_dict = get_info_metadata(file_path, verbose=False)
-                    logger. info(f"Metadata successfully extracted for {filename}")
+                    logger.info(f"Metadata successfully extracted for {filename}")
                     
                     scopes.append([meta_dict['Microscope']])
                     project_name = meta_dict['Microscope']
@@ -163,7 +163,7 @@ def create_app(test_config=None):
                     projID = omero_funcs.get_or_create_project(conn, project_name)
                     dataID = omero_funcs.get_or_create_dataset(conn, projID, dataset_name)
                     
-                    logger. info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
+                    logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
                     
                     # Check if image is already in the dataset
                     dataset = conn.getObject("Dataset", dataID)
@@ -180,7 +180,7 @@ def create_app(test_config=None):
                         #import the file
                         image_id = omero_funcs.import_image(conn, file_path, dataID, meta_dict)
                         processed_files[filename] = 'success'
-                        logger. info(f"ezimport result for {filename}: {image_id}")
+                        logger.info(f"ezimport result for {filename}: {image_id}")
                         
                         imported_files.append({
                             "name": os.path.basename(filename),
@@ -190,7 +190,7 @@ def create_app(test_config=None):
 
 
                 except Exception as e:
-                    logger. error(f"Error during import of {filename}: {str(e)}")
+                    logger.error(f"Error during import of {filename}: {str(e)}")
                     processed_files[filename] = 'error'
                     imported_files.append({
                         "name": os.path.basename(filename),
@@ -201,9 +201,9 @@ def create_app(test_config=None):
                 finally:
                     if os.path.exists(file_path):
                         os.remove(file_path)
-                        logger. info(f"Successfully deleted temporary file: {file_path}")
+                        logger.info(f"Successfully deleted temporary file: {file_path}")
                     else:
-                        logger. warning(f"Temporary file not found for deletion: {file_path}")
+                        logger.warning(f"Temporary file not found for deletion: {file_path}")
             
             import_time = time.time() - import_time_start
             scope = sorted(scopes, key=scopes.count, reverse=True)[0] #take only one scope
@@ -212,7 +212,7 @@ def create_app(test_config=None):
                     scope = scope[0]
             
 
-            logger. info("Import done")
+            logger.info("Import done")
             
             #get some data
             user = conn.getUser()
@@ -241,20 +241,20 @@ def create_app(test_config=None):
             )
 
             #show the data in the log
-            logger. info('User information:')
-            logger. info(f"    Time: {time}")
-            logger. info(f"    Full Name: {username}")
-            logger. info(f"    Current group: {groupname}")
-            logger. info(f"    Main microscope: {scope}")
-            logger. info(f"    File number: {file_n}")
-            logger. info(f"    File total size (MB): {total_file_size /1024 / 1024}")
-            logger. info(f"    Import time (s): {import_time}")
+            logger.info('User information:')
+            logger.info(f"    Time: {time}")
+            logger.info(f"    Full Name: {username}")
+            logger.info(f"    Current group: {groupname}")
+            logger.info(f"    Main microscope: {scope}")
+            logger.info(f"    File number: {file_n}")
+            logger.info(f"    File total size (MB): {total_file_size /1024 / 1024}")
+            logger.info(f"    Import time (s): {import_time}")
             
             
             return jsonify({"files": imported_files})
         
         except Exception as e:
-            logger. error(f"Error during import process: {str(e)}")
+            logger.error(f"Error during import process: {str(e)}")
             return jsonify({"error": str(e)}), 500
 
     @app.route('/get_projects', methods=['POST'])
@@ -274,10 +274,21 @@ def create_app(test_config=None):
         #options = ['Option 1', 'Option 2', 'Option 3']
         return jsonify(projects)        
     
-    @app.route('/logout', methods=['POST'])
+    
+    @app.route('/log_error', methods=['POST'])
+    def log_error():
+        error_data = request.json
+        # Process the error data (e.g., log it)
+        logger.info(f"Client-side error: {error_data}")
+        return jsonify({"status": "Error logged"})
+      
+            
+    @app.route('/logout')
     def logout():
+        logger.info("User logged out. Clearing session")
         session.clear()  # Clear the session
-        return jsonify({"message": "Logged out successfully"}), 200
+        #return jsonify({"message": "Logged out successfully"}), 200
+        return redirect(url_for('index'))
 
 
     return app
