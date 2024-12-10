@@ -27,7 +27,7 @@ def initialize_database(db_name=DB_FILE):
     conn.commit()
     conn.close()
 
-def insert_import_data(time, username, groupname, scope, file_count, total_file_size_mb, import_time_s, db_name='omero_imports.db'):
+def insert_import_data(time, username, groupname, scope, file_count, total_file_size_mb, import_time_s, db_name=DB_FILE):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     cursor.execute('''
@@ -37,7 +37,7 @@ def insert_import_data(time, username, groupname, scope, file_count, total_file_
     conn.commit()
     conn.close()
     
-def get_all_imports(db_name='omero_imports.db'):
+def get_all_imports(db_name=DB_FILE):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM imports')
