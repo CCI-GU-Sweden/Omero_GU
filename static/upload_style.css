@@ -1,0 +1,15 @@
+
+#file-list {
+    margin-top: 20px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.file-item {
+    margin-bottom: 5px;
+    padding: 5px;
+    border-radius: 3px;
+}
+.pending { background-color: #f0f0f0; }
+.success { background-color: #d4edda; }
+.error { background-color: #f8d7da; }
+.duplicate { background-color: #fff3cd; }
