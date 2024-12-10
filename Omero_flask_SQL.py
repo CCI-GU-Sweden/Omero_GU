@@ -13,25 +13,16 @@ local web server: http://127.0.0.1:5000/
 """
 #Flask import
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+
 ##omero and image import
 from omero.gateway import DatasetWrapper
-# import omero
-# from omero.cli import CLI
-# from omero.gateway import BlitzGateway
-#import ezomero
-#general import
 import os
 from dateutil import parser
 import datetime
-#image metadata import
 from pylibCZIrw import czi as pyczi
-#logging import
-# import logging #info, warning, error and critical
 import database
 import omero_funcs
 import traceback
-
-#import sys
 import config
 import logger
 
@@ -70,8 +61,8 @@ def create_app(test_config=None):
             session_token = request.form.get('session_token')
             logger.info("Session Uuid is:" + session_token)
             if session_token:
-                hostname = '130.241.39.241'
-                port = '4064'
+                hostname = config.OMERO_HOST
+                port = config.OMERO_PORT
                 
                 try:
                     session_key, omero_host, isConn = omero_funcs.connect_to_omero(hostname, port, session_token)
@@ -150,7 +141,7 @@ def create_app(test_config=None):
                     projID = omero_funcs.get_or_create_project(conn, project_name)
                     dataID = omero_funcs.get_or_create_dataset(conn, projID, dataset_name)
                     
-                    logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID.getValue()}")
+                    logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
                     
                     # Check if image is already in the dataset
                     dataset = conn.getObject("Dataset", dataID)
@@ -165,15 +156,20 @@ def create_app(test_config=None):
 
                     else:
                         #import the file
+                        user = conn.getUser().getName() 
+                        index = user.find('@')
+                        user_name = user[:index] if index != -1 else user
+                        
+                        dst_path = f'{user_name} / {project_name} / {dataset_name}'
                         image_id = omero_funcs.import_image(conn, file_path, dataset, meta_dict)
                         processed_files[filename] = 'success'
-                        logger.info(f"ezimport result for {filename}: {image_id}")
+                        logger.info(f"ezimport result for {filename}: {image_id}, path: {dst_path}")
                         
                         imported_files.append({
                             "name": os.path.basename(filename),
                             "status": "success",
                             "message": f"Successfully imported as Image ID: {image_id}",
-                            "path" : f"{conn.getUser().getName()}/{project_name}/{dataset_name}"
+                            "path" : f'{dst_path}'
                         })
 
 
