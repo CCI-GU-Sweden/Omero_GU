@@ -3,27 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='upload_style.css') }}">
     <title>Upload Files to OMERO</title>
-    <style>
-        #file-list {
-            margin-top: 20px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .file-item {
-            margin-bottom: 5px;
-            padding: 5px;
-            border-radius: 3px;
-        }
-        .pending { background-color: #f0f0f0; }
-        .success { background-color: #d4edda; }
-        .error { background-color: #f8d7da; }
-        .duplicate { background-color: #fff3cd; }
-    </style>
 </head>
 <body>
     <h1>Upload Files to OMERO</h1>
-    
+
+<!--    <h3>Create a project (if you want to)</h3>
+    <form id="createProjectForm">
+        <label for="project-label">Enter text:</label>
+        <input type="text" id="project-naame" name="myInput">
+        <button type="button" id="project-submit">Submit</button>
+    </form> -->
+
+
+<!--    
+    <h3>Select project</h3>
+    <select id="project-dropdown">
+        <option value="">Select Project</option>
+    </select>
+-->
+<br/>
+
     <form id="upload-form" action="{{ url_for('import_images') }}" method="post" enctype="multipart/form-data">
         <input type="file" id="file-input" name="files" multiple>
         <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none;">
@@ -34,6 +35,8 @@
     <div id="file-list"></div>
     <button id="disconnect-button" style="display:none;">Disconnect</button>
 
+    <script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script>
         const fileInput = document.getElementById('file-input');
         const folderInput = document.getElementById('folder-input');
@@ -42,23 +45,36 @@
         const fileList = document.getElementById('file-list');
         const uploadForm = document.getElementById('upload-form');
         const disconnectButton = document.getElementById('disconnect-button');
+        const projectDropdown = document.getElementById('project-dropdown');
 
-        // Load previous files from localStorage
-        let importedFiles = JSON.parse(localStorage.getItem('importedFiles')) || [];
+        document.addEventListener('DOMContentLoaded', function() {
+            localStorage.setItem('importedFiles', '[]');
+            // Show the disconnect button
+            disconnectButton.style.display = 'block';
+
+            console.log("loaded....")
+        });
+
+        function getImportedFiles(){
+            return  JSON.parse(localStorage.getItem('importedFiles'));
+        }
 
         // Function to render the file list on the page
 		function renderFileList() {
+            let importedFiles = getImportedFiles();
 			fileList.innerHTML = '';
 			importedFiles.forEach(file => {
 				const fileItem = document.createElement('div');
 				fileItem.className = `file-item ${file.status}`; // Assign the updated status class
-				fileItem.textContent = `${file.name}: ${file.message}`;
+				fileItem.textContent = `${file.name}: ${file.message}${file.path ? `. Stored at ${file.path}` : ''}`;
 				fileList.appendChild(fileItem);
-				console.log(`Rendered: ${file.name} -> ${file.status}`);
+				console.log(`Rendered: ${file.name} -> ${file.status}, path: ${file.path}`);
 			});
 		}
 
         function handleFiles(files) {
+
+            let importedFiles = getImportedFiles();
             importButton.disabled = files.length === 0;
 
             Array.from(files).forEach(file => {
@@ -67,7 +83,8 @@
                         name: file.name,
                         size: file.size,
                         status: 'pending',
-                        message: 'Pending upload'
+                        message: 'Pending upload',
+                        path: ""
                     };
                     importedFiles.push(fileObj);
                 }
@@ -92,7 +109,7 @@
         // Handle form submission to upload files
 		uploadForm.addEventListener('submit', function (e) {
 			e.preventDefault();
-
+            let importedFiles = getImportedFiles();
 			const formData = new FormData();
 
 			importedFiles.forEach(fileObj => {
@@ -119,6 +136,7 @@
 							if (updatedFile) {
 								updatedFile.status = file.status; // 'success', 'error', or 'duplicate'
 								updatedFile.message = file.message;
+                                updatedFile.path = file.path;
 								console.log(`Updated file: ${file.name} -> ${file.status}`);
 							}
 						});
@@ -148,14 +166,35 @@
             localStorage.removeItem('importedFiles');
             importedFiles = [];
             renderFileList();
-            alert('You have been disconnected');
-        });
+            fetch('{{ url_for("logout") }}', {
+                method: 'POST',
+                //body: JSON.stringify(data),
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              })
+              .then(response => { 
+                alert('You have been disconnected, redirecting to ' + response.url);
+                window.location.href = response.url;
+            })
+            .catch(error => console.error('Error:', error));
+		});
 
-        // Show the disconnect button
-        disconnectButton.style.display = 'block';
-
-        // Initial render of the file list
-        renderFileList();
+        window.onerror = function(message, source, lineno, colno, error) {
+            fetch('/log-error', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    source: source,
+                    lineno: lineno,
+                    colno: colno,
+                    error: error.stack
+                })
+            });
+        };
     </script>
 </body>
 </html>
