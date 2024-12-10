@@ -6,7 +6,7 @@ Created on Fri Nov 15 15:09:51 2024
 
 
 TODO: Better disconnect #maybe not possible. OAuth timeout may be better! Or log out button (IT side)
-TODO: extract some stats (date, group name, (username), microscope, file number, file total size, time for transfer)
+TODO: EM side support. EMI first
 
 local web server: http://127.0.0.1:5000/
 
@@ -20,14 +20,23 @@ from omero.gateway import BlitzGateway
 import ezomero
 #general import
 import os
+from pathlib import Path
 from dateutil import parser
 import datetime
+import numpy as np
 #image metadata import
+from rsciio.tia import file_reader as emi_reader #emi reader
 from pylibCZIrw import czi as pyczi
+from pyometiff import OMETIFFWriter, OMETIFFReader
 #logging import
 import logging #info, warning, error and critical
 #database import
 import sqlite3
+
+
+
+
+
 
 logging.basicConfig(filename='omero_app.log', level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -213,7 +222,23 @@ def import_image(conn, img_path, dataset_id, meta_dict):
 
 
 #Metadata function
-def get_info_metadata(img, verbose:bool=True) -> dict:
+def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, partial_search:bool=False) -> list:
+    def search(d, key):
+        if isinstance(d, dict):
+            for k, v in d.items():
+                if (case_insensitive and k.lower() == key.lower()) or \
+                   (partial_search and key.lower() in k.lower()) or \
+                   (k == key):
+                    yield v
+                if isinstance(v, (dict, list)):
+                    yield from search(v, key)
+        elif isinstance(d, list):
+            for item in d:
+                yield from search(item, key)
+
+    return list(search(dictionary, search_key))
+
+def get_info_metadata_from_czi(img, verbose:bool=True) -> dict:
     """
     Extract important metadata from a CZI image file.
     
@@ -222,7 +247,7 @@ def get_info_metadata(img, verbose:bool=True) -> dict:
     image type, pixel size, image dimensions, and other relevant metadata.
     
     Args:
-        img_path : The file path to the CZI image.
+        img : The file path to the CZI image.
         verbose (bool, optional): If True, print detailed information during processing. Defaults to True.
     
     Returns:
@@ -337,6 +362,107 @@ def get_info_metadata(img, verbose:bool=True) -> dict:
     return mini_metadata       
 
 
+def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
+    """
+    Convert .emi file to ome-tiff format.
+    
+    Args:
+    img_path (str): Path to the .emi file
+    ome_template (dict): Template for OME-TIFF metadata
+    
+    Returns:
+    str: Path to the output OME-TIFF file
+    dict: Contains the key-pair values
+    """
+    
+    img_path = Path(img_path)
+    if img_path.suffix.lower()[1:] != "emi":
+        raise ValueError("Input file must be a .emi file")
+        
+    if verbose: logging.info(f"Conversion to ometiff from emi required for {img_path}")
+    data = emi_reader(img_path)
+    
+    if len(data) == 0: #empty!!
+        logging.info("Empty!!")
+    elif len(data) == 1: #if one image, should be the case
+        data = data[0]
+    else:
+        logging.info(f"Length of data at {len(data)}")
+    
+    img_array = data['data']
+    img_array = img_array[np.newaxis, np.newaxis, np.newaxis, :, :]  # ZTCXY
+    dimension_order = "ZTCYX"
+
+    if verbose: logging.info("EMI file readen")
+
+    key_pair = {
+        'Microscope': dict_crawler(data, 'Microscope')[0],
+        'Electron source': dict_crawler(data, 'Gun type')[0],
+        'Beam tension': dict_crawler(data, 'High tension', partial_search=True)[0],
+        'Camera': dict_crawler(data, 'CameraName', partial_search=True)[0],
+        'Lens Magnification': dict_crawler(data, 'Magnification_x')[0],
+        'Pixel size': dict_crawler(data, 'scale')[0],
+        'Pixel unit': dict_crawler(data, 'units')[0],
+        'Comment': dict_crawler(data, 'Comment')[0],
+        'Defocus': dict_crawler(data, 'Defocus', partial_search=True)[0],
+    }
+
+    date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
+    key_pair['Creation date'] = date_object.strftime('%Y-%m-%d %H:%M:%S')
+    
+    if verbose: logging.info("Key pair value extracted")
+    ome_template = OMETIFFReader._get_metadata_template()
+    metadata_dict = ome_template.copy()
+    metadata_dict.update({
+        'Filename': os.path.basename(img_path),
+        'Extension': ".emi",
+        'ImageType': str(img_array.dtype),
+        'AcqDate': key_pair['Creation date'],
+        'SizeX': dict_crawler(data, 'DetectorPixelHeight')[0],
+        'SizeY': dict_crawler(data, 'DetectorPixelWidth')[0],
+        'PhysicalSizeX': key_pair['Pixel size'],
+        'PhysicalSizeXUnit': key_pair['Pixel unit'],
+        'PhysicalSizeY': key_pair['Pixel size'],
+        'PhysicalSizeYUnit': key_pair['Pixel unit'],
+        'DimOrder BF': dimension_order,
+        'DimOrder BF Array': dimension_order,
+        'MicroscopeType': [key_pair['Microscope']],
+        'DetectorName': [key_pair['Camera']],
+        'DetectorType': [key_pair['Electron source']],
+        'ObjNominalMag': [key_pair['Lens Magnification']],
+        'Channels': {
+            str(key_pair['Beam tension']): {
+                "Name": str(key_pair['Beam tension']),
+                "SamplesPerPixel": 1
+            }
+        }
+    })
+
+    # Remove keys with None or empty list values
+    metadata_dict = {k: v for k, v in metadata_dict.items() if v is not None and v != []}
+
+    output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tiff"))
+    
+    if verbose: logging.info("Metadata extracted")
+    
+    writer = OMETIFFWriter(
+        fpath=output_fpath,
+        dimension_order=dimension_order,
+        array=img_array,
+        metadata=metadata_dict
+    )
+    
+    writer.write()
+    if verbose: logging.info(f"Ome-tiff written at {output_fpath}.")
+    
+    return output_fpath, key_pair
+
+def delete(file_path:str):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        logging.info(f"Successfully deleted temporary file: {file_path}")
+    else:
+        logging.warning(f"Temporary file not found for deletion: {file_path}")
 
 #Flask function
 @app.route('/') #decorator!
@@ -434,7 +560,13 @@ def import_images():
                             f.write(chunk)
                 
                 # Read metadata from the file
-                meta_dict = get_info_metadata(file_path, verbose=False)
+                output_path = None
+                if file_path.endswith(".czi"):
+                    meta_dict = get_info_metadata_from_czi(file_path, verbose=False)
+                elif file_path.endswith(".emi"):
+                    
+                    output_path, meta_dict = convert_emi_to_ometiff(file_path)
+                    
                 logging.info(f"Metadata successfully extracted for {filename}")
                 
                 scopes.append([meta_dict['Microscope']])
@@ -481,11 +613,8 @@ def import_images():
                 })
             
             finally:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    logging.info(f"Successfully deleted temporary file: {file_path}")
-                else:
-                    logging.warning(f"Temporary file not found for deletion: {file_path}")
+                # delete(file_path)
+                if output_path != None: delete(output_path)
         
         import_time = time.time() - import_time_start
         scope = sorted(scopes, key=scopes.count, reverse=True)[0] #take only one scope
@@ -512,15 +641,14 @@ def import_images():
         import_time = float(import_time) if import_time else 0.0
         
         # Insert data into the database
-        insert_import_data(
-            time=time,
-            username=username,
-            groupname=groupname,
-            scope=scope,
-            file_count=file_n,
-            total_file_size_mb=total_file_size / 1024 / 1024,
-            import_time_s=import_time
-        )
+        insert_import_data(time=time,
+                           username=username,
+                           groupname=groupname,
+                           scope=scope,
+                           file_count=file_n,
+                           total_file_size_mb=total_file_size / 1024 / 1024,
+                           import_time_s=import_time,
+                           )
 
         #show the data in the log
         logging.info('User information:')
