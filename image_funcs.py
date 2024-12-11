@@ -1,5 +1,8 @@
 import config
 import logger
+import os
+import datetime
+from pathlib import Path
 
 from rsciio.tia import file_reader as emi_reader #emi reader
 from pylibCZIrw import czi as pyczi
@@ -165,21 +168,21 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     if img_path.suffix.lower()[1:] != "emi":
         raise ValueError("Input file must be a .emi file")
         
-    if verbose: logging.info(f"Conversion to ometiff from emi required for {img_path}")
+    if verbose: logger.info(f"Conversion to ometiff from emi required for {img_path}")
     data = emi_reader(img_path)
     
     if len(data) == 0: #empty!!
-        logging.info("Empty!!")
+        logger.info("Empty!!")
     elif len(data) == 1: #if one image, should be the case
         data = data[0]
     else:
-        logging.info(f"Length of data at {len(data)}")
+        logger.info(f"Length of data at {len(data)}")
     
     img_array = data['data']
     img_array = img_array[np.newaxis, np.newaxis, np.newaxis, :, :]  # ZTCXY
     dimension_order = "ZTCYX"
 
-    if verbose: logging.info("EMI file readen")
+    if verbose: logger.info("EMI file readen")
 
     key_pair = {
         'Microscope': dict_crawler(data, 'Microscope')[0],
@@ -196,7 +199,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
     key_pair['Creation date'] = date_object.strftime('%Y-%m-%d %H:%M:%S')
     
-    if verbose: logging.info("Key pair value extracted")
+    if verbose: logger.info("Key pair value extracted")
     ome_template = OMETIFFReader._get_metadata_template()
     metadata_dict = ome_template.copy()
     metadata_dict.update({
@@ -229,7 +232,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
 
     output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tiff"))
     
-    if verbose: logging.info("Metadata extracted")
+    if verbose: logger.info("Metadata extracted")
     
     writer = OMETIFFWriter(
         fpath=output_fpath,
@@ -239,13 +242,33 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     )
     
     writer.write()
-    if verbose: logging.info(f"Ome-tiff written at {output_fpath}.")
+    if verbose: logger.info(f"Ome-tiff written at {output_fpath}.")
     
     return output_fpath, key_pair
 
 def delete(file_path:str):
     if os.path.exists(file_path):
         os.remove(file_path)
-        logging.info(f"Successfully deleted temporary file: {file_path}")
+        logger.info(f"Successfully deleted temporary file: {file_path}")
     else:
-        logging.warning(f"Temporary file not found for deletion: {file_path}")
+        logger.warning(f"Temporary file not found for deletion: {file_path}")
+
+def store_temp_file(img_obj):
+    filename = img_obj.filename
+    # Create subdirectories if needed
+    file_path = os.path.join(config.UPLOAD_FOLDER, *os.path.split(filename))
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                
+    file_size = len(img_obj.read())
+    total_file_size += file_size
+    img_obj.seek(0)
+    
+        # Save file to temporary directory
+    if file_size <= config.MAX_SIZE_FULL_UPLOAD: #direct save
+        logger.info(f"File {filename} is smaller than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
+        img_obj.save(file_path) #one go save
+    else: #chunk save
+        logger.info(f"File {filename} is larger than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
+        with open(file_path, 'wb') as f:
+            while chunk := img_obj.stream.read(config.CHUNK_SIZE):
+                f.write(chunk)
