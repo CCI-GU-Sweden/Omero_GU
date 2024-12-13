@@ -47,4 +47,4 @@ EXPOSE 5000
 #ENV FLASK_APP=omero_frontend
 
 #CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]
-CMD ["uwsgi","--ini","uwsgi.ini"]
+CMD ["uwsgi","--uid","1001","--ini","uwsgi.ini"]
