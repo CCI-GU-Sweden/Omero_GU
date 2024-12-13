@@ -44,6 +44,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 5000
 
 #ENV FLASK_APP=app
-ENV FLASK_APP=omero_frontend
+#ENV FLASK_APP=omero_frontend
 
-CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]
+#CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]
+CMD ["uwsgi","--ini","uwsgi.ini"]

@@ -48,3 +48,6 @@ database/
 
 #local docker dir
 docker/
+
+#local uploads
+uploads/
