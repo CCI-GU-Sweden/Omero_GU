@@ -1,0 +1,50 @@
+# Version control
+.git
+.gitignore
+
+# Python bytecode
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.env
+.venv
+
+# Development and local files
+*.log
+*.sqlite3
+.DS_Store
+
+# Build and distribution directories
+build/
+dist/
+*.egg-info/
+
+# Testing and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dependency directories
+node_modules/
+npm-debug.log
+
+# Secrets and sensitive files
+.env
+*.key
+
+#database dir
+database/
+
+#local docker dir
+docker/
