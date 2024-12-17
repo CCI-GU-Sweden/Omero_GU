@@ -1,4 +1,5 @@
 
+ALLOWED_FILE_EXT = [".czi"]
 
 LOG_DIR = "logs/"
 LOG_FILE = "omero_app.log"

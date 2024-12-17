@@ -110,6 +110,18 @@ def create_app(test_config=None):
             # Create a temporary directory
             for img in files:
                 filename = img.filename
+                _ , fext = os.path.splitext(filename)
+                
+                if not fext in config.ALLOWED_FILE_EXT:
+                    imported_files.append({
+                            "name": os.path.basename(filename),
+                            "status": "unsupported_format",
+                            "message": f"The file is not supported and will be skipped",
+                            "path" : ""
+                        })
+                    continue
+
+                
                 # Create subdirectories if needed
                 file_path = os.path.join(UPLOAD_FOLDER, *os.path.split(filename))
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -189,13 +201,13 @@ def create_app(test_config=None):
                         logger.info(f"Successfully deleted temporary file: {file_path}")
                     else:
                         logger.warning(f"Temporary file not found for deletion: {file_path}")
-            
+            scope = None
             import_time = time.time() - import_time_start
-            scope = sorted(scopes, key=scopes.count, reverse=True)[0] #take only one scope
-            if isinstance(scope, list):
-                if len(scope) > 0:
-                    scope = scope[0]
-            
+            if len(scopes) > 0:
+                scope = sorted(scopes, key=scopes.count, reverse=True)[0] #take only one scope
+                if isinstance(scope, list):
+                    if len(scope) > 0:
+                        scope = scope[0]
 
             logger.info("Import done")
             
