@@ -32,7 +32,7 @@ processed_files = {} # In-memory storage for processed files (for the session)
 def create_app(test_config=None):
 
     app = Flask(config.APP_NAME)
-    app.secret_key = 'your_secret_key_here'  # Change this to a random secret key
+    app.secret_key = config.SECRET_KEY
 
     level = logger.logging.DEBUG if app.debug else logger.logging.INFO
     logger.setup_logger(level)
