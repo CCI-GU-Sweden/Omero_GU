@@ -19,7 +19,6 @@ from omero.gateway import DatasetWrapper
 import os
 from dateutil import parser
 import datetime
-from pylibCZIrw import czi as pyczi
 import database
 import omero_funcs
 import traceback
@@ -35,7 +34,7 @@ def create_app(test_config=None):
     app.secret_key = config.SECRET_KEY
 
     level = logger.logging.DEBUG if app.debug else logger.logging.INFO
-    logger.setup_logger(level)
+    logger.setup_logger()
 
     # Define a directory for storing uploaded files
     UPLOAD_FOLDER = 'uploads'
@@ -92,10 +91,7 @@ def create_app(test_config=None):
         logger.info("Enter import_images")
         if 'omero_session_key' not in session or 'omero_host' not in session:
             return jsonify({"error": "Not logged in"}), 401
-        
-        session_key = session['omero_session_key']
-        host = session['omero_host']
-        
+               
         import_time_start = time.time()
         conn = omero_funcs.get_omero_connection()
 
@@ -104,47 +100,46 @@ def create_app(test_config=None):
             file_n = len(files)
             
             logger.info(f"Received files: {[file.filename for file in files]}")
+            
+            files = image_funcs.pair_emi_ser(files)
+            
             imported_files = []
             scopes = []
             total_file_size = 0
             # Create a temporary directory
-            for img in files:
-                filename = img.filename
-                _ , fext = os.path.splitext(filename)
-                
-                if not fext in config.ALLOWED_FILE_EXT:
-                    imported_files.append({
-                            "name": os.path.basename(filename),
-                            "status": "unsupported_format",
-                            "message": f"The file is not supported and will be skipped",
-                            "path" : ""
-                        })
-                    continue
-
-                
-                # Create subdirectories if needed
-                file_path = os.path.join(UPLOAD_FOLDER, *os.path.split(filename))
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                
-                file_size = len(img.read())
-                total_file_size += file_size
-                img.seek(0)
-
-                
-                try:
-                    # Save file to temporary directory
-                    if file_size <= config.MAX_SIZE_FULL_UPLOAD: #direct save
-                        logger.info(f"File {filename} is smaller than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
-                        img.save(file_path) #one go save
-                    else: #chunk save
-                        logger.info(f"File {filename} is larger than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
-                        with open(file_path, 'wb') as f:
-                            while chunk := img.stream.read(config.CHUNK_SIZE):
-                                f.write(chunk)
+            for item in files:
+                file_paths = []
+                if isinstance(item, dict):  # EMI/SER pair
+                    file_path, _ = image_funcs.store_temp_file(item['emi'])
+                    t, file_size = image_funcs.store_temp_file(item['ser'])
+                    filename = item['ser'].filename
+                    file_paths.append(file_path)
+                    file_paths.append(t)
                     
-                    # Read metadata from the file
-                    meta_dict = image_funcs.get_info_metadata_from_czi(file_path, verbose=False)
-                    logger.info(f"Metadata successfully extracted for {filename}")
+                else:   #CZI
+                    filename = item.filename
+                    _ , fext = os.path.splitext(filename)
+                    
+                    if not fext in config.ALLOWED_FILE_EXT:
+                        imported_files.append({
+                                "name": os.path.basename(filename),
+                                "status": "unsupported_format",
+                                "message": "The file is not supported and will be skipped",
+                                "path" : ""
+                            })
+                        continue
+
+                    file_path, file_size = image_funcs.store_temp_file(item)
+                    file_paths.append(file_path)
+                    
+                total_file_size += file_size
+                                
+                try:
+                    logger.info(f"Processing of {file_path}")
+                    #Spliter functions required here for multiple file format support
+                    file_path, meta_dict = image_funcs.file_format_splitter(file_path, verbose=True)
+                    file_paths.append(file_path)
+                    logger.info(f"Metadata successfully extracted from {filename}")
                     
                     scopes.append([meta_dict['Microscope']])
                     project_name = meta_dict['Microscope']
@@ -195,57 +190,63 @@ def create_app(test_config=None):
                         "message": str(e)
                     })
                 
-                finally:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                        logger.info(f"Successfully deleted temporary file: {file_path}")
-                    else:
-                        logger.warning(f"Temporary file not found for deletion: {file_path}")
-            scope = None
-            import_time = time.time() - import_time_start
-            if len(scopes) > 0:
-                scope = sorted(scopes, key=scopes.count, reverse=True)[0] #take only one scope
-                if isinstance(scope, list):
-                    if len(scope) > 0:
-                        scope = scope[0]
+                finally: #in any case, delete the whole content of the upload folder
+                    for file in file_paths:
+                        if os.path.exists(file):
+                            os.remove(file)
+                    logger.info(f"Deleting the temporary file(s): {file_paths}")
 
-            logger.info("Import done")
             
-            #get some data
-            user = conn.getUser()
-            time = datetime.datetime.today().strftime('%Y-%m-%d')
-            username = user.getFullName()
-            group = conn.getGroupFromContext()
-            groupname = group.getName()
-
-            # cleaning:
-            groupname = str(groupname) if groupname else "Unknown Group"
-            username = str(username) if username else "Unknown User"
-            scope = str(scope) if scope else "Unknown Scope"
-            file_n = int(file_n) if file_n else 0
-            total_file_size = float(total_file_size) if total_file_size else 0.0
-            import_time = float(import_time) if import_time else 0.0
+            # Only add an entry in the database (and log) if at least one transfer is successfull!
+            if any(x["status"] == 'success' for x in imported_files):
+                scope = None
+                import_time = time.time() - import_time_start
+                if len(scopes) > 0:
+                    scope = sorted(scopes, key=scopes.count, reverse=True)[0] #take only one scope
+                    if isinstance(scope, list):
+                        if len(scope) > 0:
+                            scope = scope[0]
+    
+                logger.info("Import done")
+                
+                #get some data
+                user = conn.getUser()
+                time = datetime.datetime.today().strftime('%Y-%m-%d')
+                username = user.getFullName()
+                group = conn.getGroupFromContext()
+                groupname = group.getName()
+    
+                # cleaning:
+                groupname = str(groupname) if groupname else "Unknown Group"
+                username = str(username) if username else "Unknown User"
+                scope = str(scope) if scope else "Unknown Scope"
+                file_n = int(file_n) if file_n else 0
+                total_file_size = float(total_file_size) if total_file_size else 0.0
+                import_time = float(import_time) if import_time else 0.0
+                
+                # Insert data into the database
+                database.insert_import_data(
+                    time=time,
+                    username=username,
+                    groupname=groupname,
+                    scope=scope,
+                    file_count=file_n,
+                    total_file_size_mb=total_file_size / 1024 / 1024,
+                    import_time_s=import_time
+                )
+    
+                #show the data in the log
+                logger.info('User information:')
+                logger.info(f"    Time: {time}")
+                logger.info(f"    Full Name: {username}")
+                logger.info(f"    Current group: {groupname}")
+                logger.info(f"    Main microscope: {scope}")
+                logger.info(f"    File number: {file_n}")
+                logger.info(f"    File total size (MB): {total_file_size /1024 / 1024}")
+                logger.info(f"    Import time (s): {import_time}")
             
-            # Insert data into the database
-            database.insert_import_data(
-                time=time,
-                username=username,
-                groupname=groupname,
-                scope=scope,
-                file_count=file_n,
-                total_file_size_mb=total_file_size / 1024 / 1024,
-                import_time_s=import_time
-            )
-
-            #show the data in the log
-            logger.info('User information:')
-            logger.info(f"    Time: {time}")
-            logger.info(f"    Full Name: {username}")
-            logger.info(f"    Current group: {groupname}")
-            logger.info(f"    Main microscope: {scope}")
-            logger.info(f"    File number: {file_n}")
-            logger.info(f"    File total size (MB): {total_file_size /1024 / 1024}")
-            logger.info(f"    Import time (s): {import_time}")
+            else:
+                logger.info("Import failed")
             
             
             return jsonify({"files": imported_files})
@@ -257,8 +258,6 @@ def create_app(test_config=None):
     @app.route('/get_projects', methods=['POST'])
     def get_projects():
 
-        session_key = session['omero_session_key']
-        host = session['omero_host']
         conn = omero_funcs.get_omero_connection()
         projects = omero_funcs.get_user_projects(conn)
 
@@ -267,12 +266,9 @@ def create_app(test_config=None):
     @app.route('/create_project', methods=['POST'])
     def create_project():
         
-        session_key = session['omero_session_key']
-        host = session['omero_host']
-        
         conn = omero_funcs.get_omero_connection()
         projects = omero_funcs.create_project(conn, request.projectName)
-        #options = ['Option 1', 'Option 2', 'Option 3']
+
         return jsonify(projects)        
     
     
@@ -305,6 +301,6 @@ def create_app(test_config=None):
     return app
 
 #%%main
-if __name__ == '__main__':
-    initialize_database()
-    #app.run(debug=True)
+if __name__ == '__main__': #standalone
+    app = create_app()
+    app.run(debug=True)

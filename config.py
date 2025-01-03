@@ -10,7 +10,7 @@ DB_NAME = 'omero_imports.db'
 SECRET_KEY = "s3cr3t"
 
 APP_NAME = "gu_omero_frontend"
-LOGGER_NAME="omero_logger"
+LOGGER_NAME = "omero_logger"
 
 OMERO_HOST = '130.241.39.241'
 OMERO_PORT = '4064'

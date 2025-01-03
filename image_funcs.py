@@ -3,8 +3,10 @@ import logger
 import os
 import datetime
 from pathlib import Path
+import numpy as np
+import re
 
-from rsciio.tia import file_reader as emi_reader #emi reader
+from rsciio.tia import file_reader
 from pylibCZIrw import czi as pyczi
 from pyometiff import OMETIFFWriter, OMETIFFReader
 
@@ -26,17 +28,73 @@ def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, p
 
     return list(search(dictionary, search_key))
 
-def get_info_metadata_from_czi(img, verbose:bool=True) -> dict:
+
+
+def pair_emi_ser(files: list):
+    paired_files = {}
+    unpaired_files = []
+    pairs = 0
+
+    # First pass: collect all EMI files
+    for file in files:
+        name, ext = os.path.splitext(file.filename)
+        if ext.lower() == '.emi':
+            paired_files[name] = {'emi': file}
+
+    # Second pass: match SER files and handle other files
+    for file in files:
+        name, ext = os.path.splitext(file.filename)
+        if ext.lower() == '.ser':
+            # Try to find a matching EMI file
+            emi_match = None
+            for emi_name in paired_files.keys():
+                if name.startswith(emi_name) and re.match(r'_\d+$', name[len(emi_name):]):
+                    emi_match = emi_name
+                    break
+            
+            if emi_match:
+                paired_files[emi_match]['ser'] = file
+                pairs += 1
+            else:
+                unpaired_files.append(file)
+        elif ext.lower() != '.emi':  # We've already handled EMI files
+            unpaired_files.append(file)
+
+    # Move incomplete pairs to unpaired_files
+    for name, pair in list(paired_files.items()):
+        if len(pair) != 2:
+            unpaired_files.extend(pair.values())
+            del paired_files[name]
+            pairs -= 1
+
+    logger.info(f"Found {pairs} pair(s) of EMI/SER files and {len(unpaired_files)} unpaired files.")
+    
+    return list(paired_files.values()) + unpaired_files
+
+
+
+def file_format_splitter(img_path:str, verbose:bool):
+    img_path = Path(img_path) #security, be sure that it is a Path object.
+    logger.info(f"Received file is of format {img_path.suffix.lower()[1:]}")
+    #different strategies in case of different file format
+    if img_path.suffix.lower()[1:] == "czi": #Light microscope format - CarlZeissImage
+        key_pair = get_info_metadata_from_czi(img_path.absolute().as_posix(), verbose=verbose)
+    elif img_path.suffix.lower()[1:] == "emi": #Electron microscope format
+        img_path, key_pair = convert_emi_to_ometiff(img_path, verbose=verbose)
+    
+    return img_path, key_pair
+
+
+def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
     """
     Extract important metadata from a CZI image file.
     
     This function opens a CZI image file, reads its metadata, and extracts
     specific information such as microscope details, lens properties,
     image type, pixel size, image dimensions, and other relevant metadata.
-    3
     
     Args:
-        img : The file path to the CZI image.
+        img_path : The file path to the CZI image.
         verbose (bool, optional): If True, print detailed information during processing. Defaults to True.
     
     Returns:
@@ -47,12 +105,9 @@ def get_info_metadata_from_czi(img, verbose:bool=True) -> dict:
         ValueError: If the file is not a valid CZI image or if metadata extraction fails.
     """
     
-    # if verbose: print("Processing:"+" "*10+os.path.basename(img_path))
     try:
-        if isinstance(img, str):
-            # If img is a string (file path), use it directly
-            with pyczi.open_czi(img) as czidoc:
-                metadata = czidoc.metadata['ImageDocument']['Metadata']
+        with pyczi.open_czi(img_path) as czidoc:
+            metadata = czidoc.metadata['ImageDocument']['Metadata']
     except FileNotFoundError:
         raise FileNotFoundError("The file does not exist.")
     except Exception as e:
@@ -75,7 +130,7 @@ def get_info_metadata_from_czi(img, verbose:bool=True) -> dict:
     if app != None: #security check
         app_name = app['Name']
         app_version = app['Version']
-        if verbose: print('Metadata made with %s version %s' %(app_name, app_version))
+        if verbose: logger.info('Metadata made with %s version %s' %(app_name, app_version))
         #microscope name, based on the version of the metadata. Do NOT get ELYRA microscope
         #Another way will be to grab the IP address of the room and map it
         if 'ZEN' in app['Name'] and 'blue' in app['Name'] and app['Version'].startswith("3."): #CD7, 980
@@ -92,7 +147,7 @@ def get_info_metadata_from_czi(img, verbose:bool=True) -> dict:
             #hardcoded part :(
             if 'Andor1' in microscope: microscope = microscope.replace('Andor1', 'Elyra')
             
-        if verbose: print('Image made on %s' %(microscope))
+        if verbose: logger.info('Image made on %s' %(microscope))
         #pixel size (everything in the scaling)
         physical_pixel_sizes = {}
         for dim in metadata['Scaling']['Items']['Distance']:
@@ -104,7 +159,7 @@ def get_info_metadata_from_czi(img, verbose:bool=True) -> dict:
         for d in dims.keys():
             if 'Size' in d: #just the different Size (X,Y,Z,C,M,H...)
                 size[d] = int(dims[d])
-        if verbose: print('Image with dimension %s and pixel size of %s' %(size, physical_pixel_sizes))
+        if verbose: logger.info('Image with dimension %s and pixel size of %s' %(size, physical_pixel_sizes))
             
         # Acquisition type (not fully correct with elyra)
         acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel']
@@ -114,28 +169,28 @@ def get_info_metadata_from_czi(img, verbose:bool=True) -> dict:
                 acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel'][0].get('AcquisitionMode', None)
         elif isinstance(acq_type, dict):
             acq_type = acq_type.get('AcquisitionMode', None)
-        if verbose: print('Image acquired with a %s mode' %(acq_type))
+        if verbose: logger.info('Image acquired with a %s mode' %(acq_type))
             
         #lens info
         lensNA = metadata['Information']['Instrument']['Objectives']['Objective'].get('LensNA', None)
         if lensNA != None: lensNA = round(float(lensNA), 2)
         lensMag = metadata['Information']['Instrument']['Objectives']['Objective'].get('NominalMagnification', None)
         if lensMag != None: lensMag = int(lensMag)
-        if verbose: print('Objective lens used has a magnification of %s and a NA of %s' %(lensMag, lensNA))
+        if verbose: logger.info('Objective lens used has a magnification of %s and a NA of %s' %(lensMag, lensNA))
             
         #processing (if any)
         processing = metadata['Information'].get('Processing', None)
         if processing is not None:
             pre_processed = list(processing.keys())
-        if verbose: print('Image preprocessed with %s' %(pre_processed))
+        if verbose: logger.info('Image preprocessed with %s' %(pre_processed))
             
         #other
         comment = metadata['Information']['Document'].get('Comment', None)
         description = metadata['Information']['Document'].get('Description', None)
         creation_date = metadata['Information']['Document'].get('CreationDate', None)
-        if verbose: print('Image\n    Comment: %s,\n    Description: %s,\n    Creation date: %s' % (comment, description, creation_date))
+        if verbose: logger.info('Image\n    Comment: %s,\n    Description: %s,\n    Creation date: %s' % (comment, description, creation_date))
            
-    if verbose: print("_"*25)
+    if verbose: logger.info("_"*25)
     
     mini_metadata = {'Microscope':microscope,
                      'Lens Magnification': lensMag,
@@ -154,36 +209,35 @@ def get_info_metadata_from_czi(img, verbose:bool=True) -> dict:
 def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     """
     Convert .emi file to ome-tiff format.
+    File NEED to finish with emi. A ser file need to be present in the same folder
     
     Args:
     img_path (str): Path to the .emi file
-    ome_template (dict): Template for OME-TIFF metadata
     
     Returns:
     str: Path to the output OME-TIFF file
     dict: Contains the key-pair values
     """
-    
-    img_path = Path(img_path)
-    if img_path.suffix.lower()[1:] != "emi":
-        raise ValueError("Input file must be a .emi file")
-        
+            
     if verbose: logger.info(f"Conversion to ometiff from emi required for {img_path}")
-    data = emi_reader(img_path)
     
-    if len(data) == 0: #empty!!
-        logger.info("Empty!!")
-    elif len(data) == 1: #if one image, should be the case
-        data = data[0]
-    else:
-        logger.info(f"Length of data at {len(data)}")
+    try:
+        data = file_reader(img_path) #Required to pair the emi and ser file!
+        
+        if len(data) == 1:
+            data = data[0]
+        else:
+            raise ValueError(f"Length of data at {len(data)} different of 1.")
+        
+        img_array = data['data']
+        img_array = img_array[np.newaxis, np.newaxis, np.newaxis, :, :]  # ZTCXY
+        dimension_order = "ZTCYX"
+    except FileNotFoundError:
+        raise FileNotFoundError("The file does not exist.")
+    except Exception as e:
+        raise ValueError(f"Error opening or reading metadata: {str(e)}")
     
-    img_array = data['data']
-    img_array = img_array[np.newaxis, np.newaxis, np.newaxis, :, :]  # ZTCXY
-    dimension_order = "ZTCYX"
-
-    if verbose: logger.info("EMI file readen")
-
+    if verbose: logger.info(f"{img_path} successfully readen!")
     key_pair = {
         'Microscope': dict_crawler(data, 'Microscope')[0],
         'Electron source': dict_crawler(data, 'Gun type')[0],
@@ -194,6 +248,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
         'Pixel unit': dict_crawler(data, 'units')[0],
         'Comment': dict_crawler(data, 'Comment')[0],
         'Defocus': dict_crawler(data, 'Defocus', partial_search=True)[0],
+        'Image type': str(img_array.dtype),
     }
 
     date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
@@ -234,6 +289,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     
     if verbose: logger.info("Metadata extracted")
     
+    #TODO issue with the metadata not correclty inserted! Not an issue with omero
     writer = OMETIFFWriter(
         fpath=output_fpath,
         dimension_order=dimension_order,
@@ -258,9 +314,9 @@ def store_temp_file(img_obj):
     # Create subdirectories if needed
     file_path = os.path.join(config.UPLOAD_FOLDER, *os.path.split(filename))
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                
+    
+    img_obj.seek(0)            
     file_size = len(img_obj.read())
-    total_file_size += file_size
     img_obj.seek(0)
     
         # Save file to temporary directory
@@ -272,3 +328,5 @@ def store_temp_file(img_obj):
         with open(file_path, 'wb') as f:
             while chunk := img_obj.stream.read(config.CHUNK_SIZE):
                 f.write(chunk)
+    
+    return file_path, file_size

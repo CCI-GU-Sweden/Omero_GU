@@ -186,12 +186,12 @@ def import_image(conn, img_path, dataset_id, meta_dict):
             image.linkAnnotation(tag_ann)
         
         # Add description
-        if meta_dict['Description']:
+        if meta_dict.get('Description'):
             image.setDescription(str(meta_dict['Description']))
             image.save()
         
         # Add comment
-        if meta_dict["Comment"]:
+        if meta_dict.get("Comment"):
             comment_ann = omero.gateway.CommentAnnotationWrapper(conn)
             comment_ann.setValue(meta_dict["Comment"])
             comment_ann.save()

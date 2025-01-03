@@ -4,7 +4,7 @@ import sys
 
 def setup_logger(level=logging.DEBUG):
 
-    logger = logging.getLogger(config.APP_NAME)
+    logging.getLogger(config.APP_NAME)
     fmtStr = '%(asctime)s - %(levelname)s - %(message)s'
     
     if level == logging.DEBUG:
