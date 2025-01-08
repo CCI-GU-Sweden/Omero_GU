@@ -23,8 +23,29 @@
         <option value="">Select Project</option>
     </select>
 -->
-<br/>
+<h3>User Defined Variable</h3>
+<div id="key-value-pairs">
+    <!-- First row: New value -->
+    <div class="key-value-row">
+        <label>Sample:</label>
+        <label>New</label>
+        <input type="checkbox" class="new-checkbox">
+        <input type="text" class="new-input" placeholder="Enter new value" disabled>
+    </div>
 
+    <!-- Second row: Existing value -->
+    <div class="key-value-row">
+        <label>Sample:</label>
+        <label>Existing</label>
+        <input type="checkbox" class="existing-checkbox">
+        <select class="existing-dropdown" disabled>
+            <!-- Options will be dynamically populated -->
+        </select>
+    </div>
+</div>
+
+<br/>
+<h3>Selected File to Import</h3>
     <form id="upload-form" action="{{ url_for('import_images') }}" method="post" enctype="multipart/form-data">
         <input type="file" id="file-input" name="files" multiple>
         <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none;">
@@ -38,6 +59,47 @@
     <script src="{{ url_for('static', filename='js/upload.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script>
+		// Handle enabling/disabling inputs based on checkbox selection
+		const newCheckbox = document.querySelector('.new-checkbox');
+		const newInput = document.querySelector('.new-input');
+		const existingCheckbox = document.querySelector('.existing-checkbox');
+		const existingDropdown = document.querySelector('.existing-dropdown');
+		
+		newCheckbox.addEventListener('change', function () {
+			if (this.checked) {
+				existingCheckbox.checked = false;
+				existingDropdown.disabled = true;
+				newInput.disabled = false;
+			} else {
+				newInput.disabled = true;
+				newInput.value = ''; // Clear input if unchecked
+			}
+		});
+
+		existingCheckbox.addEventListener('change', function () {
+			if (this.checked) {
+				newCheckbox.checked = false;
+				newInput.disabled = true;
+				existingDropdown.disabled = false;
+			} else {
+				existingDropdown.disabled = true;
+			}
+		});
+
+		// Populate the dropdown menu with values from the server
+		fetch('{{ url_for("get_existing_tags") }}')
+			.then(response => response.json())
+			.then(data => {
+				const dropdown = document.querySelector('.existing-dropdown');
+				data.forEach(tag => {
+					const option = document.createElement('option');
+					option.value = tag;
+					option.textContent = tag;
+					dropdown.appendChild(option);
+				});
+			})
+			.catch(error => console.error('Error fetching tags:', error));
+	
         const fileInput = document.getElementById('file-input');
         const folderInput = document.getElementById('folder-input');
         const selectFolderButton = document.getElementById('select-folder-button');
@@ -111,7 +173,15 @@
 			e.preventDefault();
             let importedFiles = getImportedFiles();
 			const formData = new FormData();
-
+			
+			// Add selected key-value pair to formData
+			if (newCheckbox.checked && newInput.value) {
+				formData.append('sample_value', newInput.value);
+			} else if (existingCheckbox.checked && existingDropdown.value) {
+				formData.append('sample_value', existingDropdown.value);
+			} else {formData.append('sample_value', '')}
+			
+			
 			importedFiles.forEach(fileObj => {
 				if (fileObj.status === 'pending') {
 					const file = Array.from(fileInput.files).find(f => f.name === fileObj.name) ||

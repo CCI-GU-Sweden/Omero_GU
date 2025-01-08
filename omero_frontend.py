@@ -6,7 +6,8 @@ Created on Fri Nov 15 15:09:51 2024
 
 
 TODO: Better disconnect #maybe not possible. OAuth timeout may be better! Or log out button (IT side)
-TODO: extract some stats (date, group name, (username), microscope, file number, file total size, time for transfer)
+
+
 
 local web server: http://127.0.0.1:5000/
 
@@ -14,11 +15,13 @@ local web server: http://127.0.0.1:5000/
 #Flask import
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 
-##omero and image import
+##omero import
 from omero.gateway import DatasetWrapper
 import os
 from dateutil import parser
 import datetime
+import time
+#local import
 import database
 import omero_funcs
 import traceback
@@ -33,7 +36,7 @@ def create_app(test_config=None):
     app = Flask(config.APP_NAME)
     app.secret_key = config.SECRET_KEY
 
-    level = logger.logging.DEBUG if app.debug else logger.logging.INFO
+    # level = logger.logging.DEBUG if app.debug else logger.logging.INFO
     logger.setup_logger()
 
     # Define a directory for storing uploaded files
@@ -87,7 +90,6 @@ def create_app(test_config=None):
 
     @app.route('/import_images', methods=['POST'])
     def import_images():
-        import time
         logger.info("Enter import_images")
         if 'omero_session_key' not in session or 'omero_host' not in session:
             return jsonify({"error": "Not logged in"}), 401
@@ -96,7 +98,17 @@ def create_app(test_config=None):
         conn = omero_funcs.get_omero_connection()
 
         try:
-            files = request.files.getlist('files')
+            batch_tag = {}
+            #get the sample value if any and process it
+            user_sample_value = request.form.get('sample_value') #get the Sample value, '' if empty
+            if user_sample_value != '':
+                user_sample_value = "Sample_"+user_sample_value.replace(' ', '_')
+            else:
+                user_sample_value = 'None'
+            batch_tag['Sample'] = user_sample_value
+            
+            
+            files = request.files.getlist('files') #get the files to upload
             file_n = len(files)
             
             logger.info(f"Received files: {[file.filename for file in files]}")
@@ -139,6 +151,7 @@ def create_app(test_config=None):
                     #Spliter functions required here for multiple file format support
                     file_path, meta_dict = image_funcs.file_format_splitter(file_path, verbose=True)
                     file_paths.append(file_path)
+                    meta_dict = meta_dict | batch_tag #merge the batch tag to the meta_dictionnary
                     logger.info(f"Metadata successfully extracted from {filename}")
                     
                     scopes.append([meta_dict['Microscope']])
@@ -169,7 +182,7 @@ def create_app(test_config=None):
                         user_name = user[:index] if index != -1 else user
                         
                         dst_path = f'{user_name} / {project_name} / {dataset_name}'
-                        image_id = omero_funcs.import_image(conn, file_path, dataset, meta_dict)
+                        image_id = omero_funcs.import_image(conn, file_path, dataset, meta_dict, batch_tag)
                         processed_files[filename] = 'success'
                         logger.info(f"ezimport result for {filename}: {image_id}, path: {dst_path}")
                         
@@ -211,7 +224,7 @@ def create_app(test_config=None):
                 
                 #get some data
                 user = conn.getUser()
-                time = datetime.datetime.today().strftime('%Y-%m-%d')
+                time_stamp = datetime.datetime.today().strftime('%Y-%m-%d')
                 username = user.getFullName()
                 group = conn.getGroupFromContext()
                 groupname = group.getName()
@@ -226,7 +239,7 @@ def create_app(test_config=None):
                 
                 #show the data in the log
                 logger.info('User information:')
-                logger.info(f"    Time: {time}")
+                logger.info(f"    Time: {time_stamp}")
                 logger.info(f"    Full Name: {username}")
                 logger.info(f"    Current group: {groupname}")
                 logger.info(f"    Main microscope: {scope}")
@@ -237,7 +250,7 @@ def create_app(test_config=None):
                 
                 # Insert data into the database
                 database.insert_import_data(
-                    time=time,
+                    time=time_stamp,
                     username=username,
                     groupname=groupname,
                     scope=scope,
@@ -298,6 +311,17 @@ def create_app(test_config=None):
         session.clear()  # Clear the session
         #return jsonify({"message": "Logged out successfully"}), 200
         return redirect(url_for('index'))
+
+    @app.route('/get_existing_tags', methods=['GET'])
+    def get_existing_tags():
+        try:
+            conn = omero_funcs.get_omero_connection()
+            # Fetch all tags with key containing "Sample_"
+            tags = omero_funcs.get_tags_by_key(conn, "Sample_")
+            return jsonify(tags)
+        except Exception as e:
+            logger.error(f"Error fetching tags: {str(e)}")
+            return jsonify({"error": str(e)}), 500
 
     return app
 

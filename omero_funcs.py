@@ -155,7 +155,28 @@ def get_or_create_dataset(conn, project_id, dataset_name):
         
     return dataset_id
 
-def import_image(conn, img_path, dataset_id, meta_dict):
+
+def get_tags_by_key(conn, key):
+    """
+    Fetch all tag values associated with a specific key.
+    
+    Args:
+        conn: OMERO connection object.
+        key: The key for which to fetch tag values.
+    
+    Returns:
+        List of tag values.
+    """
+    tags = []
+    for tag in conn.getObjects("TagAnnotation"): #grab all tag
+        tags.append(tag.getValue())
+    tags = [x.replace(key,'') for x in tags if x.startswith(key)] #filter it
+
+    return tags
+
+
+
+def import_image(conn, img_path, dataset_id, meta_dict, batch_tag):
     
     # import the image - work for the CCI IT!
     namespace = omero.constants.metadata.NSCLIENTMAPANNOTATION
@@ -166,12 +187,16 @@ def import_image(conn, img_path, dataset_id, meta_dict):
                                 ann=meta_dict,
                                 ns=namespace)
     
+    #additional tags:
+    batch_tag = [x for x in list(batch_tag.values()) if x != 'None'] #as a list, without the 'None'
+    
     #add tag in the image as well 
     for im in image_id:
         image = conn.getObject("Image", im)
         
         # Add tags
         tags = [meta_dict['Microscope'], str(meta_dict['Lens Magnification'])+"X", meta_dict['Image type']]
+        tags += batch_tag
         for tag_value in tags:
             tag_ann = None
             tag_value = str(tag_value)
