@@ -103,12 +103,12 @@ def pair_emi_ser(files: list):
 
 
 def file_format_splitter(img_path:str, verbose:bool):
-    img_path = Path(img_path) #security, be sure that it is a Path object.
-    logger.info(f"Received file is of format {img_path.suffix.lower()[1:]}")
+    # img_path = Path(img_path) #security, be sure that it is a Path object.   .absolute().as_posix()
+    logger.info(f"Received file is of format {img_path.split('.')[-1].lower()}")
     #different strategies in case of different file format
-    if img_path.suffix.lower()[1:] == "czi": #Light microscope format - CarlZeissImage
-        key_pair = get_info_metadata_from_czi(img_path.absolute().as_posix(), verbose=verbose)
-    elif img_path.suffix.lower()[1:] == "emi": #Electron microscope format
+    if img_path.split('.')[-1].lower() == "czi": #Light microscope format - CarlZeissImage
+        key_pair = get_info_metadata_from_czi(img_path, verbose=verbose)
+    elif img_path.split('.')[-1].lower() == "emi": #Electron microscope format
         img_path, key_pair = convert_emi_to_ometiff(img_path, verbose=verbose)
     
     return img_path, key_pair
@@ -229,7 +229,7 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
                      'Image Size':size,
                      'Comment':comment,
                      'Description':description,
-                     'Creation date':creation_date,
+                     'Acquisition date':creation_date,
                      }
     
     return mini_metadata       
@@ -286,7 +286,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     }
 
     date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
-    key_pair['Creation date'] = date_object.strftime('%Y-%m-%d %H:%M:%S')
+    key_pair['Acquisition date'] = date_object.strftime('%Y-%m-%d %H:%M:%S')
     
     #extra pair for the general metadata
     extra_pair = {
@@ -377,7 +377,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     
     # Convert OME object to XML string
     ome_xml = ome.to_xml()
-    if verbose: logger.info("OMe created")
+    if verbose: logger.info("OME created")
     
     output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tiff"))   
     

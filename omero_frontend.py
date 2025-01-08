@@ -102,7 +102,7 @@ def create_app(test_config=None):
             #get the sample value if any and process it
             user_sample_value = request.form.get('sample_value') #get the Sample value, '' if empty
             if user_sample_value != '':
-                user_sample_value = "Sample_"+user_sample_value.replace(' ', '_')
+                user_sample_value = "Sample"+" "+user_sample_value
             else:
                 user_sample_value = 'None'
             batch_tag['Sample'] = user_sample_value
@@ -142,7 +142,7 @@ def create_app(test_config=None):
                         continue
 
                     file_path, file_size = image_funcs.store_temp_file(item)
-                    file_paths.append(file_path)
+                    # file_paths.append(file_path)
                     
                 total_file_size += file_size
                                 
@@ -156,7 +156,7 @@ def create_app(test_config=None):
                     
                     scopes.append([meta_dict['Microscope']])
                     project_name = meta_dict['Microscope']
-                    dataset_name = parser.parse(meta_dict['Creation date']).strftime("%Y-%m-%d")
+                    dataset_name = parser.parse(meta_dict['Acquisition date']).strftime("%Y-%m-%d")
                     
                     # Get or create project and dataset
                     projID = omero_funcs.get_or_create_project(conn, project_name)
@@ -164,19 +164,39 @@ def create_app(test_config=None):
                     
                     logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
                     
-                    # Check if image is already in the dataset
+                    #TODO better check, both the file is here AND same timestamp (hours/minute/second)
+                    # Check if image is already in the dataset and has the acquisition time
                     dataset = conn.getObject("Dataset", dataID)
-                    file_exists = any(child.getName().startswith(os.path.basename(filename)) for child in dataset.listChildren())
+                    file_exists = False
+                    
+                    for child in dataset.listChildren():
+                        if child.getName() == os.path.basename(filename):
+                            logger.info(f'Same {os.path.basename(filename)} present in {dataset_name}')
+                            image = conn.getObject("Image", child.getId())
+                            acq_time = image.getAcquisitionDate().strftime("%H-%M-%S")
+                            #we found a duplicate
+                            check_time = parser.parse(meta_dict['Acquisition date']).strftime("%H-%M-%S")
+                            if check_time != acq_time: #same name but different acquisition time! Let's change the name of the file
+                                new_name = ''.join(file_path.split('.')[:-1]+['_', acq_time,'.',file_path.split('.')[-1]])   
+                                os.rename(file_path, new_name)
+                                logger.info(f'Rename {file_path} to {new_name} in order to avoid name duplication')
+                                file_path = new_name
+                            else: #same file, a duplicate
+                                file_exists = True
+                        
                     
                     if file_exists:
+                        logger.info(f'{filename} already exists, skip.')
                         processed_files[filename] = 'duplicate'
                         imported_files.append({"name": os.path.basename(filename),
                                             "status": "duplicate",
-                                            "message": "File already exists"
+                                            "message": "File already exists",
+                                            "path":''
                                             })
 
                     else:
                         #import the file
+                        logger.info(f'Importing {filename}.')
                         user = conn.getUser().getName() 
                         index = user.find('@')
                         user_name = user[:index] if index != -1 else user
@@ -200,7 +220,8 @@ def create_app(test_config=None):
                     imported_files.append({
                         "name": os.path.basename(filename),
                         "status": "error",
-                        "message": str(e)
+                        "message": str(e),
+                        "path":''
                     })
                 
                 finally: #in any case, delete the whole content of the upload folder
@@ -229,7 +250,7 @@ def create_app(test_config=None):
                 group = conn.getGroupFromContext()
                 groupname = group.getName()
     
-                # cleaning:
+                # security:
                 groupname = str(groupname) if groupname else "Unknown Group"
                 username = str(username) if username else "Unknown User"
                 scope = str(scope) if scope else "Unknown Scope"
@@ -316,8 +337,8 @@ def create_app(test_config=None):
     def get_existing_tags():
         try:
             conn = omero_funcs.get_omero_connection()
-            # Fetch all tags with key containing "Sample_"
-            tags = omero_funcs.get_tags_by_key(conn, "Sample_")
+            # Fetch all tags with key containing "Sample "
+            tags = omero_funcs.get_tags_by_key(conn, "Sample")
             return jsonify(tags)
         except Exception as e:
             logger.error(f"Error fetching tags: {str(e)}")
