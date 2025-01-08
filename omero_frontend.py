@@ -224,6 +224,17 @@ def create_app(test_config=None):
                 total_file_size = float(total_file_size) if total_file_size else 0.0
                 import_time = float(import_time) if import_time else 0.0
                 
+                #show the data in the log
+                logger.info('User information:')
+                logger.info(f"    Time: {time}")
+                logger.info(f"    Full Name: {username}")
+                logger.info(f"    Current group: {groupname}")
+                logger.info(f"    Main microscope: {scope}")
+                logger.info(f"    File number: {file_n}")
+                logger.info(f"    File total size (MB): {total_file_size /1024 / 1024}")
+                logger.info(f"    Import time (s): {import_time}")
+                logger.info("")
+                
                 # Insert data into the database
                 database.insert_import_data(
                     time=time,
@@ -234,16 +245,6 @@ def create_app(test_config=None):
                     total_file_size_mb=total_file_size / 1024 / 1024,
                     import_time_s=import_time
                 )
-    
-                #show the data in the log
-                logger.info('User information:')
-                logger.info(f"    Time: {time}")
-                logger.info(f"    Full Name: {username}")
-                logger.info(f"    Current group: {groupname}")
-                logger.info(f"    Main microscope: {scope}")
-                logger.info(f"    File number: {file_n}")
-                logger.info(f"    File total size (MB): {total_file_size /1024 / 1024}")
-                logger.info(f"    Import time (s): {import_time}")
             
             else:
                 logger.info("Import failed")

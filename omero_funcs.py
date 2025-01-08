@@ -175,6 +175,8 @@ def import_image(conn, img_path, dataset_id, meta_dict):
         for tag_value in tags:
             tag_ann = None
             tag_value = str(tag_value)
+            if tag_value[0].isdigit():
+                tag_value = "_"+tag_value                
             for ann in conn.getObjects("TagAnnotation", attributes={'textValue': tag_value}):
                 tag_ann = ann
             

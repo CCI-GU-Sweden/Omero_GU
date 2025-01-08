@@ -8,8 +8,9 @@ import re
 
 from rsciio.tia import file_reader
 from pylibCZIrw import czi as pyczi
-from pyometiff import OMETIFFWriter, OMETIFFReader
-
+from ome_types import model
+from ome_types.model.map import M
+import tifffile
 
 #Metadata function
 def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, partial_search:bool=False) -> list:
@@ -27,6 +28,34 @@ def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, p
                 yield from search(item, key)
 
     return list(search(dictionary, search_key))
+
+
+def optimize_bit_depth(image):
+    """
+    Optimize the bit depth of an image based on its range of values.
+    Converts signed integers to unsigned integers if necessary.
+    
+    Args:
+    image (numpy.ndarray): Input image array.
+    
+    Returns:
+    numpy.ndarray: Image with optimized bit depth (always uint).
+    int: Number of bits used in the optimized image.
+    """
+    # Convert to uint if the input is int
+    if np.issubdtype(image.dtype, np.signedinteger):
+        min_val = np.min(image)
+        if min_val < 0:
+            image = image - min_val  # Shift values to make them non-negative
+    
+    max_value = np.max(image)
+    
+    if max_value <= 255:
+        return image.astype(np.uint8), 8
+    elif max_value <= 65535:
+        return image.astype(np.uint16), 16
+    else:
+        return image.astype(np.uint32), 32
 
 
 
@@ -230,14 +259,19 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
             raise ValueError(f"Length of data at {len(data)} different of 1.")
         
         img_array = data['data']
-        img_array = img_array[np.newaxis, np.newaxis, np.newaxis, :, :]  # ZTCXY
-        dimension_order = "ZTCYX"
+        # img_array = img_array[ :, :, np.newaxis, np.newaxis, np.newaxis,]
+        dimension_order = "XYCZT"
     except FileNotFoundError:
         raise FileNotFoundError("The file does not exist.")
     except Exception as e:
         raise ValueError(f"Error opening or reading metadata: {str(e)}")
     
     if verbose: logger.info(f"{img_path} successfully readen!")
+    # img_array = img_array[np.newaxis, :, :]
+    
+    # Check if this is possible to reduce its bit size
+    img_array, bit = optimize_bit_depth(img_array)
+    
     key_pair = {
         'Microscope': dict_crawler(data, 'Microscope')[0],
         'Electron source': dict_crawler(data, 'Gun type')[0],
@@ -248,56 +282,109 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
         'Pixel unit': dict_crawler(data, 'units')[0],
         'Comment': dict_crawler(data, 'Comment')[0],
         'Defocus': dict_crawler(data, 'Defocus', partial_search=True)[0],
-        'Image type': str(img_array.dtype),
+        'Image type': dict_crawler(data, 'Mode')[0],
     }
 
     date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
     key_pair['Creation date'] = date_object.strftime('%Y-%m-%d %H:%M:%S')
     
-    if verbose: logger.info("Key pair value extracted")
-    ome_template = OMETIFFReader._get_metadata_template()
-    metadata_dict = ome_template.copy()
-    metadata_dict.update({
-        'Filename': os.path.basename(img_path),
-        'Extension': ".emi",
-        'ImageType': str(img_array.dtype),
-        'AcqDate': key_pair['Creation date'],
-        'SizeX': dict_crawler(data, 'DetectorPixelHeight')[0],
-        'SizeY': dict_crawler(data, 'DetectorPixelWidth')[0],
-        'PhysicalSizeX': key_pair['Pixel size'],
-        'PhysicalSizeXUnit': key_pair['Pixel unit'],
-        'PhysicalSizeY': key_pair['Pixel size'],
-        'PhysicalSizeYUnit': key_pair['Pixel unit'],
-        'DimOrder BF': dimension_order,
-        'DimOrder BF Array': dimension_order,
-        'MicroscopeType': [key_pair['Microscope']],
-        'DetectorName': [key_pair['Camera']],
-        'DetectorType': [key_pair['Electron source']],
-        'ObjNominalMag': [key_pair['Lens Magnification']],
-        'Channels': {
-            str(key_pair['Beam tension']): {
-                "Name": str(key_pair['Beam tension']),
-                "SamplesPerPixel": 1
-            }
+    #extra pair for the general metadata
+    extra_pair = {
+        'User': dict_crawler(data, 'User')[0],
+        'Wehnelt index': dict_crawler(data, 'Wehnelt index')[0],
+        'Mode': dict_crawler(data, 'Mode')[0],
+        'Defocus': dict_crawler(data, 'Defocus', partial_search=True)[0],
+        'Intensity': dict_crawler(data, 'Intensity', partial_search=True)[0],
+        'Objective lens': dict_crawler(data, 'Objective lens', partial_search=True)[0],
+        'Diffraction lens': dict_crawler(data, 'Diffraction lens', partial_search=True)[0],
+        'Stage X': dict_crawler(data, 'Stage X', partial_search=True)[0],
+        'Stage Y': dict_crawler(data, 'Stage Y', partial_search=True)[0],
+        'Stage Z': dict_crawler(data, 'Stage Z', partial_search=True)[0],
+        'C2 Aperture': dict_crawler(data, 'C2 Aperture', partial_search=True)[0],
+        'OBJ Aperture': dict_crawler(data, 'OBJ Aperture', partial_search=True)[0],
+        'Filter mode': dict_crawler(data, 'Filter mode')[0],
+        'Comment': key_pair['Comment'],
         }
-    })
-
-    # Remove keys with None or empty list values
-    metadata_dict = {k: v for k, v in metadata_dict.items() if v is not None and v != []}
-
-    output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tiff"))
     
     if verbose: logger.info("Metadata extracted")
+    # Create an OME object
+    ome = model.OME()
     
-    #TODO issue with the metadata not correclty inserted! Not an issue with omero
-    writer = OMETIFFWriter(
-        fpath=output_fpath,
-        dimension_order=dimension_order,
-        array=img_array,
-        metadata=metadata_dict
+    # Create an Image object
+    image = model.Image(
+        id="Image:0",
+        name=os.path.basename(img_path),
+        acquisition_date=date_object.strftime('%Y-%m-%d %H:%M:%S'),
+        
+        pixels = model.Pixels(
+            id="Pixels:0",
+            dimension_order=dimension_order,
+            type=str(img_array.dtype),
+            size_x=dict_crawler(data, 'DetectorPixelHeight')[0],
+            size_y=dict_crawler(data, 'DetectorPixelWidth')[0],
+            size_c=1,
+            size_z=1,
+            size_t=1,
+            physical_size_x=key_pair['Pixel size'],
+            physical_size_x_unit=key_pair['Pixel unit'],
+            physical_size_y=key_pair['Pixel size'],
+            physical_size_y_unit=key_pair['Pixel unit'],
+        )
     )
     
-    writer.write()
+    
+    # Add Image to OME
+    ome.images.append(image)
+    
+    # Create MapAnnotation for custom metadata
+    custom_metadata = model.MapAnnotation(
+        id="Annotation:0",
+        namespace="custom.ome.metadata",
+        value=model.Map(ms=[M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
+        
+    )
+    
+    # Add Instrument information
+    instrument = model.Instrument(
+        id = "Instrument:0",
+        microscope=model.Microscope(
+                                    type='Other',
+                                    manufacturer=dict_crawler(data, 'Manufacturer')[0],
+                                    model=key_pair['Microscope']
+        ),
+        detectors=[
+            model.Detector(
+                id="Detector:0",
+                model=key_pair['Electron source'],
+                voltage=key_pair['Beam tension'],
+                voltage_unit=model.UnitsElectricPotential('kV'),
+                ),
+            model.Detector(
+                id="Detector:1",
+                model=key_pair['Camera'],
+                ),
+            ]
+        )
+    
+    ome.instruments.append(instrument)
+    ome.structured_annotations.extend([custom_metadata])
+    # Create Objective for Magnification
+    objective = model.Objective(
+        id="Objective:0",
+        nominal_magnification=float(key_pair['Lens Magnification'])
+    )
+    instrument.objectives.append(objective)
+    
+    # Convert OME object to XML string
+    ome_xml = ome.to_xml()
+    if verbose: logger.info("OMe created")
+    
+    output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tiff"))   
+    
+    # Write OME-TIFF file
+    with tifffile.TiffWriter(output_fpath) as tif:
+        tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+    
     if verbose: logger.info(f"Ome-tiff written at {output_fpath}.")
     
     return output_fpath, key_pair
