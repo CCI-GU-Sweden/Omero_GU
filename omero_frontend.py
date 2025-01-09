@@ -14,7 +14,7 @@ local web server: http://127.0.0.1:5000/
 """
 #Flask import
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-
+import mistune
 ##omero import
 from omero.gateway import DatasetWrapper
 import os
@@ -47,10 +47,28 @@ def create_app(test_config=None):
     database.initialize_database()
 
     #Flask function
-    @app.route('/') #decorator!
+    @app.route('/') #Initial
     def index():
         logger.info("Enter index.html")
         return render_template('index.html')
+    
+    @app.route('/help')
+    def help_page():
+        logger.info("Enter help_page.html")
+        markdown = mistune.create_markdown(escape=False)
+        
+        # Adjust the path as needed
+        md_path = os.path.join(config.STATIC_FOLDER, 'help.md')
+        
+        with open(md_path, 'r') as file:
+            content = file.read()
+        
+        # Replace relative image paths with url_for
+        content = content.replace('images/', url_for('static', filename='images/'))
+        
+        html = markdown(content)
+        return render_template('help_page.html', content=html)
+        
 
     @app.route('/login')
     def login():
@@ -225,10 +243,17 @@ def create_app(test_config=None):
                     })
                 
                 finally: #in any case, delete the whole content of the upload folder
+                    #TODO in case of a whole folder upload, alos need to delete the folder - detect first
+                    
+                    #delete the files first
                     for file in file_paths:
                         if os.path.exists(file):
                             os.remove(file)
                     logger.info(f"Deleting the temporary file(s): {file_paths}")
+                    #then the folder
+                    
+                    
+                    
 
             
             # Only add an entry in the database (and log) if at least one transfer is successfull!

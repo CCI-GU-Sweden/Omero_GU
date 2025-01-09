@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Help Page</title>
+    <style>
+        img { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    <h1>Help Page</h1>
+    <a href="{{ url_for('index') }}">Back to Home</a>
+    <div>
+        {{ content|safe }}
+    </div>
+</body>
+</html>
