@@ -177,7 +177,7 @@ def get_tags_by_key(conn, key):
 
 def import_image(conn, img_path, dataset_id, meta_dict, batch_tag):
     
-    # import the image - work for the CCI IT!
+    # import the image
     namespace = omero.constants.metadata.NSCLIENTMAPANNOTATION
     
     image_id = ezomero.ezimport(conn=conn,
@@ -185,6 +185,11 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag):
                                 dataset=dataset_id.getId(),
                                 ann=meta_dict,
                                 ns=namespace)
+    
+    if image_id is None: #failed to import the image(s)
+        raise ValueError("Failed to upload the image with ezomero. Return an empty list")
+        
+    
     
     #additional tags:
     batch_tag = [x for x in list(batch_tag.values()) if x != 'None'] #as a list, without the 'None'
