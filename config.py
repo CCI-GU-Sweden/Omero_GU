@@ -1,3 +1,6 @@
+import git
+import pathlib
+
 
 ALLOWED_FILE_EXT = [".czi"]
 
@@ -31,3 +34,22 @@ CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
 
 UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
+
+GIT_HASH_FILE_NAME = "git_hash.txt"
+BUILD = ""
+hashfile = pathlib.Path("/path/to/file")
+try:
+    hash_abs_path = hashfile.resolve(strict=True)
+except FileNotFoundError:
+    # doesn't exist
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.head.object.hexsha
+    BUILD = "local"
+    
+else:
+    with open(hashfile, 'r') as file:
+    # Read each line in the file
+        sha = file.readline()
+
+    BUILD = "server"
+APP_VERSION = BUILD + "-" + sha
