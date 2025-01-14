@@ -1,5 +1,4 @@
-# Use an official Python image as the base
-FROM python:3.9-slim
+FROM registry.k8s.gu.se/openshift/python:3.9-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
