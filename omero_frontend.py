@@ -46,6 +46,8 @@ def create_app(test_config=None):
 
     database.initialize_database()
 
+    logger.info(f"***** Starting App version: {config.APP_VERSION} ******")
+
     #Flask function
     @app.route('/') #Initial
     def index():
