@@ -3,4 +3,6 @@
 database/
 *.db
 
+git_hash.txt
+
 __pycache__/
