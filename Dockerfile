@@ -1,12 +1,11 @@
-FROM registry.k8s.gu.se/openshift/python:3.9-slim
+ARG BASE_IMAGE=registry.k8s.gu.se/openshift/python:3.9-slim
+
+FROM  ${BASE_IMAGE}
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     OMERO_USER=omero \
     OMERO_HOME=/app/omero
-
-# Create a non-root user for OMERO
-RUN useradd -m -d ${OMERO_HOME} -s /bin/bash ${OMERO_USER}
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
@@ -25,7 +24,7 @@ RUN apt-get update && apt-get install -y \
     libbz2-dev \
     default-jre-headless \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*git im
 
 # Install omero-py and its dependencies
 RUN python -m pip install --upgrade pip setuptools wheel \
@@ -36,14 +35,11 @@ WORKDIR ${OMERO_HOME}
 
 COPY . ${OMERO_HOME}
 
-RUN chmod 777 -R /app/omero
+RUN chmod 777 -R ${OMERO_HOME}
 
 RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 5000
 
-#ENV FLASK_APP=app
-#ENV FLASK_APP=omero_frontend
-
-#CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]
-CMD ["uwsgi","--uid","1001","--ini","uwsgi.ini"]
+USER 1001
+CMD ["uwsgi","--ini","uwsgi.ini"]
