@@ -46,6 +46,8 @@ def create_app(test_config=None):
 
     database.initialize_database()
 
+    logger.info(f"***** Starting App version: {config.APP_VERSION} ******")
+
     #Flask function
     @app.route('/') #Initial
     def index():
@@ -368,6 +370,19 @@ def create_app(test_config=None):
         except Exception as e:
             logger.error(f"Error fetching tags: {str(e)}")
             return jsonify({"error": str(e)}), 500
+
+    @app.route('/get_build_info', methods=['GET'])
+    def get_build_info():
+        html = "<html><body><h3>Build Info</h3><br>"
+        if not "OPENSHIFT_BUILD_NAME" in os.environ:
+            html += "using a local build"
+        else:
+            for name, value in os.environ.items():
+                html += f"{name}: {value}<br>"
+             
+        html += "</body></html>"
+        return html
+
 
     return app
 
