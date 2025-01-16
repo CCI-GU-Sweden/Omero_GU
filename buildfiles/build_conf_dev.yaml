@@ -1,0 +1,69 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: cciomeroflaskdev
+  namespace: core-omero-dev
+  uid: 7418d9fb-cbe3-4ae6-b3da-01877f1e34db
+  resourceVersion: '4279594578'
+  generation: 4
+  creationTimestamp: '2025-01-14T08:18:57Z'
+  managedFields:
+    - manager: Mozilla
+      operation: Update
+      apiVersion: build.openshift.io/v1
+      time: '2025-01-16T08:44:50Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:spec':
+          'f:output':
+            'f:to': {}
+          'f:runPolicy': {}
+          'f:source':
+            'f:contextDir': {}
+            'f:git':
+              .: {}
+              'f:ref': {}
+              'f:uri': {}
+            'f:type': {}
+          'f:strategy':
+            'f:dockerStrategy':
+              .: {}
+              'f:dockerfilePath': {}
+            'f:type': {}
+          'f:triggers': {}
+    - manager: openshift-apiserver
+      operation: Update
+      apiVersion: build.openshift.io/v1
+      time: '2025-01-16T08:48:46Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:status':
+          'f:lastVersion': {}
+spec:
+  nodeSelector: null
+  output:
+    to:
+      kind: ImageStreamTag
+      name: 'omero-frontend-flask-app:dev'
+  resources: {}
+  successfulBuildsHistoryLimit: 5
+  failedBuildsHistoryLimit: 5
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  postCommit: {}
+  source:
+    type: Git
+    git:
+      uri: 'https://github.com/CCI-GU-Sweden/Omero_GU'
+      ref: test/docker_builds
+    contextDir: /
+  triggers:
+    - type: GitHub
+      github:
+        secretReference:
+          name: omero-gu-webhook
+  runPolicy: Serial
+status:
+  lastVersion: 27
