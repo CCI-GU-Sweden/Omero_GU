@@ -371,6 +371,19 @@ def create_app(test_config=None):
             logger.error(f"Error fetching tags: {str(e)}")
             return jsonify({"error": str(e)}), 500
 
+    @app.route('/get_build_info', methods=['GET'])
+    def get_build_info():
+        html = "<html><body><h3>Build Info</h3><br>"
+        if not "OPENSHIFT_BUILD_NAME" in os.environ:
+            html += "using a local build"
+        else:
+            for name, value in os.environ.items():
+                html += f"{name}: {value}<br>"
+             
+        html += "</body></html>"
+        return html
+
+
     return app
 
 #%%main
