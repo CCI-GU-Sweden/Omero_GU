@@ -12,6 +12,7 @@ theHostname = None
 theToken = None
 
 def get_omero_connection():
+    global theConn
     return theConn
 
 def connect_to_omero(hostname, port, token):
@@ -67,7 +68,7 @@ def get_user_project_if_it_exists(conn, project_name):
     
 
 def get_or_create_project(conn, project_name):
-    logger.debug("Setting or grabbing the Project")
+    logger.debug("Setting or grabbing the Project {conn}")
 
     # Try to get the project
     project = get_user_project_if_it_exists(conn, project_name)
