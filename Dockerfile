@@ -4,8 +4,8 @@ FROM  ${BASE_IMAGE}
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    OMERO_USER=omero \
-    OMERO_HOME=/app/omero
+    #OMERO_USER=omero \
+    APP_HOME=/app/omero
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
@@ -27,15 +27,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*git im
 
 # Install omero-py and its dependencies
-RUN python -m pip install --upgrade pip setuptools wheel \
-    && pip install omero-py
+RUN python -m pip install --upgrade pip setuptools wheel
 
 # Set the working directory
-WORKDIR ${OMERO_HOME}
+WORKDIR ${APP_HOME}
 
-COPY . ${OMERO_HOME}
+COPY . ${APP_HOME}
 
-RUN chmod 777 -R ${OMERO_HOME}
+RUN chmod 777 -R ${APP_HOME}
 
 RUN pip install --no-cache-dir -r requirements.txt
 
