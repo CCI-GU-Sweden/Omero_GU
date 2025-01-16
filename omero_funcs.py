@@ -68,7 +68,7 @@ def get_user_project_if_it_exists(conn, project_name):
     
 
 def get_or_create_project(conn, project_name):
-    logger.debug("Setting or grabbing the Project {conn}")
+    logger.debug(f"Setting or grabbing the Project {conn}")
 
     # Try to get the project
     project = get_user_project_if_it_exists(conn, project_name)
