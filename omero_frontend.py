@@ -12,16 +12,12 @@ TODO: Better disconnect #maybe not possible. OAuth timeout may be better! Or log
 local web server: http://127.0.0.1:5000/
 
 """
-#Flask import
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import mistune
-##omero import
-from omero.gateway import DatasetWrapper
 import os
 from dateutil import parser
 import datetime
 import time
-#local import
 import database
 import omero_funcs
 import traceback
