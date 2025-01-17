@@ -48,3 +48,8 @@ except FileNotFoundError:
     BUILD = "local"
 
 APP_VERSION = BUILD + "-" + SHA
+
+OMERO_SESSION_TOKEN_KEY = "omero_token"
+OMERO_SESSION_HOST_KEY = "omero_host"
+OMERO_SESSION_PORT_KEY = "omero_port"
+OMERO_G_CONNECTION_KEY = "connection"
