@@ -46,7 +46,7 @@
 
 <br/>
 <h3>Selected File to Import</h3>
-    <form id="upload-form" action="{{ url_for('import_images') }}" method="post" enctype="multipart/form-data">
+    <form id="upload-form" action='{{ url_for("conn_bp.import_images") }}' method="post" enctype="multipart/form-data">
         <input type="file" id="file-input" name="files" multiple>
         <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none;">
         <button type="button" id="select-folder-button">Select Folder</button>
@@ -87,7 +87,7 @@
 		});
 
 		// Populate the dropdown menu with values from the server
-		fetch('{{ url_for("get_existing_tags") }}')
+		fetch('{{ url_for("conn_bp.get_existing_tags") }}')
 			.then(response => response.json())
 			.then(data => {
 				const dropdown = document.querySelector('.existing-dropdown');
@@ -194,7 +194,7 @@
 
 			importButton.disabled = true;
 
-			fetch('{{ url_for("import_images") }}', {
+			fetch('{{ url_for("conn_bp.import_images") }}', {
 				method: 'POST',
 				body: formData
 			})
