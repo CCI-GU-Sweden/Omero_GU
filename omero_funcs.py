@@ -3,6 +3,7 @@ from omero.gateway import BlitzGateway, ProjectWrapper
 import ezomero
 import omero.rtypes
 import logger
+import os
 
 def import_image(conn, img_path, dataset_id, meta_dict, batch_tag):
     # import the image
@@ -59,3 +60,10 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag):
             image.linkAnnotation(comment_ann)
     
     return image_id
+
+def check_duplicate_filename(conn, filename,dataset):
+    for child in dataset.listChildren():
+        if child.getName().startswith(filename):
+            return True, child.getId()
+        
+    return False, None
