@@ -134,7 +134,13 @@ class OmeroConnection:
         return self.conn.getObject("Dataset", dataID)
         
     def getImage(self, imageID):
-        self.conn.getObject("Image", imageID)
+        return self.conn.getObject("Image", imageID)
+
+    def compareImageAcquisitionTime(self,imageId,compareDate, fmtStr="%H-%M-%S"):
+        image = self.conn.getImage(imageId)
+        acq_time = image.getAcquisitionDate().strftime(fmtStr)
+        check_time = compareDate.strftime(fmtStr)
+        return check_time == acq_time
 
     def get_tags_by_key(self, key):
         """
