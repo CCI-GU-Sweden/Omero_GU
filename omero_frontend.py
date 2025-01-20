@@ -163,7 +163,8 @@ def create_app(test_config=None):
                     
                     scopes.append([meta_dict['Microscope']])
                     project_name = meta_dict['Microscope']
-                    dataset_name = parser.parse(meta_dict['Acquisition date']).strftime("%Y-%m-%d")
+                    acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
+                    dataset_name = acquisition_date_time.strftime("%Y-%m-%d")
                     
                     # Get or create project and dataset
                     projID = conn.get_or_create_project(project_name)
@@ -176,20 +177,17 @@ def create_app(test_config=None):
                     dataset = conn.getDataset(dataID)
                     file_exists = False
                     
-                    for child in dataset.listChildren():
-                        if child.getName() == os.path.basename(filename):
-                            logger.info(f'Same {os.path.basename(filename)} present in {dataset_name}')
-                            image = conn.getImage(child.getId())
-                            acq_time = image.getAcquisitionDate().strftime("%H-%M-%S")
-                            #we found a duplicate
-                            check_time = parser.parse(meta_dict['Acquisition date']).strftime("%H-%M-%S")
-                            if check_time != acq_time: #same name but different acquisition time! Let's change the name of the file
-                                new_name = ''.join(file_path.split('.')[:-1]+['_', acq_time,'.',file_path.split('.')[-1]])   
-                                os.rename(file_path, new_name)
-                                logger.info(f'Rename {file_path} to {new_name} in order to avoid name duplication')
-                                file_path = new_name
-                            else: #same file, a duplicate
-                                file_exists = True
+                    dup, childId =  omero_funcs.check_duplicate_filename(conn,filename,dataset)
+                    if dup:
+                        sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
+                        if not sameTime: #same name but different acquisition times, rename the imported file 
+                            acq_time = acquisition_date_time.strftime("%H-%M-%S")
+                            new_name = ''.join(file_path.split('.')[:-1]+['_', acq_time,'.',file_path.split('.')[-1]])   
+                            os.rename(file_path, new_name)
+                            logger.info(f'Rename {file_path} to {new_name} in order to avoid name duplication')
+                            file_path = new_name
+                        else: #same file, a duplicate
+                            file_exists = True
                     
                     if file_exists:
                         logger.info(f'{filename} already exists, skip.')
