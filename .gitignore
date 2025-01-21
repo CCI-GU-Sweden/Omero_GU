@@ -1,8 +1,7 @@
 *.log
 *.tmp
-database/
 *.db
-
+database/
+uploads/
 git_hash.txt
-
 __pycache__/

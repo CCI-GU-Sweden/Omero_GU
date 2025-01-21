@@ -1,6 +1,6 @@
 import pathlib
 
-ALLOWED_FILE_EXT = [".czi"]
+ALLOWED_FILE_EXT = [".czi", ".emd"]
 
 LOG_DIR = "logs/"
 LOG_FILE = "omero_app.log"
