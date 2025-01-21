@@ -5,13 +5,13 @@ import sys
 def setup_logger(level=logging.DEBUG):
 
     logging.getLogger(config.APP_NAME)
-    fmtStr = '%(asctime)s - %(levelname)s - %(message)s'
+    fmtStr = '%(process)d: %(asctime)s -%(levelname)s-: %(message)s'
     
     if level == logging.DEBUG:
         logging.basicConfig(filename='omero_app.log', level=level,
                            format=fmtStr)
         localLogger = logging.StreamHandler(sys.stdout)
-        llFmt = logging.Formatter(fmtStr)
+        llFmt = logging.Formatter(fmtStr,datefmt='%Y%m%d %H:%M:%S')
         localLogger.setFormatter(llFmt)
         localLogger.setLevel(level)
         logging.getLogger(config.APP_NAME).addHandler(localLogger)

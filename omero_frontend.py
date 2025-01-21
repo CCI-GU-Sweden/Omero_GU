@@ -12,16 +12,13 @@ TODO: Better disconnect #maybe not possible. OAuth timeout may be better! Or log
 local web server: http://127.0.0.1:5000/
 
 """
-#Flask import
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g
+from connection_blueprint import conn_bp
 import mistune
-##omero import
-from omero.gateway import DatasetWrapper
 import os
 from dateutil import parser
 import datetime
 import time
-#local import
 import database
 import omero_funcs
 import traceback
@@ -36,7 +33,6 @@ def create_app(test_config=None):
     app = Flask(config.APP_NAME)
     app.secret_key = config.SECRET_KEY
 
-    # level = logger.logging.DEBUG if app.debug else logger.logging.INFO
     logger.setup_logger()
 
     # Define a directory for storing uploaded files
@@ -45,6 +41,8 @@ def create_app(test_config=None):
         os.makedirs(UPLOAD_FOLDER)
 
     database.initialize_database()
+
+    logger.info(f"***** Starting CCI Omero Frontend ******")
 
     #Flask function
     @app.route('/') #Initial
@@ -69,7 +67,6 @@ def create_app(test_config=None):
         html = markdown(content)
         return render_template('help_page.html', content=html)
         
-
     @app.route('/login')
     def login():
         logger.info("Enter login.html")
@@ -80,42 +77,36 @@ def create_app(test_config=None):
         logger.info("Enter enter_token.html")
         if request.method == 'POST':
             session_token = request.form.get('session_token')
-            logger.info("Session Uuid is:" + session_token)
+            logger.info("Session Uuid is: " + session_token)
             if session_token:
-                hostname = config.OMERO_HOST
-                port = config.OMERO_PORT
-                
-                try:
-                    session_key, omero_host, isConn = omero_funcs.connect_to_omero(hostname, port, session_token)
-                    if session_key and isConn:
-                        logger.info("Connection to the omero server successful")
-                        session['omero_session_key'] = session_key
-                        session['omero_host'] = omero_host
-                        return redirect(url_for('upload'))
-                    else:
-                        return "Failed to connect to OMERO", 400
-                except Exception as e:
-                    return f"Error connecting to OMERO: {str(e)}", 400
-        
+                session[config.OMERO_SESSION_TOKEN_KEY] = session_token
+                session[config.OMERO_SESSION_HOST_KEY] = config.OMERO_HOST
+                session[config.OMERO_SESSION_PORT_KEY] = config.OMERO_PORT
+
+                return redirect(url_for('upload'))
+    
         return render_template('enter_token.html')
 
+    def hasLoggedIn(session):
+        return config.OMERO_SESSION_TOKEN_KEY in session or config.OMERO_SESSION_HOST_KEY in session
+            
     @app.route('/upload')
     def upload():
         logger.info("Enter upload")
-        if 'omero_session_key' not in session or 'omero_host' not in session:
+        if not hasLoggedIn(session):
             return redirect(url_for('enter_token'))
         return render_template('upload.html')
 
-    @app.route('/import_images', methods=['POST'])
+    @conn_bp.route('/import_images', methods=['POST'])
     def import_images():
         logger.info("Enter import_images")
-        if 'omero_session_key' not in session or 'omero_host' not in session:
+        if not hasLoggedIn(session):
             return jsonify({"error": "Not logged in"}), 401
                
         import_time_start = time.time()
-        conn = omero_funcs.get_omero_connection()
 
         try:
+            conn = getattr(g,config.OMERO_G_CONNECTION_KEY)
             batch_tag = {}
             #get the sample value if any and process it
             user_sample_value = request.form.get('sample_value') #get the Sample value, '' if empty
@@ -124,7 +115,6 @@ def create_app(test_config=None):
             else:
                 user_sample_value = 'None'
             batch_tag['Sample'] = user_sample_value
-            
             
             files = request.files.getlist('files') #get the files to upload
             file_n = len(files)
@@ -160,8 +150,7 @@ def create_app(test_config=None):
                         continue
 
                     file_path, file_size = image_funcs.store_temp_file(item)
-                    # file_paths.append(file_path)
-                    
+
                 total_file_size += file_size
                                 
                 try:
@@ -174,34 +163,31 @@ def create_app(test_config=None):
 
                     scopes.append([meta_dict['Microscope']])
                     project_name = meta_dict['Microscope']
-                    dataset_name = parser.parse(meta_dict['Acquisition date']).strftime("%Y-%m-%d")
+                    acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
+                    dataset_name = acquisition_date_time.strftime("%Y-%m-%d")
                     
                     # Get or create project and dataset
-                    projID = omero_funcs.get_or_create_project(conn, project_name)
-                    dataID = omero_funcs.get_or_create_dataset(conn, projID, dataset_name)
+                    projID = conn.get_or_create_project(project_name)
+                    dataID = conn.get_or_create_dataset(projID, dataset_name)
                     
                     logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
                     
                     #TODO better check, both the file is here AND same timestamp (hours/minute/second)
                     # Check if image is already in the dataset and has the acquisition time
-                    dataset = conn.getObject("Dataset", dataID)
+                    dataset = conn.getDataset(dataID)
                     file_exists = False
                     
-                    for child in dataset.listChildren():
-                        if child.getName() == os.path.basename(filename):
-                            logger.info(f'Same {os.path.basename(filename)} present in {dataset_name}')
-                            image = conn.getObject("Image", child.getId())
-                            acq_time = image.getAcquisitionDate().strftime("%H-%M-%S")
-                            #we found a duplicate
-                            check_time = parser.parse(meta_dict['Acquisition date']).strftime("%H-%M-%S")
-                            if check_time != acq_time: #same name but different acquisition time! Let's change the name of the file
-                                new_name = ''.join(file_path.split('.')[:-1]+['_', acq_time,'.',file_path.split('.')[-1]])   
-                                os.rename(file_path, new_name)
-                                logger.info(f'Rename {file_path} to {new_name} in order to avoid name duplication')
-                                file_path = new_name
-                            else: #same file, a duplicate
-                                file_exists = True
-                        
+                    dup, childId =  omero_funcs.check_duplicate_filename(conn,filename,dataset)
+                    if dup:
+                        sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
+                        if not sameTime: #same name but different acquisition times, rename the imported file 
+                            acq_time = acquisition_date_time.strftime("%H-%M-%S")
+                            new_name = ''.join(file_path.split('.')[:-1]+['_', acq_time,'.',file_path.split('.')[-1]])   
+                            os.rename(file_path, new_name)
+                            logger.info(f'Rename {file_path} to {new_name} in order to avoid name duplication')
+                            file_path = new_name
+                        else: #same file, a duplicate
+                            file_exists = True
                     
                     if file_exists:
                         logger.info(f'{filename} already exists, skip.')
@@ -215,12 +201,12 @@ def create_app(test_config=None):
                     else:
                         #import the file
                         logger.info(f'Importing {filename}.')
-                        user = conn.getUser().getName() 
+                        user = conn.get_logged_in_user_name()
                         index = user.find('@')
                         user_name = user[:index] if index != -1 else user
                         
                         dst_path = f'{user_name} / {project_name} / {dataset_name}'
-                        image_id = omero_funcs.import_image(conn, file_path, dataset, meta_dict, batch_tag)
+                        image_id = omero_funcs.import_image(conn.get_omero_connection(), file_path, dataset, meta_dict, batch_tag)
                         processed_files[filename] = 'success'
                         logger.info(f"ezimport result for {filename}: {image_id}, path: {dst_path}")
                         
@@ -230,7 +216,6 @@ def create_app(test_config=None):
                             "message": f"Successfully imported as Image ID: {image_id}",
                             "path" : f'{dst_path}'
                         })
-
 
                 except Exception as e:
                     logger.error(f"Error during import of {filename}: {str(e)}, line: {traceback.format_exc()}")
@@ -251,10 +236,6 @@ def create_app(test_config=None):
                             os.remove(file)
                     logger.info(f"Deleting the temporary file(s): {file_paths}")
                     #then the folder
-                    
-                    
-                    
-
             
             # Only add an entry in the database (and log) if at least one transfer is successfull!
             if any(x["status"] == 'success' for x in imported_files):
@@ -269,10 +250,10 @@ def create_app(test_config=None):
                 logger.info("Import done")
                 
                 #get some data
-                user = conn.getUser()
+                user = conn.get_user()
                 time_stamp = datetime.datetime.today().strftime('%Y-%m-%d')
                 username = user.getFullName()
-                group = conn.getGroupFromContext()
+                group = conn.get_omero_connection().getGroupFromContext()
                 groupname = group.getName()
     
                 # security:
@@ -314,7 +295,7 @@ def create_app(test_config=None):
         except Exception as e:
             logger.error(f"Error during import process: {str(e)}")
             return jsonify({"error": str(e)}), 500
-
+            
     @app.route('/get_projects', methods=['POST'])
     def get_projects():
 
@@ -355,20 +336,34 @@ def create_app(test_config=None):
     def logout():
         logger.info("User logged out. Clearing session")
         session.clear()  # Clear the session
-        #return jsonify({"message": "Logged out successfully"}), 200
+        conn = getattr(g,config.OMERO_G_CONNECTION_KEY)
+        conn.kill_session()
         return redirect(url_for('index'))
 
-    @app.route('/get_existing_tags', methods=['GET'])
+    @conn_bp.route('/get_existing_tags', methods=['GET'])
     def get_existing_tags():
+        logger.info("get tags")
         try:
-            conn = omero_funcs.get_omero_connection()
-            # Fetch all tags with key containing "Sample "
-            tags = omero_funcs.get_tags_by_key(conn, "Sample")
+            conn = getattr(g,config.OMERO_G_CONNECTION_KEY)
+            tags = conn.get_tags_by_key("Sample")
             return jsonify(tags)
         except Exception as e:
             logger.error(f"Error fetching tags: {str(e)}")
             return jsonify({"error": str(e)}), 500
 
+    @app.route('/get_build_info', methods=['GET'])
+    def get_build_info():
+        html = "<html><body><h3>Build Info</h3><br>"
+        if not "OPENSHIFT_BUILD_NAME" in os.environ:
+            html += "using a local build"
+        else:
+            for name, value in os.environ.items():
+                html += f"{name}: {value}<br>"
+             
+        html += "</body></html>"
+        return html
+
+    app.register_blueprint(conn_bp)
     return app
 
 #%%main

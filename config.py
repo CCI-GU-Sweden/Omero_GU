@@ -1,3 +1,4 @@
+import pathlib
 
 ALLOWED_FILE_EXT = [".czi", ".emd"]
 
@@ -31,3 +32,24 @@ CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
 
 UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
+
+#create the version_file.txt file from the build pipeline!
+GIT_HASH_FILE_NAME = "version_file.txt"
+SHA = "0000"
+hashfile = pathlib.Path(GIT_HASH_FILE_NAME)
+try:
+    hash_abs_path = hashfile.resolve(strict=True)
+    with open(hashfile, 'r') as file:
+    # Read each line in the file
+        SHA = file.readline()
+    BUILD="server"
+except FileNotFoundError:
+    # doesn't exist
+    BUILD = "local"
+
+APP_VERSION = BUILD + "-" + SHA
+
+OMERO_SESSION_TOKEN_KEY = "omero_token"
+OMERO_SESSION_HOST_KEY = "omero_host"
+OMERO_SESSION_PORT_KEY = "omero_port"
+OMERO_G_CONNECTION_KEY = "connection"
