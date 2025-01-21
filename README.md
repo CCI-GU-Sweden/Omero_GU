@@ -2,4 +2,6 @@
  
 Omero script for the University of Gothenburg, Centre for Cellular Imaging (CCI).
 
-Create a local server 
+Create a local server
+
+Do stuff
