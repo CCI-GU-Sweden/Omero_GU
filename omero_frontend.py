@@ -171,7 +171,7 @@ def create_app(test_config=None):
                     file_paths.append(file_path)
                     meta_dict = meta_dict | batch_tag #merge the batch tag to the meta_dictionnary
                     logger.info(f"Metadata successfully extracted from {filename}")
-                    
+
                     scopes.append([meta_dict['Microscope']])
                     project_name = meta_dict['Microscope']
                     dataset_name = parser.parse(meta_dict['Acquisition date']).strftime("%Y-%m-%d")

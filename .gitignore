@@ -2,5 +2,5 @@
 *.tmp
 database/
 *.db
-
+uploads/
 __pycache__/

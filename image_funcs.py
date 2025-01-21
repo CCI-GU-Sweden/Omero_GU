@@ -288,7 +288,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     }
 
     date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
-    key_pair['Acquisition date'] = date_object.strftime('%Y-%m-%d %H:%M:%S')
+    key_pair['Acquisition date'] = date_object.strftime('%Y-%m-%d')
     
     #extra pair for the general metadata
     extra_pair = {
@@ -406,7 +406,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     if verbose: logger.info(f"Conversion to ometiff from emd required for {img_path}")
     
     try:
-        img = emd.file_reader(img_path) #Required to pair the emi and ser file!
+        img = emd.file_reader(img_path)[0]
         img_array, bitdepth = optimize_bit_depth(img['data'])
     except FileNotFoundError:
         raise FileNotFoundError("The file does not exist.")
@@ -430,7 +430,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     }
     
     date_object = datetime.datetime.fromtimestamp(int(dict_crawler(data, 'AcquisitionDatetime')[0]['DateTime']))
-    key_pair['Acquisition Date'] = date_object.strftime('%Y-%m-%d')
+    key_pair['Acquisition date'] = date_object.strftime('%Y-%m-%d')
     mode = dict_crawler(data, 'TemOperatingSubMode')[0]+' '
     mode += dict_crawler(data, 'ObjectiveLensMode')[0]+' '
     mode += dict_crawler(data, 'HighMagnificationMode')[0]+' '
