@@ -42,7 +42,7 @@ def create_app(test_config=None):
 
     database.initialize_database()
 
-    logger.info(f"***** Starting CCI Omero Frontend ******")
+    logger.info("***** Starting CCI Omero Frontend ******")
 
     #Flask function
     @app.route('/') #Initial
@@ -117,11 +117,13 @@ def create_app(test_config=None):
             batch_tag['Sample'] = user_sample_value
             
             files = request.files.getlist('files') #get the files to upload
-            file_n = len(files)
+            file_n = 0
             
             logger.info(f"Received files: {[file.filename for file in files]}")
             
+            #pairs files for download
             files = image_funcs.pair_emi_ser(files)
+            files = image_funcs.pair_mrc_xml(files)
             
             imported_files = []
             scopes = []
@@ -130,13 +132,26 @@ def create_app(test_config=None):
             for item in files:
                 file_paths = []
                 if isinstance(item, dict):  # EMI/SER pair
-                    file_path, _ = image_funcs.store_temp_file(item['emi'])
-                    t, file_size = image_funcs.store_temp_file(item['ser'])
-                    filename = item['ser'].filename
-                    file_paths.append(file_path)
-                    file_paths.append(t)
+                    if item.get('emi', None):
+                        file_path, _ = image_funcs.store_temp_file(item['emi'])
+                        t, file_size = image_funcs.store_temp_file(item['ser'])
+                        filename = item['ser'].filename
+                        #save both path
+                        file_paths.append(file_path)
+                        file_paths.append(t)
+                        file_n += 1
+                        
+                    elif item.get('mrc', None):
+                        file_path, _ = image_funcs.store_temp_file(item['xml'])
+                        t, file_size = image_funcs.store_temp_file(item['mrc'])
+                        filename = item['mrc'].filename
+                        #save both path
+                        file_paths.append(file_path)
+                        file_paths.append(t)
+                        file_path = {'xml':file_path,'mrc':t} #require a dict in this case
+                        file_n += 1
                     
-                else:   #CZI
+                else:   #CZI, EMD
                     filename = item.filename
                     _ , fext = os.path.splitext(filename)
                     
@@ -148,8 +163,9 @@ def create_app(test_config=None):
                                 "path" : ""
                             })
                         continue
-
+                    
                     file_path, file_size = image_funcs.store_temp_file(item)
+                    file_n += 1
 
                 total_file_size += file_size
                                 
@@ -172,7 +188,6 @@ def create_app(test_config=None):
                     
                     logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
                     
-                    #TODO better check, both the file is here AND same timestamp (hours/minute/second)
                     # Check if image is already in the dataset and has the acquisition time
                     dataset = conn.getDataset(dataID)
                     file_exists = False

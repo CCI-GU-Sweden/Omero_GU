@@ -5,8 +5,10 @@ import datetime
 from pathlib import Path
 import numpy as np
 import re
+import xml.etree.ElementTree as ET
+from dateutil import parser
 
-from rsciio import tia, emd
+from rsciio import tia, emd, mrc
 from pylibCZIrw import czi as pyczi
 from ome_types import model
 from ome_types.model.map import M
@@ -28,6 +30,29 @@ def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, p
                 yield from search(item, key)
 
     return list(search(dictionary, search_key))
+
+
+def safe_get(data, keys, default=None):
+    if not isinstance(keys, (list, tuple)):
+        keys = keys.split('.')
+    
+    for key in keys:
+        if isinstance(data, list):
+            if isinstance(key, int):
+                if 0 <= key < len(data):
+                    data = data[key]
+                else:
+                    return default
+            else:
+                return default
+        elif isinstance(data, dict):
+            if key in data:
+                data = data[key]
+            else:
+                return default
+        else:
+            return default
+    return data
 
 
 def optimize_bit_depth(image):
@@ -57,6 +82,43 @@ def optimize_bit_depth(image):
     else:
         return image.astype(np.uint32), 32
 
+
+def parse_xml_to_dict(element, namespaces):
+    """Recursively parse XML element into a dictionary."""
+    result = {}
+    
+    # Loop through child elements
+    for child in element:
+        # Strip the namespace if present
+        tag = child.tag.split('}')[-1]
+        
+        # If the child has children, recurse
+        if list(child):
+            result[tag] = parse_xml_to_dict(child, namespaces)
+        else:
+            # Otherwise, get the text or attributes
+            result[tag] = child.text if child.text is not None else child.attrib
+            
+    return result
+
+def parse_xml_with_namespaces(xml_file):
+    try:
+        # Parse the XML file
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+        
+        # Define namespaces
+        namespaces = {
+            '': "http://schemas.datacontract.org/2004/07/Fei.SharedObjects",
+            'i': "http://www.w3.org/2001/XMLSchema-instance",
+        }
+        
+        # Parse the root element recursively
+        return parse_xml_to_dict(root, namespaces)
+    
+    except ET.ParseError as e:
+        print(f"Parse error: {e}")
+        return None
 
 
 def pair_emi_ser(files: list):
@@ -101,17 +163,62 @@ def pair_emi_ser(files: list):
     return list(paired_files.values()) + unpaired_files
 
 
+def pair_mrc_xml(files: list): #list of filename
+    paired_files = {}
+    unpaired_files = []
+    pairs = 0
+    
+    # First pass: collect all mrc files
+    for file in files:
+        name, ext = os.path.splitext(file.filename)
+        if ext.lower() == '.mrc':
+            paired_files[name] = {'mrc': file}
+    
+    # Second pass: match XML files
+    for file in files:
+        name, ext = os.path.splitext(file.filename)
+        if ext.lower() == '.xml': # Try to find a matching XML file
+            mrc_match = None
+            for mrc_name in paired_files.keys():
+                if name == mrc_name:
+                    mrc_match = mrc_name
+                    break
+            if mrc_match and ext.lower() == '.xml':
+                paired_files[mrc_match]['xml'] = file
+                pairs += 1
+            else:
+                unpaired_files.append(file)
+                
+        elif ext.lower() != '.mrc':  # We've already handled mrc files, can be jpg or the dm
+            unpaired_files.append(file)
+    
+    # Move incomplete pairs to unpaired_files
+    for name, pair in list(paired_files.items()):
+        if len(pair) != 2:
+            unpaired_files.extend(pair.values())
+            del paired_files[name]
+            pairs -= 1
+    
+    print(f"Found {pairs} pair(s) of MRC/XML files and {len(unpaired_files)} unpaired files.")
+        
+    return list(paired_files.values()) + unpaired_files
 
-def file_format_splitter(img_path:str, verbose:bool):
-    # img_path = Path(img_path) #security, be sure that it is a Path object.   .absolute().as_posix()
-    logger.info(f"Received file is of format {img_path.split('.')[-1].lower()}")
+
+def file_format_splitter(img_path, verbose:bool):
     #different strategies in case of different file format
-    if img_path.split('.')[-1].lower() == "czi": #Light microscope format - CarlZeissImage
-        key_pair = get_info_metadata_from_czi(img_path, verbose=verbose)
-    elif img_path.split('.')[-1].lower() == "emi": #Electron microscope format
-        img_path, key_pair = convert_emi_to_ometiff(img_path, verbose=verbose)
-    elif img_path.split('.')[-1].lower() == "emd": #Electron microscope format
-        img_path, key_pair = convert_emd_to_ometiff(img_path, verbose=verbose)
+    if isinstance(img_path, str):
+        logger.info(f"Received file is of format {img_path.split('.')[-1].lower()}")
+        if img_path.split('.')[-1].lower() == "czi": #Light microscope format - CarlZeissImage
+            key_pair = get_info_metadata_from_czi(img_path, verbose=verbose)
+        elif img_path.split('.')[-1].lower() == "emi": #Electron microscope format
+            img_path, key_pair = convert_emi_to_ometiff(img_path, verbose=verbose)
+        elif img_path.split('.')[-1].lower() == "emd": #Electron microscope format
+            img_path, key_pair = convert_emd_to_ometiff(img_path, verbose=verbose)
+    elif isinstance(img_path, dict): #Electron microscope format
+        logger.info(f"Received a pair of files is of format {' '.join([img_path[x].split('.')[-1].lower() for x in img_path.keys()])}")
+        img_path, key_pair = convert_atlas_to_ometiff(img_path, verbose=verbose)
+    
+    
     
     return img_path, key_pair
 
@@ -438,7 +545,6 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     
     #extra pair for the general metadata        
     extra_pair = {
-        # 'Wehnelt index': dict_crawler(data, 'Wehnelt index')[0],
         'Mode': mode,
         'Defocus': dict_crawler(data, 'Defocus', partial_search=True)[0],
         'Lens intensity': dict_crawler(data, 'C2LensIntensity')[0],
@@ -526,6 +632,146 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     if verbose: logger.info("OME created")
     
     output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emd", ".ome.tiff"))
+    
+    # Write OME-TIFF file
+    with tifffile.TiffWriter(output_fpath) as tif:
+        tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+        
+    if verbose: logger.info(f"Ome-tiff written at {output_fpath}.")
+    return output_fpath, key_pair
+
+
+def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
+    """
+    Convert atlas file, which is a pair of mrc and xml, to ome-tiff format.
+    
+    Args:
+    img_path (dict): containing the path for the mrc and xml file
+    
+    Returns:
+    str: Path to the output OME-TIFF file
+    dict: Contains the key-pair values
+    """
+    if verbose: logger.info(f"Conversion to ometiff from mrc required for {img_path}")
+
+    try:
+        full_data = mrc.file_reader(img_path['mrc'])[0]
+        img_array, bit = optimize_bit_depth(full_data['data'])
+    except FileNotFoundError:
+        raise FileNotFoundError("The file does not exist.")
+    except Exception as e:
+        logger.info(f"An error happened when trying to read the atlas file {img_path}\n It is required to be a dict: {e}")
+        raise
+    
+    data = parse_xml_with_namespaces(img_path.get('xml', None))
+    if data is None:
+        raise ValueError("Error opening or reading metadata.")
+    if verbose: logger.info(f"{img_path} successfully readen!") 
+    
+    key_pair = {
+        'Microscope': dict_crawler(data, 'InstrumentModel')[0].split('-')[0],
+        'Electron source': dict_crawler(data, 'Sourcetype')[0],
+        'Beam tension': dict_crawler(data, 'AccelerationVoltage')[0],
+        'Camera': safe_get(dict_crawler(data, 'camera')[0], ['Name']),
+        'Lens Magnification': dict_crawler(data, 'NominalMagnification')[0],
+        'Physical pixel size': safe_get(dict_crawler(data, 'pixelSize')[0], ['x', 'numericValue']),
+        'Physical pixel unit': safe_get(dict_crawler(data, 'pixelSize')[0], ['x', 'unit', '_x003C_Symbol_x003E_k__BackingField']),
+        'Defocus': dict_crawler(data, 'Defocus')[0],
+        'Image SizeX': img_array.shape[0],
+        'Image SizeY': img_array.shape[1],
+    }
+    date_object = parser.isoparse(dict_crawler(data, 'acquisitionDateTime')[0])
+    key_pair['Acquisition date'] = date_object.strftime('%Y-%m-%d')
+    
+    mode = dict_crawler(data, 'ColumnOperatingMode')[0]+' '
+    mode += dict_crawler(data, 'ColumnOperatingTemSubMode')[0]+' '
+    mode += dict_crawler(data, 'ObjectiveLensMode')[0]+' '
+    mode += dict_crawler(data, 'ProbeMode')[0]+' '
+    mode += dict_crawler(data, 'ProjectorMode')[0]+' '
+    key_pair['Image type'] = mode
+    
+    #extra pair for the general metadata        
+    extra_pair = {
+        'Mode': mode,
+        'Defocus': dict_crawler(data, 'Defocus',)[0],
+        'Lens intensity': dict_crawler(data, 'Intensity')[0],
+        'Tilt': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'A']),
+        'Stage X': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'X']),
+        'Stage Y': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'Y']),
+        'Stage Z': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'Z']),
+        }
+    
+    # Create an OME object
+    ome = model.OME()
+    
+    # Create an Image object
+    image = model.Image(
+        id="Image:0",
+        name = os.path.basename(img_path['mrc']),
+        acquisition_date=date_object.strftime('%Y-%m-%d %H:%M:%S'),
+        
+        pixels = model.Pixels(
+            id="Pixels:0",
+            dimension_order="XYCZT",
+            type=str(img_array.dtype),
+            size_x=key_pair['Image SizeX'],
+            size_y=key_pair['Image SizeY'],
+            size_c=1,
+            size_z=1,
+            size_t=1,
+            physical_size_x=key_pair['Physical pixel size'],
+            physical_size_x_unit=key_pair['Physical pixel unit'],
+            physical_size_y=key_pair['Physical pixel size'],
+            physical_size_y_unit=key_pair['Physical pixel unit'],
+        )
+    )
+    
+    # Add Image to OME
+    ome.images.append(image)
+    
+    # Create MapAnnotation for custom metadata
+    custom_metadata = model.MapAnnotation(
+        id="Annotation:0",
+        namespace="custom.ome.metadata",
+        value=model.Map(ms=[M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
+        
+    )
+    
+    # Add Instrument information
+    instrument = model.Instrument(
+        id = "Instrument:0",
+        microscope=model.Microscope(
+                                    type='Other',
+                                    model=key_pair['Microscope']
+        ),
+        detectors=[
+            model.Detector(
+                id="Detector:0",
+                model=key_pair['Electron source'],
+                voltage=key_pair['Beam tension'],
+                voltage_unit=model.UnitsElectricPotential('kV'),
+                ),
+            model.Detector(
+                id="Detector:1",
+                model=key_pair['Camera'],
+                ),
+            ]
+        )
+    
+    ome.instruments.append(instrument)
+    ome.structured_annotations.extend([custom_metadata])
+    # Create Objective for Magnification
+    objective = model.Objective(
+        id="Objective:0",
+        nominal_magnification=float(key_pair['Lens Magnification'])
+    )
+    instrument.objectives.append(objective)
+    
+    # Convert OME object to XML string
+    ome_xml = ome.to_xml()
+    if verbose: logger.info("OME created")
+    
+    output_fpath = os.path.join(os.path.dirname(img_path['mrc']), os.path.basename(img_path['mrc']).replace(".mrc", ".ome.tiff"))
     
     # Write OME-TIFF file
     with tifffile.TiffWriter(output_fpath) as tif:
