@@ -5,9 +5,6 @@ Created on Fri Nov 15 15:09:51 2024
 @author: simon
 
 
-TODO: Better disconnect #maybe not possible. OAuth timeout may be better! Or log out button (IT side)
-
-
 
 local web server: http://127.0.0.1:5000/
 
@@ -175,6 +172,8 @@ def create_app(test_config=None):
                     file_path, meta_dict = image_funcs.file_format_splitter(file_path, verbose=True)
                     file_paths.append(file_path)
                     meta_dict = meta_dict | batch_tag #merge the batch tag to the meta_dictionnary
+                    folder = os.path.basename(os.path.dirname(filename))
+                    if folder != '': meta_dict['Folder'] = folder
                     logger.info(f"Metadata successfully extracted from {filename}")
 
                     scopes.append([meta_dict['Microscope']])
