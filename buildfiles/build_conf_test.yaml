@@ -1,12 +1,12 @@
 kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
-  name: cciomeroflaskdev
-  namespace: core-omero-dev
-  uid: 44eb53da-0262-42c1-9096-899ced93ae29
-  resourceVersion: '4292939542'
-  generation: 9
-  creationTimestamp: '2025-01-21T10:51:11Z'
+  name: omero-frontend-build-test
+  namespace: core-omero-test
+  uid: 04e3c182-e71a-41b2-ba9e-2bd0f3972064
+  resourceVersion: '4292780247'
+  generation: 18
+  creationTimestamp: '2025-01-21T12:22:06Z'
   managedFields:
     - manager: Mozilla
       operation: Update
@@ -46,8 +46,8 @@ spec:
   output:
     to:
       kind: ImageStreamTag
-      namespace: core-omero-dev
-      name: 'omero-frontend-flask-app:dev'
+      namespace: core-omero-test
+      name: 'omero-frontend-test:latest'
   resources: {}
   successfulBuildsHistoryLimit: 5
   failedBuildsHistoryLimit: 5
@@ -60,7 +60,7 @@ spec:
     type: Git
     git:
       uri: 'https://github.com/CCI-GU-Sweden/Omero_GU'
-      ref: dev/main
+      ref: test/main
     contextDir: /
   triggers:
     - type: GitHub
