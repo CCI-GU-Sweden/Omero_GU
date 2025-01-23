@@ -105,6 +105,8 @@ def create_app(test_config=None):
         try:
             conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
             batch_tag = {}
+            
+            #TODO update to a more flexible version (using a dropdown menu)
             #get the sample value if any and process it
             user_sample_value = request.form.get('sample_value') #get the Sample value, '' if empty
             if user_sample_value != '':
@@ -112,6 +114,8 @@ def create_app(test_config=None):
             else:
                 user_sample_value = 'None'
             batch_tag['Sample'] = user_sample_value
+            #up to here
+            
             
             files = request.files.getlist('files') #get the files to upload
             file_n = 0
@@ -241,15 +245,11 @@ def create_app(test_config=None):
                         "path":''
                     })
                 
-                finally: #in any case, delete the whole content of the upload folder
-                    #TODO in case of a whole folder upload, alos need to delete the folder - detect first
-                    
-                    #delete the files first
+                finally: #in any case, delete the whole content of the upload folder                    
                     for file in file_paths:
                         if os.path.exists(file):
                             os.remove(file)
                     logger.info(f"Deleting the temporary file(s): {file_paths}")
-                    #then the folder
             
             # Only add an entry in the database (and log) if at least one transfer is successfull!
             if any(x["status"] == 'success' for x in imported_files):
