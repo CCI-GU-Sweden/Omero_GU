@@ -21,38 +21,66 @@
 
         // Function to render the file list on the page
 		function renderFileList() {
-            let importedFiles = getImportedFiles();
-			fileList.innerHTML = '';
-			importedFiles.forEach(file => {
+			let importedFiles = getImportedFiles();
+			fileList.innerHTML = ''; // Clear the file list
+
+			importedFiles.forEach((file, index) => {
+				// Create a container for each file item
 				const fileItem = document.createElement('div');
-				fileItem.className = `file-item ${file.status}`; // Assign the updated status class
+				fileItem.className = `file-item ${file.status}`; // Add status class for styling
 				fileItem.textContent = `${file.name}: ${file.message}${file.path ? `. Stored at ${file.path}` : ''}`;
+
+				// Create a "Remove" button
+				const removeButton = document.createElement('button');
+				removeButton.textContent = 'Remove';
+				removeButton.className = 'remove-button'; // Add a class for styling if needed
+
+				// Add event listener for the Remove button
+				removeButton.addEventListener('click', function () {
+					// Remove the file from the imported files list
+					importedFiles.splice(index, 1);
+
+					// Update the list in localStorage and re-render the file list
+					localStorage.setItem('importedFiles', JSON.stringify(importedFiles));
+					renderFileList();
+				});
+
+				// Append the Remove button to the file item
+				fileItem.appendChild(removeButton);
+
+				// Append the file item to the list
 				fileList.appendChild(fileItem);
+
 				console.log(`Rendered: ${file.name} -> ${file.status}, path: ${file.path}`);
 			});
 		}
+		
+		let fileStore = {}; // Maps file names to File objects
+		function handleFiles(files) {
+			let importedFiles = getImportedFiles();
+			importButton.disabled = files.length === 0;
 
-        function handleFiles(files) {
+			Array.from(files).forEach(file => {
+				if (!importedFiles.some(existingFile => existingFile.name === file.name)) {
+					let fileObj = {
+						name: file.name,
+						size: file.size,
+						status: 'pending',
+						message: 'Pending upload',
+						path: ""
+					};
 
-            let importedFiles = getImportedFiles();
-            importButton.disabled = files.length === 0;
+					// Add file reference to fileStore
+					fileStore[file.name] = file;
 
-            Array.from(files).forEach(file => {
-                if (!importedFiles.some(existingFile => existingFile.name === file.name)) {
-                    let fileObj = {
-                        name: file.name,
-                        size: file.size,
-                        status: 'pending',
-                        message: 'Pending upload',
-                        path: ""
-                    };
-                    importedFiles.push(fileObj);
-                }
-            });
+					importedFiles.push(fileObj);
+				}
+			});
 
-            localStorage.setItem('importedFiles', JSON.stringify(importedFiles));
-            renderFileList();
-        }
+			localStorage.setItem('importedFiles', JSON.stringify(importedFiles));
+			renderFileList();
+		}
+
 
         fileInput.addEventListener('change', function() {
             handleFiles(this.files);
@@ -84,15 +112,16 @@
 			}
 			
 			
-			importedFiles.forEach(fileObj => {
-				if (fileObj.status === 'pending') {
-					const file = Array.from(fileInput.files).find(f => f.name === fileObj.name) ||
-								 Array.from(folderInput.files).find(f => f.name === fileObj.name);
-					if (file) {
-						formData.append('files', file);
-					}
+		importedFiles.forEach(fileObj => {
+			if (fileObj.status === 'pending') {
+				// Retrieve the file from fileStore
+				const file = fileStore[fileObj.name];
+				if (file) {
+					formData.append('files', file);
 				}
-			});
+			}
+		});
+
 
 			importButton.disabled = true;
 
@@ -132,9 +161,20 @@
 				});
 		});
 
+		removeButton.addEventListener('click', function () {
+			// Remove the file from fileStore
+			delete fileStore[importedFiles[index].name];
+			
+			// Remove the file metadata from localStorage
+			importedFiles.splice(index, 1);
+			localStorage.setItem('importedFiles', JSON.stringify(importedFiles));
+			renderFileList();
+		});
+
 
         // Handle disconnect (clear session and localStorage)
         disconnectButton.addEventListener('click', function () {
+			fileStore = {}; // Clear fileStore
             localStorage.removeItem('importedFiles');
             importedFiles = [];
             renderFileList();
