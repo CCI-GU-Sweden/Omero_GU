@@ -156,6 +156,6 @@ class OmeroConnection:
         tags = []
         for tag in self.conn.getObjects("TagAnnotation"): #grab all tag
             tags.append(tag.getValue())
-        tags = [x.replace(key,'') for x in tags if key in x] #filter it
+        tags = [x.replace(key,'') for x in tags if x.startswith(key+' ')] #filter it
 
         return tags

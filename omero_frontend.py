@@ -22,6 +22,7 @@ import traceback
 import config
 import logger
 import image_funcs
+import json
 
 processed_files = {} # In-memory storage for processed files (for the session)
 
@@ -101,21 +102,34 @@ def create_app(test_config=None):
             return jsonify({"error": "Not logged in"}), 401
                
         import_time_start = time.time()
-
+        
         try:
             conn = getattr(g,config.OMERO_G_CONNECTION_KEY)
             batch_tag = {}
             
-            #TODO update to a more flexible version (using a dropdown menu)
-            #get the sample value if any and process it
-            user_sample_value = request.form.get('sample_value') #get the Sample value, '' if empty
-            if user_sample_value != '':
-                user_sample_value = "Sample"+" "+user_sample_value
-            else:
-                user_sample_value = 'None'
-            batch_tag['Sample'] = user_sample_value
-            #up to here
-            
+            try:
+                # Retrieve the key-value pairs from the form data
+                key_value_pairs = request.form.get('keyValuePairs')
+                
+                # Parse the JSON string into a Python dictionary or list
+                if key_value_pairs:
+                    key_value_pairs = json.loads(key_value_pairs)
+                else:
+                    return jsonify({"error": "No keyValuePairs found in the request"}), 400
+        
+                # Example: Print key-value pairs or process them further
+                logger.info(f"Received key-value pairs: {key_value_pairs}")
+        
+                # Assuming you want to handle key-value pairs (this is a placeholder logic)
+                batch_tag = {}
+                for pair in key_value_pairs:
+                    key = pair.get("key")
+                    value = pair.get("value", "None")  # Default to "None" if no value is provided
+                    batch_tag[key] = value.strip()
+
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500 #may want to just continue?
+    
             
             files = request.files.getlist('files') #get the files to upload
             file_n = 0
@@ -356,13 +370,23 @@ def create_app(test_config=None):
 
     @conn_bp.route('/get_existing_tags', methods=['GET'])
     def get_existing_tags():
-        logger.info("get tags")
+        """
+        Fetch all tags (keys and their values) from OMERO.
+        """
+        logger.info("Fetching tags from OMERO.")
         try:
-            conn = getattr(g,config.OMERO_G_CONNECTION_KEY)
-            tags = conn.get_tags_by_key("Sample") #TODO change this hardcoded part here! Maybe grab all?
-            return jsonify(tags)
+            conn = getattr(g, config.OMERO_G_CONNECTION_KEY)
+            keys_and_values = {}
+            
+            # Fetch all keys from the OMERO server
+            all_keys = config.USER_VARIABLES
+            for key in all_keys:
+                values = conn.get_tags_by_key(key)
+                keys_and_values[key] = values
+            
+            return jsonify(keys_and_values)
         except Exception as e:
-            logger.error(f"Error fetching tags: {str(e)}")
+            logger.error(f"Error fetching keys and tags: {str(e)}")
             return jsonify({"error": str(e)}), 500
 
     @app.route('/build_info', methods=['GET'])

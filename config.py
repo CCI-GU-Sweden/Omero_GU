@@ -33,6 +33,8 @@ CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
 UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
 
+USER_VARIABLES = ["Sample"]
+
 #create the version_file.txt file from the build pipeline!
 GIT_HASH_FILE_NAME = "version_file.txt"
 SHA = "0000"
