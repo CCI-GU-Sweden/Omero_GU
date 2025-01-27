@@ -140,6 +140,7 @@ def create_app(test_config=None):
             files = image_funcs.pair_emi_ser(files)
             files = image_funcs.pair_mrc_xml(files)
             
+            
             imported_files = []
             scopes = []
             total_file_size = 0
@@ -150,7 +151,7 @@ def create_app(test_config=None):
                     if item.get('emi', None):
                         file_path, _ = image_funcs.store_temp_file(item['emi'])
                         t, file_size = image_funcs.store_temp_file(item['ser'])
-                        filename = item['ser'].filename
+                        filename = item['emi'].filename
                         #save both path
                         file_paths.append(file_path)
                         file_paths.append(t)

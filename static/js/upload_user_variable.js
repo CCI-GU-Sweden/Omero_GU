@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			keyValuePairs.push({ key, value });
 		});
 		localStorage.setItem('keyValuePairs', JSON.stringify(keyValuePairs));
+		console.log(keyValuePairs);
 	}
 
 	// Update the values dropdown when a new key is selected
