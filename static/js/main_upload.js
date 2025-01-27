@@ -6,12 +6,24 @@
         const uploadForm = document.getElementById('upload-form');
         const disconnectButton = document.getElementById('disconnect-button');
         const projectDropdown = document.getElementById('project-dropdown');
+		const clearButton = document.getElementById('clear-button');
+
+		document.getElementById('custom-file-input').addEventListener('click', function() {
+			document.getElementById('file-input').click();
+		});
+		
+		fileInput.addEventListener('change', function() {
+			handleFiles(this.files);
+
+			// Clear input value after handling the files
+			fileInput.value = '';
+		});
 
         document.addEventListener('DOMContentLoaded', function() {
             localStorage.setItem('importedFiles', '[]');
             // Show the disconnect button
             disconnectButton.style.display = 'block';
-
+			importButton.disabled = true;
             console.log("loaded....")
         });
 
@@ -19,10 +31,42 @@
             return  JSON.parse(localStorage.getItem('importedFiles'));
         }
 
+		// Event listener for Clear button
+		clearButton.addEventListener('click', function () {
+			localStorage.setItem('importedFiles', '[]');
+			renderFileList();
+			importButton.disabled = true;
+			const importedFilesCount = getImportedFiles().length;
+			document.getElementById('file-count-label').textContent = `${importedFilesCount} file(s) selected`;
+		});
+
+		function toggleButtons(state) {
+			// State: true (enable), false (disable)
+			importButton.disabled = !state;
+			clearButton.disabled = !state;
+			fileInput.disabled = !state;
+			folderInput.disabled = !state;
+
+			// Disable/Enable Remove buttons dynamically
+			const removeButtons = document.querySelectorAll('.remove-button');
+			removeButtons.forEach(button => {
+				button.disabled = !state;
+			});
+		}
+
         // Function to render the file list on the page
 		function renderFileList() {
 			let importedFiles = getImportedFiles();
 			fileList.innerHTML = ''; // Clear the file list
+			importButton.disabled = importedFiles.length === 0;
+
+			// Update the file count label
+			const fileCountLabel = document.getElementById('file-count-label');
+			if (importedFiles.length > 0) {
+				fileCountLabel.textContent = `${importedFiles.length} file(s) ready for import`;
+			} else {
+				fileCountLabel.textContent = 'No files selected for import';
+			}
 
 			importedFiles.forEach((file, index) => {
 				// Create a container for each file item
@@ -47,10 +91,8 @@
 
 				// Append the Remove button to the file item
 				fileItem.appendChild(removeButton);
-
 				// Append the file item to the list
 				fileList.appendChild(fileItem);
-
 				console.log(`Rendered: ${file.name} -> ${file.status}, path: ${file.path}`);
 			});
 		}
@@ -58,7 +100,7 @@
 		let fileStore = {}; // Maps file names to File objects
 		function handleFiles(files) {
 			let importedFiles = getImportedFiles();
-			importButton.disabled = files.length === 0;
+			importButton.disabled = importedFiles.length === 0;
 
 			Array.from(files).forEach(file => {
 				if (!importedFiles.some(existingFile => existingFile.name === file.name)) {
@@ -69,14 +111,11 @@
 						message: 'Pending upload',
 						path: ""
 					};
-
 					// Add file reference to fileStore
 					fileStore[file.name] = file;
-
 					importedFiles.push(fileObj);
 				}
 			});
-
 			localStorage.setItem('importedFiles', JSON.stringify(importedFiles));
 			renderFileList();
 		}
@@ -100,6 +139,8 @@
             let importedFiles = getImportedFiles();
 			const formData = new FormData();
 			
+			toggleButtons(false); // Disable all buttons during import
+			
 			// Retrieve stored key-value pairs from localStorage
 			const keyValuePairs = JSON.parse(localStorage.getItem('keyValuePairs')) || [];
 			if (keyValuePairs.length > 0) {
@@ -107,8 +148,8 @@
 				console.log("Added key-value pairs");
 				console.log(keyValuePairs);
 			} else {
-				consol.log('No key-value pairs added.');
-				return;
+				formData.append('keyValuePairs', JSON.stringify([]));
+				console.log('No key-value pairs added.');
 			}
 			
 			
@@ -121,7 +162,6 @@
 				}
 			}
 		});
-
 
 			importButton.disabled = true;
 
@@ -152,13 +192,17 @@
 						console.error('Unexpected server response:', result);
 					}
 
-					importButton.disabled = false;
+					//importButton.disabled = false;
 				})
 				.catch(error => {
 					console.error('Error:', error);
 					alert('An error occurred during import');
 					importButton.disabled = false;
-				});
+				})
+				.finally(() => {
+					toggleButtons(true);
+					importButton.disabled = false;
+				})
 		});
 
 		removeButton.addEventListener('click', function () {
@@ -170,7 +214,7 @@
 			localStorage.setItem('importedFiles', JSON.stringify(importedFiles));
 			renderFileList();
 		});
-
+	
 
         // Handle disconnect (clear session and localStorage)
         disconnectButton.addEventListener('click', function () {

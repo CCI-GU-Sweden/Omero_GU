@@ -40,10 +40,13 @@
     <br/>
     <h3>Selected File to Import</h3>
     <form id="upload-form" action="{{ url_for('conn_bp.import_images') }}" method="post" enctype="multipart/form-data">
-        <input type="file" id="file-input" name="files" multiple>
+        <input type="file" id="file-input" name="files" multiple style="display: none;" />
+		<button id="custom-file-input">Select Files</button>
         <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none;">
         <button type="button" id="select-folder-button">Select Folder</button>
+		<button id="clear-button" class="action-button">Clear List</button>
         <button type="submit" id="import-button" disabled>Import</button>
+		<span id="file-count-label">No files selected for import</span>
     </form>
     <div id="file-list"></div>
     <button id="disconnect-button" style="display:none;">Disconnect</button>

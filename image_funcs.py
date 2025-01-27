@@ -170,12 +170,17 @@ def pair_mrc_xml(files: list): #list of filename
     
     # First pass: collect all mrc files
     for file in files:
+        if isinstance(file, dict):
+            unpaired_files.append(file)
+            continue
         name, ext = os.path.splitext(file.filename)
         if ext.lower() == '.mrc':
             paired_files[name] = {'mrc': file}
     
     # Second pass: match XML files
     for file in files:
+        if isinstance(file, dict):
+            continue
         name, ext = os.path.splitext(file.filename)
         if ext.lower() == '.xml': # Try to find a matching XML file
             mrc_match = None
@@ -199,7 +204,7 @@ def pair_mrc_xml(files: list): #list of filename
             del paired_files[name]
             pairs -= 1
     
-    print(f"Found {pairs} pair(s) of MRC/XML files and {len(unpaired_files)} unpaired files.")
+    logger.info(f"Found {pairs} pair(s) of MRC/XML files and {len(unpaired_files)} unpaired files.")
         
     return list(paired_files.values()) + unpaired_files
 
