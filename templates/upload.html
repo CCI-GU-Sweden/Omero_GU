@@ -5,18 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='upload_style.css') }}">
     <title>Upload Files to OMERO</title>
-    <style>
-        .static-row label {
-            margin: 0 5px;
-        }
-        .remove-row {
-            background-color: red;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-
-    </style>
 </head>
 <body>
     <h1>Upload Files to OMERO</h1>
@@ -30,7 +18,7 @@
         <input type="text" id="interactive-new-input" placeholder="Enter new value">
         <input type="radio" name="value-option" id="existing-value-radio"> Existing
         <select id="interactive-existing-dropdown" disabled></select>
-        <button id="add-key-value-pair">Add Key-Value Pair</button>
+        <button type="button" id="add-key-value-pair">Add Key-Value Pair</button>
     </div>
     <!-- Static Key-Value Pairs Section -->
     <div id="static-section">
@@ -39,15 +27,15 @@
 	
     <br/>
     <h3>Selected File to Import</h3>
-    <form id="upload-form" action="{{ url_for('conn_bp.import_images') }}" method="post" enctype="multipart/form-data">
+    <div id="upload-form">
         <input type="file" id="file-input" name="files" multiple style="display: none;" />
 		<button id="custom-file-input">Select Files</button>
         <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none;">
         <button type="button" id="select-folder-button">Select Folder</button>
 		<button id="clear-button" class="action-button">Clear List</button>
-        <button type="submit" id="import-button" disabled>Import</button>
+        <button type="button" id="import-button" disabled>Import</button>
 		<span id="file-count-label">No files selected for import</span>
-    </form>
+    </div>
     <div id="file-list"></div>
     <button id="disconnect-button" style="display:none;">Disconnect</button>
 
@@ -56,8 +44,8 @@
 		var importImagesUrl = "{{ url_for('conn_bp.import_images') }}";
 	</script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/upload.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/upload_user_variable.js') }}"></script>
+    <!-- <script src="{{ url_for('static', filename='js/upload.js') }}"></script> -->
+    <!-- <script src="{{ url_for('static', filename='js/upload_user_variable.js') }}"></script> -->
     <script src="{{ url_for('static', filename='js/main_upload.js') }}"></script>
 </body>
 </html>
