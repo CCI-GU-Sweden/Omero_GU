@@ -137,7 +137,7 @@ class OmeroConnection:
         return self.conn.getObject("Image", imageID)
 
     def compareImageAcquisitionTime(self,imageId,compareDate, fmtStr="%H-%M-%S"):
-        image = self.conn.getImage(imageId)
+        image = self.getImage(imageId)
         acq_time = image.getAcquisitionDate().strftime(fmtStr)
         check_time = compareDate.strftime(fmtStr)
         return check_time == acq_time
