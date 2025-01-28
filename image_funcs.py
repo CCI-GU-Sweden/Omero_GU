@@ -1,4 +1,4 @@
-import config
+import conf
 import logger
 import os
 import datetime
@@ -791,7 +791,7 @@ def delete(file_path:str):
 def store_temp_file(img_obj):
     filename = img_obj.filename
     # Create subdirectories if needed
-    file_path = os.path.join(config.UPLOAD_FOLDER, *os.path.split(filename))
+    file_path = os.path.join(conf.UPLOAD_FOLDER, *os.path.split(filename))
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     
     img_obj.seek(0)            
@@ -799,13 +799,13 @@ def store_temp_file(img_obj):
     img_obj.seek(0)
     
         # Save file to temporary directory
-    if file_size <= config.MAX_SIZE_FULL_UPLOAD: #direct save
-        logger.info(f"File {filename} is smaller than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
+    if file_size <= conf.MAX_SIZE_FULL_UPLOAD: #direct save
+        logger.info(f"File {filename} is smaller than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
         img_obj.save(file_path) #one go save
     else: #chunk save
-        logger.info(f"File {filename} is larger than {config.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
+        logger.info(f"File {filename} is larger than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
         with open(file_path, 'wb') as f:
-            while chunk := img_obj.stream.read(config.CHUNK_SIZE):
+            while chunk := img_obj.stream.read(conf.CHUNK_SIZE):
                 f.write(chunk)
     
     return file_path, file_size

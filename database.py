@@ -1,14 +1,14 @@
 #database import
 import sqlite3
 import logger
-import config
+import conf
 import os
 
-DB_FILE = f"{config.DB_DIR}/{config.DB_NAME}"
+DB_FILE = f"{conf.DB_DIR}/{conf.DB_NAME}"
 #SQL functions
 def initialize_database(db_name=DB_FILE):
     
-    os.makedirs(config.DB_DIR, exist_ok=True)
+    os.makedirs(conf.DB_DIR, exist_ok=True)
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     logger.info("Creating database if it does not already exist")

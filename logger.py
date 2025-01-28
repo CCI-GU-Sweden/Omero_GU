@@ -1,10 +1,10 @@
-import config
+import conf
 import logging #info, warning, error and critical
 import sys
 
 def setup_logger(level=logging.DEBUG):
 
-    logging.getLogger(config.APP_NAME)
+    logging.getLogger(conf.APP_NAME)
     fmtStr = '%(process)d: %(asctime)s -%(levelname)s-: %(message)s'
     
     if level == logging.DEBUG:
@@ -14,7 +14,7 @@ def setup_logger(level=logging.DEBUG):
         llFmt = logging.Formatter(fmtStr,datefmt='%Y%m%d %H:%M:%S')
         localLogger.setFormatter(llFmt)
         localLogger.setLevel(level)
-        logging.getLogger(config.APP_NAME).addHandler(localLogger)
+        logging.getLogger(conf.APP_NAME).addHandler(localLogger)
         
     else: #only log to stdout
         logging.basicConfig(stream=sys.stdout, level=level,
@@ -50,4 +50,4 @@ def debug(msg: str):
     logger().debug(msg)
     
 def logger():
-    return logging.getLogger(config.APP_NAME)
+    return logging.getLogger(conf.APP_NAME)

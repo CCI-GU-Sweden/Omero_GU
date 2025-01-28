@@ -22,7 +22,7 @@ import time
 import database
 import omero_funcs
 import traceback
-import config
+import conf
 import logger
 import image_funcs
 
@@ -30,8 +30,8 @@ processed_files = {} # In-memory storage for processed files (for the session)
 
 def create_app(test_config=None):
 
-    app = Flask(config.APP_NAME)
-    app.secret_key = config.SECRET_KEY
+    app = Flask(conf.APP_NAME)
+    app.secret_key = conf.SECRET_KEY
 
     logger.setup_logger()
 
@@ -56,7 +56,7 @@ def create_app(test_config=None):
         markdown = mistune.create_markdown(escape=False)
         
         # Adjust the path as needed
-        md_path = os.path.join(config.STATIC_FOLDER, 'help.md')
+        md_path = os.path.join(conf.STATIC_FOLDER, 'help.md')
         
         with open(md_path, 'r') as file:
             content = file.read()
@@ -70,7 +70,7 @@ def create_app(test_config=None):
     @app.route('/login')
     def login():
         logger.info("Enter login.html")
-        return redirect(config.OMERO_LOGIN_URL)
+        return redirect(conf.OMERO_LOGIN_URL)
 
     @app.route('/enter_token', methods=['GET', 'POST'])
     def enter_token():
@@ -79,16 +79,16 @@ def create_app(test_config=None):
             session_token = request.form.get('session_token')
             logger.info("Session Uuid is: " + session_token)
             if session_token:
-                session[config.OMERO_SESSION_TOKEN_KEY] = session_token
-                session[config.OMERO_SESSION_HOST_KEY] = config.OMERO_HOST
-                session[config.OMERO_SESSION_PORT_KEY] = config.OMERO_PORT
+                session[conf.OMERO_SESSION_TOKEN_KEY] = session_token
+                session[conf.OMERO_SESSION_HOST_KEY] = conf.OMERO_HOST
+                session[conf.OMERO_SESSION_PORT_KEY] = conf.OMERO_PORT
 
                 return redirect(url_for('upload'))
     
         return render_template('enter_token.html')
 
     def hasLoggedIn(session):
-        return config.OMERO_SESSION_TOKEN_KEY in session or config.OMERO_SESSION_HOST_KEY in session
+        return conf.OMERO_SESSION_TOKEN_KEY in session or conf.OMERO_SESSION_HOST_KEY in session
             
     @app.route('/upload')
     def upload():
@@ -106,7 +106,7 @@ def create_app(test_config=None):
         import_time_start = time.time()
 
         try:
-            conn = getattr(g,config.OMERO_G_CONNECTION_KEY)
+            conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
             batch_tag = {}
             #get the sample value if any and process it
             user_sample_value = request.form.get('sample_value') #get the Sample value, '' if empty
@@ -155,7 +155,7 @@ def create_app(test_config=None):
                     filename = item.filename
                     _ , fext = os.path.splitext(filename)
                     
-                    if not fext in config.ALLOWED_FILE_EXT:
+                    if not fext in conf.ALLOWED_FILE_EXT:
                         imported_files.append({
                                 "name": os.path.basename(filename),
                                 "status": "unsupported_format",
@@ -351,7 +351,7 @@ def create_app(test_config=None):
     def logout():
         logger.info("User logged out. Clearing session")
         session.clear()  # Clear the session
-        conn = getattr(g,config.OMERO_G_CONNECTION_KEY)
+        conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
         conn.kill_session()
         return redirect(url_for('index'))
 
@@ -359,7 +359,7 @@ def create_app(test_config=None):
     def get_existing_tags():
         logger.info("get tags")
         try:
-            conn = getattr(g,config.OMERO_G_CONNECTION_KEY)
+            conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
             tags = conn.get_tags_by_key("Sample")
             return jsonify(tags)
         except Exception as e:
