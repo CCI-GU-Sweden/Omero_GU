@@ -8,9 +8,34 @@
     margin-bottom: 5px;
     padding: 5px;
     border-radius: 3px;
+	display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 .pending { background-color: #f0f0f0; }
 .success { background-color: #d4edda; }
 .error { background-color: #f8d7da; }
 .unsupported_format { background-color: #fff3cd; }
 .duplicate { background-color: #fff3cd; }
+.uploading { background-color: #cce5ff; color: #004085; }
+
+.file-item button.remove-button {
+    background-color: transparent; /* Transparent for minimal design */
+    border: none;
+    color: #FF0000;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 10px;
+}
+
+.file-item button.remove-button:hover { color: #A30000; text-decoration: underline; }
+
+.static-row label { margin: 10 5px; }
+
+.remove-row {
+	background-color: transparent;;
+	color: #FF0000;
+	border: none;
+	cursor: pointer;
+}
+.remove-row:hover { color: #A30000; text-decoration: underline; }
