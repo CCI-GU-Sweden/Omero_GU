@@ -213,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     localStorage.setItem('importedFiles', JSON.stringify(importedFiles));
                     renderFileList();
+					importButton.disabled = true; //disable import button
                 }
             })
             .catch(console.error);

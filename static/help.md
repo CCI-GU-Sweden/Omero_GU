@@ -90,9 +90,20 @@ Follow the instructions provided in the "Connecting to OMERO from the Microscope
 &#128194; **Select Files or Folders to Upload**  
 You can choose to upload either individual files or an entire folder. 
 - *Single File Upload*: Select individual files from your local system. 
-- *Folder Upload*: Select a folder to upload all supported files within it. Unsupported file types will be ignored. 
+- *Folder Upload*: Select a folder to upload all supported files within it. Unsupported file types will be ignored.
 
-Optionnaly, it is possible to add an extra tag, new or existing, to the data in order to better organize the images.
+ALL files will be displayed here, including non-image files (.csv, .txt...). These files will **NOT** be uploaded.  
+
+For now, the app support the following file formats:  
+- CZI file from Zeiss Light Microscope (LSM700, LSM710, LSM880, LSM980, CD7, Observer, Imager and ELYRA7).  
+- EMD file from Electron Microscopy. This file will be converted to OME-TIFF.  
+- EMI/SER files Electron Microscopy. Both need to be present in the file list to upload. This file will be converted to OME-TIFF.  
+- MRC/XML files from ATLAS Electron Microscopy. Both need to be present in the file list to upload. This file will be converted to OME-TIFF.  
+- SEM-TIF file from Smart-SEM Electron Microscopy. This file will be converted to OME-TIFF.  
+
+Optionally, it is possible to add an extra tag, new or existing, to the data in order to better organize the images.
+
+It is possible to remove any file or tag from the list by clicking the *remove* button.  
 
 ![Omero_uploadFiles](images/Omero_uploadFiles.png)
 
