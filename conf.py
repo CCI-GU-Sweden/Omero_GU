@@ -16,9 +16,14 @@ LOGGER_NAME = "omero_logger"
 OMERO_HOST = '130.241.39.241'
 OMERO_PORT = '4064'
 
-USE_TEST_URL = True
+try:
+    import config
+    USE_TEST_URL = config.USE_TEST_URL
+except ImportError:
+    USE_TEST_URL = False    
+
 OMERO_TEST_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
-OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
+OMERO_BASE_URL = 'https://omero-cci-users.gu.se'
 
 if USE_TEST_URL:
     OMERO_BASE_URL = OMERO_TEST_BASE_URL
