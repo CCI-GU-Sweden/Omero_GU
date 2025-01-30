@@ -18,7 +18,7 @@ class OmeroConnection:
         return self.conn
     
     def _connect_to_omero(self, hostname, port, token):
-        logger.info(f"Opening connection to OMERO with token: {token}")    
+        logger.info(f"Opening connection to OMERO with token: {token}, hostname: {hostname}")    
         self.omero_token = token
 
         self.conn = BlitzGateway(host=hostname, port=port)
