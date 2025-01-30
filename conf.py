@@ -24,8 +24,7 @@ if USE_TEST_URL:
     OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
 
 else: #production mode
-    #OMERO_HOST = 'omero-cci-cli.gu.se'
-    OMERO_HOST = '130.241.39.241'
+    OMERO_HOST = 'omero-cci-cli.gu.se'
     OMERO_BASE_URL = 'https://omero-cci-users.gu.se'
 
 OMERO_PORT = '4064'
