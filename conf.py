@@ -13,24 +13,24 @@ SECRET_KEY = "s3cr3t"
 APP_NAME = "gu_omero_frontend"
 LOGGER_NAME = "omero_logger"
 
-OMERO_HOST = '130.241.39.241'
-OMERO_PORT = '4064'
-
 try:
     import config
     USE_TEST_URL = config.USE_TEST_URL
 except ImportError:
-    USE_TEST_URL = False    
-
-OMERO_TEST_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
-OMERO_BASE_URL = 'https://omero-cci-users.gu.se'
-
+    USE_TEST_URL = False
+    
 if USE_TEST_URL:
-    OMERO_BASE_URL = OMERO_TEST_BASE_URL
+    OMERO_HOST = '130.241.39.241'
+    OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
+
+else: #production mode
+    OMERO_HOST = 'omero-cci-cli.gu.se'
+    OMERO_BASE_URL = 'https://omero-cci-users.gu.se'
+
+OMERO_PORT = '4064'
 
 OMERO_LOGIN_URL = f'{OMERO_BASE_URL}/oauth/?url=%2Fwebclient%2F'
 OMERO_SESSION_TOKEN_URL = f'{OMERO_BASE_URL}/oauth/sessiontoken'
-
 
 MAX_SIZE_FULL_UPLOAD = 1024 * 1024 * 30 # 30 MB in bytes
 CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
