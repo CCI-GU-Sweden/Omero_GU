@@ -43,9 +43,9 @@
 	<script>
 		var importImagesUrl = "{{ url_for('conn_bp.import_images') }}";
 	</script>
-    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}" type="module"></script>
     <!-- <script src="{{ url_for('static', filename='js/upload.js') }}"></script> -->
     <!-- <script src="{{ url_for('static', filename='js/upload_user_variable.js') }}"></script> -->
-    <script src="{{ url_for('static', filename='js/main_upload.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main_upload.js') }} "type="module"></script>
 </body>
 </html>

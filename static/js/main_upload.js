@@ -1,3 +1,4 @@
+import { fetchWrapper } from "./utils.js";
 document.addEventListener('DOMContentLoaded', () => {
     const keysEndpoint = '/get_existing_tags';
     const interactiveKeyDropdown = document.getElementById('interactive-key-dropdown');
@@ -92,17 +93,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Fetch keys and populate dropdown
-    fetch(keysEndpoint)
-        .then(response => response.json())
-        .then(keysAndValues => {
-            const keys = Object.keys(keysAndValues);
-            interactiveKeyDropdown.innerHTML = keys
-                .map(key => `<option value="${key}">${key}</option>`)
-                .join('');
+    fetchWrapper(keysEndpoint)
+    .then(keysAndValues => {
+        const keys = Object.keys(keysAndValues);
+        interactiveKeyDropdown.innerHTML = keys
+            .map(key => `<option value="${key}">${key}</option>`)
+            .join('');
 
-            if (keys.length > 0) loadExistingValues(keys[0], keysAndValues[keys[0]]);
-        })
-        .catch(console.error);
+        if (keys.length > 0) loadExistingValues(keys[0], keysAndValues[keys[0]]);
+    })
+    .catch(error => {
+        console.log("skit händer här " + error.message);
+    })
 
     interactiveKeyDropdown.addEventListener('change', () => {
         const selectedKey = interactiveKeyDropdown.value;
