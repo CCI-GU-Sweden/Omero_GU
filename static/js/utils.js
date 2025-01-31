@@ -1,3 +1,25 @@
+export function fetchWrapper(endPointName) {
+    return fetch(endPointName)
+    .then(response => {
+        if(!response.ok) {
+            return response.json().then(errorData => {
+                throw errorData;
+            });
+        }
+        return response.json();
+    })
+    .catch(error => {
+        console.error("customFetch error ",error.message);
+        return Promise.reject({
+            error: true,
+            message: error.message,
+            status: error.response ? error.response.status : 'unknown'
+        });
+    })
+};
+    
+
+
 const utils = {
 
     log: (function() {
