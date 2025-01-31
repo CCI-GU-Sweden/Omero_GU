@@ -368,28 +368,7 @@ def create_app(test_config=None):
         conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
         conn.kill_session()
         return redirect(url_for('index'))
-
-    @conn_bp.route('/get_existing_tags', methods=['GET'])
-    def get_existing_tags():
-        """
-        Fetch all tags (keys and their values) from OMERO.
-        """
-        logger.info("Fetching tags from OMERO.")
-        try:
-            conn = getattr(g, conf.OMERO_G_CONNECTION_KEY)
-            keys_and_values = {}
-            
-            # Fetch all keys from the OMERO server
-            all_keys = conf.USER_VARIABLES
-            for key in all_keys:
-                values = conn.get_tags_by_key(key)
-                keys_and_values[key] = values
-            
-            return jsonify(keys_and_values)
-        except Exception as e:
-            logger.error(f"Error fetching keys and tags: {str(e)}")
-            return jsonify({"error": str(e)}), 500
-
+   
     @app.route('/build_info', methods=['GET'])
     def build_info():
         html = "<html><body><h3>Build Info</h3><br>"
