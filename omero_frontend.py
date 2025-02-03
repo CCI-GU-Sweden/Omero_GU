@@ -341,6 +341,12 @@ def create_app(test_config=None):
 
         return jsonify(projects)        
     
+    @app.route("/error_page", methods=['POST','GET'])
+    def error_page():
+        err_type = request.args.get('error_type')
+        err_msg = request.args.get('message')
+        return render_template('error_page.html',error_type=err_type, error_message=err_msg)
+        
     
     @app.route('/log', methods=['POST'])
     def log():
