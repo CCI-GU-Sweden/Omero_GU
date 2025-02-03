@@ -12,12 +12,20 @@ export function fetchWrapper(endPointName) {
         console.error("customFetch error ",error.message);
         return Promise.reject({
             error: true,
+            type:error.error,
             message: error.message,
             status: error.response ? error.response.status : 'unknown'
         });
     })
 };
-    
+  
+export function showErrorPage(type,msg) { 
+    const encodedType = encodeURIComponent(type);
+    const encodedMsg = encodeURIComponent(msg);
+
+    window.location.href =`/error_page?error_type=${encodedType}&message=${encodedMsg}`;
+
+};
 
 
 const utils = {

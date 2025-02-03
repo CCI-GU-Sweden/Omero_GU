@@ -33,12 +33,13 @@ def handle_connection_error(e):
 
 @conn_bp.errorhandler(ConnectionError)
 def handle_connection_error(e):
+    logger.info(f"Connection error occured: {str(e)}")
+    
     return jsonify({
         "error": "Connection Error",
         "message": str(e),
         "status": 500
         }), 500
-
 
 
 @conn_bp.route('/get_existing_tags', methods=['GET'])

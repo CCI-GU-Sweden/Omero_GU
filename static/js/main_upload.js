@@ -1,4 +1,4 @@
-import { fetchWrapper } from "./utils.js";
+import { fetchWrapper, showErrorPage } from "./utils.js";
 document.addEventListener('DOMContentLoaded', () => {
     const keysEndpoint = '/get_existing_tags';
     const interactiveKeyDropdown = document.getElementById('interactive-key-dropdown');
@@ -21,6 +21,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getImportedFiles() {
         return JSON.parse(localStorage.getItem('importedFiles') || '[]');
+    }
+
+    function getTags(){
+        fetchWrapper(keysEndpoint)
+            .then(keysAndValues => {
+                const keys = Object.keys(keysAndValues);
+                interactiveKeyDropdown.innerHTML = keys
+                    .map(key => `<option value="${key}">${key}</option>`)
+                    .join('');
+        
+                if (keys.length > 0) loadExistingValues(keys[0], keysAndValues[keys[0]]);
+            })
+            .catch(error => {
+                console.log("skit händer här " + error.message);
+                //alert(error.type + " occured!\nNotify the CCI staff promptly and show them this message: " + error.message);
+                showErrorPage(error.type,error.message);
+        
+            })
     }
 
     function saveKeyValuePairs() {
@@ -93,27 +111,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Fetch keys and populate dropdown
-    fetchWrapper(keysEndpoint)
-    .then(keysAndValues => {
-        const keys = Object.keys(keysAndValues);
-        interactiveKeyDropdown.innerHTML = keys
-            .map(key => `<option value="${key}">${key}</option>`)
-            .join('');
+    getTags();
+    // fetchWrapper(keysEndpoint)
+    // .then(keysAndValues => {
+    //     const keys = Object.keys(keysAndValues);
+    //     interactiveKeyDropdown.innerHTML = keys
+    //         .map(key => `<option value="${key}">${key}</option>`)
+    //         .join('');
 
-        if (keys.length > 0) loadExistingValues(keys[0], keysAndValues[keys[0]]);
-    })
-    .catch(error => {
-        console.log("skit händer här " + error.message);
-    })
+    //     if (keys.length > 0) loadExistingValues(keys[0], keysAndValues[keys[0]]);
+    // })
+    // .catch(error => {
+    //     console.log("skit händer här " + error.message);
+    //     //alert(error.type + " occured!\nNotify the CCI staff promptly and show them this message: " + error.message);
+    //     showErrorPage(error.type,error.message);
+
+    // })
 
     interactiveKeyDropdown.addEventListener('change', () => {
         const selectedKey = interactiveKeyDropdown.value;
-        fetch(keysEndpoint)
-            .then(response => response.json())
-            .then(keysAndValues => {
-                loadExistingValues(selectedKey, keysAndValues[selectedKey] || []);
-            })
-            .catch(console.error);
+        getTags();
+    //     fetch(keysEndpoint)
+    //         .then(response => response.json())
+    //         .then(keysAndValues => {
+    //             loadExistingValues(selectedKey, keysAndValues[selectedKey] || []);
+    //         })
+    //         .catch(console.error);
     });
 
     newRadio.addEventListener('change', () => {
