@@ -33,11 +33,12 @@ def handle_connection_error(e):
 
 @conn_bp.errorhandler(ConnectionError)
 def handle_connection_error(e):
-    logger.info(f"Connection error occured: {str(e)}")
+    errStr = str(e) + ". Is your OMERO session token still valid?"
+    logger.error(f"Connection error occured: {errStr}")
     
     return jsonify({
         "error": "Connection Error",
-        "message": str(e),
+        "message": errStr,
         "status": 500
         }), 500
 

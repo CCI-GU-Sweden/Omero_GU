@@ -25,7 +25,7 @@ class OmeroConnection:
         is_connected = self.conn.connect(token)
     
         if not is_connected:
-            logger.info(f"Failed to connect to OMERO with token: {token}")
+            logger.warning(f"Failed to connect to OMERO with token: {token}")
             raise ConnectionError("Failed to connect to OMERO")
 
     def _close_omero_connection(self,hardClose=False):
