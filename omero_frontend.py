@@ -10,7 +10,7 @@ local web server: http://127.0.0.1:5000/
 
 """
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g
-from connection_blueprint import conn_bp
+from connection_blueprint import conn_bp, connect_to_omero
 import mistune
 import os
 from dateutil import parser
@@ -370,6 +370,8 @@ def create_app(test_config=None):
     @app.route('/logout')
     def logout():
         logger.info("User logged out. Clearing session")
+
+        connect_to_omero()
         session.clear()  # Clear the session
         conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
         conn.kill_session()
