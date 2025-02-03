@@ -378,6 +378,11 @@ def create_app(test_config=None):
             for name, value in os.environ.items():
                 html += f"{name}: {value}<br>"
              
+        html += "<br/>"
+        html += "<h3>Omeru Server URLS</h3>"
+        html += f"USE_TEST_URL: {conf.USE_TEST_URL}<br/>"
+        html += f"OMERO_HOST: {conf.OMERO_HOST}<br/>"
+        html += f"OMERO_BASE_URL: {conf.OMERO_BASE_URL}<br/>"
         html += "</body></html>"
         return html
 

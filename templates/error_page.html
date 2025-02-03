@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Occurred</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .error-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 4rem;
+            color: #dc3545;
+            margin-bottom: 1rem;
+        }
+
+        .error-type {
+            color: #dc3545;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            text-transform: capitalize;
+        }
+
+        .error-message {
+            color: #6c757d;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .action-buttons {
+            margin-top: 1.5rem;
+        }
+
+        .home-button {
+            background: #007bff;
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.3s ease;
+        }
+
+        .home-button:hover {
+            background: #0056b3;
+        }
+
+        /* Different error type styles */
+        [data-error-type="warning"] .error-icon,
+        [data-error-type="warning"] .error-type {
+            color: #ffc107;
+        }
+
+        [data-error-type="info"] .error-icon,
+        [data-error-type="info"] .error-type {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container" data-error-type="{{ error_type }}">
+        <div class="error-icon">⚠️</div>
+        <h1 class="error-type">Error: {{ error_type }} </h1>
+        <div class="error-message">
+            <p>{{ error_message }}</p>
+        </div>
+        Contact the CCI staff for further assistance!
+        <div class="action-buttons">
+            <button class="home-button" onclick="window.history.back()">Back</button>
+            <button class="home-button" onclick="window.location.href='/'">Home</button>
+        </div>
+    </div>
+</body>
+</html>
