@@ -28,8 +28,12 @@ def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, p
         elif isinstance(d, list):
             for item in d:
                 yield from search(item, key)
-
-    return list(search(dictionary, search_key))
+    
+    #security check
+    result = list(search(dictionary, search_key))
+    if len(result) == 0:
+        result.append("")
+    return result
 
 
 def safe_get(data, keys, default=None):
