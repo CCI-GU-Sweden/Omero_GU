@@ -2,7 +2,6 @@ import conf
 import logger
 import os
 import datetime
-from pathlib import Path
 import numpy as np
 import re
 import xml.etree.ElementTree as ET
@@ -351,6 +350,16 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
                      'Description':description,
                      'Acquisition date':date_object.strftime('%Y-%m-%d'),
                      }
+    # Unpack Physical pixel size
+    for axis, value in physical_pixel_sizes.items():
+        mini_metadata[f'Physical pixel size {axis}'] = value
+    
+    # Unpack Image Size
+    for axis, value in size.items():
+        mini_metadata[f'Image Size {axis[-1]}'] = value
+    
+    del mini_metadata['Physical pixel size']
+    del mini_metadata['Image Size']
     
     return mini_metadata       
 
@@ -403,6 +412,8 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
         'Comment': dict_crawler(data, 'Comment')[0],
         'Defocus': dict_crawler(data, 'Defocus', partial_search=True)[0],
         'Image type': dict_crawler(data, 'Mode')[0],
+        'Image Size X':dict_crawler(data, 'DetectorPixelHeight')[0],
+        'Image Size Y':dict_crawler(data, 'DetectorPixelWidth')[0],
     }
 
     date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
@@ -440,8 +451,8 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
             id="Pixels:0",
             dimension_order=dimension_order,
             type=str(img_array.dtype),
-            size_x=dict_crawler(data, 'DetectorPixelHeight')[0],
-            size_y=dict_crawler(data, 'DetectorPixelWidth')[0],
+            size_x=key_pair['Image Size X'],
+            size_y=key_pair['Image Size Y'],
             size_c=1,
             size_z=1,
             size_t=1,
@@ -543,8 +554,8 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
         'Physical pixel size': dict_crawler(data, 'PixelSize')[0]['width'],
         'Physical pixel unit': dict_crawler(data, 'PixelUnitX')[0],
         'Defocus': dict_crawler(data, 'Defocus')[0],
-        'Image SizeX':dict_crawler(data, 'ImageSize')[0]['width'],
-        'Image SizeY':dict_crawler(data, 'ImageSize')[0]['height'],
+        'Image Size X':dict_crawler(data, 'ImageSize')[0]['width'],
+        'Image Size Y':dict_crawler(data, 'ImageSize')[0]['height'],
     }
     
     date_object = datetime.datetime.fromtimestamp(int(dict_crawler(data, 'AcquisitionDatetime')[0]['DateTime']))
@@ -584,8 +595,8 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
             id="Pixels:0",
             dimension_order="XYCZT",
             type=str(img_array.dtype),
-            size_x=key_pair['Image SizeX'],
-            size_y=key_pair['Image SizeY'],
+            size_x=key_pair['Image Size X'],
+            size_y=key_pair['Image Size Y'],
             size_c=1,
             size_z=1,
             size_t=1,
@@ -688,8 +699,8 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
         'Physical pixel size': safe_get(dict_crawler(data, 'pixelSize')[0], ['x', 'numericValue']),
         'Physical pixel unit': safe_get(dict_crawler(data, 'pixelSize')[0], ['x', 'unit', '_x003C_Symbol_x003E_k__BackingField']),
         'Defocus': dict_crawler(data, 'Defocus')[0],
-        'Image SizeX': img_array.shape[0],
-        'Image SizeY': img_array.shape[1],
+        'Image Size X': img_array.shape[0],
+        'Image Size Y': img_array.shape[1],
     }
     date_object = parser.isoparse(dict_crawler(data, 'acquisitionDateTime')[0])
     key_pair['Acquisition date'] = date_object.strftime('%Y-%m-%d')
@@ -725,8 +736,8 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
             id="Pixels:0",
             dimension_order="XYCZT",
             type=str(img_array.dtype),
-            size_x=key_pair['Image SizeX'],
-            size_y=key_pair['Image SizeY'],
+            size_x=key_pair['Image Size X'],
+            size_y=key_pair['Image Size Y'],
             size_c=1,
             size_z=1,
             size_t=1,
@@ -837,8 +848,8 @@ def convert_semtif_to_ometiff(img_path: str, verbose:bool=False):
             'Vacuum Mode': dict_crawler(cz_sem_metadata, 'dp_vac_mode')[0][1],
             'Mag': dict_crawler(cz_sem_metadata, 'ap_mag')[0][1],
             'Mag Range': dict_crawler(cz_sem_metadata, 'dp_mag_range')[0][1],
-            'Image SizeX' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[0]),
-            'Image SizeY' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[1]),
+            'Image Size X' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[0]),
+            'Image Size Y' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[1]),
             'Physical pixel size': dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][1],
             'Physical pixel unit':dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][2],
             'Image depth': tif.pages[0].tags.get(258).value,
@@ -864,8 +875,8 @@ def convert_semtif_to_ometiff(img_path: str, verbose:bool=False):
                     id="Pixels:0",
                     dimension_order="XYCZT",
                     type=str(img_array.dtype),
-                    size_x=key_pair['Image SizeX'],
-                    size_y=key_pair['Image SizeY'],
+                    size_x=key_pair['Image Size X'],
+                    size_y=key_pair['Image Size Y'],
                     size_c=1,
                     size_z=1,
                     size_t=1,
