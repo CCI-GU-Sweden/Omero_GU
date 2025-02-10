@@ -16,13 +16,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const disconnectButton = document.getElementById('disconnect-button');
     const projectDropdown = document.getElementById('project-dropdown');
     const clearButton = document.getElementById('clear-button');
+	const groupsEndpoint = '/get_existing_groups';
+	const groupDropdown = document.getElementById('group-dropdown')
 
     let fileStore = {}; // Maps file names to File objects
 
     function getImportedFiles() {
         return JSON.parse(localStorage.getItem('importedFiles') || '[]');
     }
-
+	
+	function getGroups(){
+		fetchWrapper(groupsEndpoint)
+			.then(groups => {
+				groupDropdown.innerHTML = groups
+					.map(group => `<option value="${group}">${group}</option>`)
+					.join('');
+			})
+			.catch(error => {
+				console.log("Error fetching groups: " + error.message);
+				showErrorPage(error.type, error.message);
+			});
+	}
+	
     function getTags(){
         fetchWrapper(keysEndpoint)
             .then(keysAndValues => {
@@ -112,6 +127,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fetch keys and populate dropdown
     getTags();
+	// Fetech keys and populate dropdown
+	getGroups();
     // fetchWrapper(keysEndpoint)
     // .then(keysAndValues => {
     //     const keys = Object.keys(keysAndValues);
@@ -148,6 +165,21 @@ document.addEventListener('DOMContentLoaded', () => {
         interactiveNewInput.disabled = true;
         interactiveExistingDropdown.disabled = false;
     });
+	
+	groupDropdown.addEventListener("change", function() {
+		fetch('/set_group', {
+			method: 'POST',
+			headers: {
+				'Accept': 'application/json',
+				'Content-Type': 'application/json'
+				},
+			body: JSON.stringify({ group: groupDropdown.value })
+		})
+		.then(response => response.json())
+		.then(data => console.log("Group set successfully:", data))
+		.catch(error => console.error("Error setting group:", error));
+	});
+
 
     addButton.addEventListener('click', () => {
         const key = interactiveKeyDropdown.value;

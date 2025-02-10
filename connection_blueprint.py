@@ -64,4 +64,37 @@ def get_existing_tags():
         logger.error(f"Error fetching keys and tags: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-    
+@conn_bp.route('/get_existing_groups', methods=['GET'])
+def get_existing_groups():
+    """
+    Fetch groups
+    """
+    logger.info("Fetching groups from OMERO.")
+    try:
+        conn = getattr(g, conf.OMERO_G_CONNECTION_KEY)        
+        return jsonify(conn.get_user_group())
+    except Exception as e:
+        logger.error(f"Error fetching group: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@conn_bp.route('/set_group', methods=['POST'])
+def set_group():
+    try:
+        data = request.get_json()
+        group = data.get('group')
+        if not group:
+            logger.error("No 'group' key found in JSON.")
+            return jsonify({"error": "No group provided"}), 400
+        conn = getattr(g, conf.OMERO_G_CONNECTION_KEY)
+        try:
+            conn.setGroupNameForSession(group)
+        except Exception as e:
+            logger.exception("Error setting group in OMERO!")
+            return jsonify({"error": str(e)}), 500  # Return error message
+
+        return jsonify({"message": f"Group set to {group}"}), 200
+
+    except Exception as e:
+        logger.exception("Unexpected error occurred!")
+        return jsonify({"error": str(e)}), 500
+

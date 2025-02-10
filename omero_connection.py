@@ -159,3 +159,13 @@ class OmeroConnection:
         tags = [x.replace(key,'') for x in tags if x.startswith(key+' ')] #filter it
 
         return tags
+
+    def get_user_group(self):
+        groups = []
+        for group in self.conn.getGroupsMemberOf():
+            groups.append(group.getName())
+        return groups
+        
+
+    def setGroupNameForSession(self, group):
+        self.conn.setGroupNameForSession(group)
