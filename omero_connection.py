@@ -169,3 +169,7 @@ class OmeroConnection:
 
     def setGroupNameForSession(self, group):
         self.conn.setGroupNameForSession(group)
+        
+    def getDefaultOmeroGroup(self):
+        group = self.conn.getGroupFromContext()
+        return group.getName()

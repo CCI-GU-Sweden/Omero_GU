@@ -17,27 +17,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const projectDropdown = document.getElementById('project-dropdown');
     const clearButton = document.getElementById('clear-button');
 	const groupsEndpoint = '/get_existing_groups';
-	const groupDropdown = document.getElementById('group-dropdown')
+	const groupDropdown = document.getElementById('group-dropdown');
+	const defaultGroupEndpoint = "/get_default_group";
 
     let fileStore = {}; // Maps file names to File objects
 
     function getImportedFiles() {
         return JSON.parse(localStorage.getItem('importedFiles') || '[]');
     }
-	
-	function getGroups(){
-		fetchWrapper(groupsEndpoint)
-			.then(groups => {
-				groupDropdown.innerHTML = groups
-					.map(group => `<option value="${group}">${group}</option>`)
-					.join('');
-			})
-			.catch(error => {
-				console.log("Error fetching groups: " + error.message);
-				showErrorPage(error.type, error.message);
-			});
-	}
-	
+
+
     function getTags(){
         fetchWrapper(keysEndpoint)
             .then(keysAndValues => {
@@ -125,10 +114,42 @@ document.addEventListener('DOMContentLoaded', () => {
         renderFileList();
     }
 
+	function populateGroupDropdown() {
+		return fetchWrapper(groupsEndpoint)
+			.then(groups => {
+				groupDropdown.innerHTML = groups
+					.map(group => `<option value="${group}">${group}</option>`)
+					.join('');
+				return groups; // Return groups for chaining
+			})
+			.catch(error => {
+				console.log("Error fetching groups: " + error.message);
+				showErrorPage(error.type, error.message);
+			});
+	}
+
+	function setDefaultGroup() {
+		fetchWrapper('/get_default_group')
+			.then(defaultGroup => {
+				// Ensure the dropdown is populated first
+				if ([...groupDropdown.options].some(option => option.value === defaultGroup)) {
+					groupDropdown.value = defaultGroup;
+				} else {
+					console.warn("Default group not found in the list!");
+				}
+			})
+			.catch(error => {
+				console.log("Error fetching default group: " + error.message);
+				showErrorPage(error.type, error.message);
+			});
+	}
+
+	// Fetch groups and set the current group
+	populateGroupDropdown().then(setDefaultGroup);
+
     // Fetch keys and populate dropdown
     getTags();
-	// Fetech keys and populate dropdown
-	getGroups();
+
     // fetchWrapper(keysEndpoint)
     // .then(keysAndValues => {
     //     const keys = Object.keys(keysAndValues);
@@ -229,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectFolderButton.addEventListener('click', () => folderInput.click());
 
     importButton.addEventListener('click', (e) => {
-		console.log("starting upload");
+		console.log("Starting upload");
         e.preventDefault();
 		
 		const formData = new FormData();

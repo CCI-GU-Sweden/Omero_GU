@@ -64,6 +64,19 @@ def get_existing_tags():
         logger.error(f"Error fetching keys and tags: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@conn_bp.route('/get_default_group', methods=['GET'])
+def get_default_group():
+    """Fetch the default group of the user"""
+    try:
+        conn = getattr(g, conf.OMERO_G_CONNECTION_KEY)
+        group = conn.getDefaultOmeroGroup()
+        logger.info(f"Default group is: {str(group)}")
+        return jsonify(group)
+        #function here
+    except Exception as e:
+        logger.error(f"Error fetching the default group: {str(e)}")
+        return jsonify({"error": str(e)}), 500        
+
 @conn_bp.route('/get_existing_groups', methods=['GET'])
 def get_existing_groups():
     """
