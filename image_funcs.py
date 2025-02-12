@@ -665,7 +665,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
 
 def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
     """
-    Convert atlas file, which is a pair of mrc and xml, to ome-tiff format.
+    Convert atlas file (TEM likely MAPS), which is a pair of mrc and xml, to ome-tiff format.
     
     Args:
     img_path (dict): containing the path for the mrc and xml file
