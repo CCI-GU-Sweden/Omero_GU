@@ -27,6 +27,36 @@ export function showErrorPage(type,msg) {
 
 };
 
+export function pairFiles(fileList, ext1, ext2)
+{
+    var ext1List = Array.from(fileList).filter((file) => file.name.split('.').pop() === ext1)
+    var ext2List = Array.from(fileList).filter((file) => file.name.split('.').pop() === ext2)
+
+    var resList = [];
+    for(var f1 of ext1List)
+    {
+        var f1Name = f1.name.split('.')[0];
+        var filePair = {ext1: f1, ext2: null};
+        var f2 = ext2List.find((file) => file.name.includes(f1Name))
+        if( f2 )
+        {
+            filePair.ext2 = f2;
+            var idx = ext2List.indexOf(f2);
+            ext2List.splice(idx,1);
+        }
+
+        resList.push(filePair);
+    }
+
+    //check if we have remaining unmatches files in ext2list
+    for(var f in ext2List)
+    {
+        filePair = {ext1: null, ext2: f};
+        resList.push(filePair);
+    }
+
+    return resList;
+}
 
 const utils = {
 
