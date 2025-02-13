@@ -1,6 +1,8 @@
 import pathlib
 
-ALLOWED_FILE_EXT = [".czi", ".emd", ".tif"]
+ALLOWED_FOLDER_FILE_EXT = [".czi", ".emd", ".tif", ".emi", ".ser", ".mrc", ".xml"]
+ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
+
 
 LOG_DIR = "logs/"
 LOG_FILE = "omero_app.log"
@@ -32,6 +34,7 @@ OMERO_PORT = '4064'
 OMERO_LOGIN_URL = f'{OMERO_BASE_URL}/oauth/?url=%2Fwebclient%2F'
 OMERO_SESSION_TOKEN_URL = f'{OMERO_BASE_URL}/oauth/sessiontoken'
 
+USE_CHUNK_READ_ON_LARGE_FILES = True
 MAX_SIZE_FULL_UPLOAD = 1024 * 1024 * 30 # 30 MB in bytes
 CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
 
@@ -39,6 +42,8 @@ UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
 
 USER_VARIABLES = ["Sample"]
+
+DATE_TIME_FMT = "%Y-%m-%d %H:%M:%S"
 
 #create the version_file.txt file from the build pipeline!
 GIT_HASH_FILE_NAME = "version_file.txt"
@@ -57,6 +62,7 @@ except FileNotFoundError:
 APP_VERSION = BUILD + "-" + SHA
 
 OMERO_SESSION_TOKEN_KEY = "omero_token"
-OMERO_SESSION_HOST_KEY = "omero_host"
-OMERO_SESSION_PORT_KEY = "omero_port"
-OMERO_G_CONNECTION_KEY = "connection"
+OMERO_SESSION_HOST_KEY  = "omero_host"
+OMERO_SESSION_PORT_KEY  = "omero_port"
+OMERO_G_CONNECTION_KEY  = "connection"
+OMERO_G_IMPORTER_KEY    = "importer"
