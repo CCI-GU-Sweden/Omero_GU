@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Blueprint,g
 from omero_connection import OmeroConnection
 import conf, logger
+import traceback
 
 conn_bp = Blueprint('conn_bp',__name__,url_prefix='/')
 
@@ -35,9 +36,19 @@ def handle_connection_error(e):
 def handle_connection_error(e):
     errStr = str(e) + ". Is your OMERO session token still valid?"
     logger.error(f"Connection error occured: {errStr}")
-    
     return jsonify({
         "error": "Connection Error",
+        "message": errStr,
+        "status": 500
+        }), 500
+
+
+@conn_bp.errorhandler(Exception)
+def handle_exception_error(e):
+    errStr = str(e)
+    logger.error(f"General Exception Error:{errStr} \n Trace:  {traceback.format_exc()}")
+    return jsonify({
+        "error": "General Error",
         "message": errStr,
         "status": 500
         }), 500

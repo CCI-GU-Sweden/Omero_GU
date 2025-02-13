@@ -3,8 +3,13 @@ import omero
 from omero.gateway import BlitzGateway, ProjectWrapper
 import omero.rtypes
 
+from threading import Thread, Lock
+
 
 class OmeroConnection:
+    
+    _mutex = Lock()
+    
     def __init__(self, hostname, port, token):
         self._connect_to_omero(hostname,port,token)
         
@@ -42,18 +47,20 @@ class OmeroConnection:
         return None
 
     def get_or_create_project(self, project_name):
-        logger.debug(f"Setting or grabbing the Project {self.conn}")
+        
+        with self._mutex:
+            logger.debug(f"Setting or grabbing the Project {self.conn}")
 
-        # Try to get the project
-        project = self.get_user_project_if_it_exists(project_name)
+            # Try to get the project
+            project = self.get_user_project_if_it_exists(project_name)
             
-        if not project:
-            # Create project using UpdateService
-            p = omero.model.ProjectI()
-            project = ProjectWrapper(obj=p,conn=self.conn)
-            project.setName(project_name)
-            project.save()
-            logger.info(f"Created new project - ID: {project.getId()}, Name: {project_name}")
+            if not project:
+                # Create project using UpdateService
+                p = omero.model.ProjectI()
+                project = ProjectWrapper(obj=p,conn=self.conn)
+                project.setName(project_name)
+                project.save()
+                logger.info(f"Created new project - ID: {project.getId()}, Name: {project_name}")
         
         return project.getId()
 
@@ -103,30 +110,32 @@ class OmeroConnection:
         return datasets
 
     def get_or_create_dataset(self, project_id, dataset_name):
+        
         project = self.conn.getObject("Project", project_id)
         if not project:
             raise Exception(f"Project with ID {project_id} not found")
 
+        with self._mutex:
 
-        data = [d for d in project.listChildren() if d.getName() == dataset_name]
+            data = [d for d in project.listChildren() if d.getName() == dataset_name]
 
-        if len(data) > 0:
-            dataset_id = data[0].getId()
-            logger.debug(f"Dataset '{dataset_name}' already exists in project. Using existing dataset.")
-        else:
-            # Dataset doesn't exist, create it
-            dataset = omero.model.DatasetI()
-            dataset.setName(omero.rtypes.rstring(dataset_name))
-            dataset = self.conn.getUpdateService().saveAndReturnObject(dataset)
-            dataset_id = dataset.getId()
+            if len(data) > 0:
+                dataset_id = data[0].getId()
+                logger.debug(f"Dataset '{dataset_name}' already exists in project. Using existing dataset.")
+            else:
+                # Dataset doesn't exist, create it
+                dataset = omero.model.DatasetI()
+                dataset.setName(omero.rtypes.rstring(dataset_name))
+                dataset = self.conn.getUpdateService().saveAndReturnObject(dataset)
+                dataset_id = dataset.getId()
 
-            # Link dataset to project
-            link = omero.model.ProjectDatasetLinkI()
-            link.setParent(omero.model.ProjectI(project_id, False))
-            link.setChild(dataset)
-            self.conn.getUpdateService().saveObject(link)
-            
-            logger.info(f"Created new dataset '{dataset_name}' with ID {dataset_id.getValue()} and linked to project.")
+                # Link dataset to project
+                link = omero.model.ProjectDatasetLinkI()
+                link.setParent(omero.model.ProjectI(project_id, False))
+                link.setChild(dataset)
+                self.conn.getUpdateService().saveObject(link)
+                
+                logger.info(f"Created new dataset '{dataset_name}' with ID {dataset_id.getValue()} and linked to project.")
             
         return dataset_id
 

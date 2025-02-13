@@ -9,20 +9,17 @@ Created on Fri Nov 15 15:09:51 2024
 local web server: http://127.0.0.1:5000/
 
 """
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response
 from connection_blueprint import conn_bp, connect_to_omero
 import mistune
 import os
-from dateutil import parser
-import datetime
-import time
 import database
 import omero_funcs
 import traceback
 import conf
 import logger
-import image_funcs
 import json
+import file_importer
 
 processed_files = {} # In-memory storage for processed files (for the session)
 
@@ -42,6 +39,8 @@ def create_app(test_config=None):
 
     logger.info("***** Starting CCI Omero Frontend ******")
 
+    importer = file_importer.FileImporter()
+    
     #Flask function
     @app.route('/') #Initial
     def index():
@@ -95,235 +94,54 @@ def create_app(test_config=None):
             return redirect(url_for('enter_token'))
         return render_template('upload.html')
 
+    @app.errorhandler(Exception)
+    def handle_exception_error(e):
+        return jsonify({
+            "error": "Connection Error",
+            "message": str(e),
+            "status": 500
+            }), 500
+    
     @conn_bp.route('/import_images', methods=['POST'])
     def import_images():
         logger.info("Enter import_images")
         if not hasLoggedIn(session):
             return jsonify({"error": "Not logged in"}), 401
                
-        import_time_start = time.time()
-        
+        conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
+            
         try:
-            conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
-            batch_tag = {}
+            # Retrieve the key-value pairs from the form data
+            key_value_pairs = request.form.get('keyValuePairs')
             
-            try:
-                # Retrieve the key-value pairs from the form data
-                key_value_pairs = request.form.get('keyValuePairs')
-                
-                # Parse the JSON string into a Python dictionary or list
-                if key_value_pairs:
-                    key_value_pairs = json.loads(key_value_pairs)
-                else:
-                    return jsonify({"error": "No keyValuePairs found in the request"}), 400
-        
-                # Example: Print key-value pairs or process them further
-                logger.info(f"Received key-value pairs: {key_value_pairs}")
-        
-                # Assuming you want to handle key-value pairs (this is a placeholder logic)
-                batch_tag = {}
-                for pair in key_value_pairs:
-                    key = pair.get("key")
-                    value = pair.get("value", "None")  # Default to "None" if no value is provided
-                    batch_tag[key] = value.strip()
-
-            except Exception as e:
-                return jsonify({"error": str(e)}), 500 #may want to just continue?
-    
-            
-            files = request.files.getlist('files') #get the files to upload
-            file_n = 0
-            
-            logger.info(f"Received files: {[file.filename for file in files]}")
-            
-            #pairs files for download
-            files = image_funcs.pair_emi_ser(files)
-            files = image_funcs.pair_mrc_xml(files)
-            
-            
-            imported_files = []
-            scopes = []
-            total_file_size = 0
-            # Create a temporary directory
-            for item in files:
-                file_paths = []
-                if isinstance(item, dict):  # EMI/SER pair
-                    if item.get('emi', None):
-                        file_path, _ = image_funcs.store_temp_file(item['emi'])
-                        t, file_size = image_funcs.store_temp_file(item['ser'])
-                        filename = item['emi'].filename
-                        #save both path
-                        file_paths.append(file_path)
-                        file_paths.append(t)
-                        file_n += 1
-                        
-                    elif item.get('mrc', None):
-                        file_path, _ = image_funcs.store_temp_file(item['xml'])
-                        t, file_size = image_funcs.store_temp_file(item['mrc'])
-                        filename = item['mrc'].filename
-                        #save both path
-                        file_paths.append(file_path)
-                        file_paths.append(t)
-                        file_path = {'xml':file_path,'mrc':t} #require a dict in this case
-                        file_n += 1
-                    
-                else:   #CZI, EMD
-                    filename = item.filename
-                    _ , fext = os.path.splitext(filename)
-                    
-                    if not fext in conf.ALLOWED_FILE_EXT:
-                        imported_files.append({
-                                "name": os.path.basename(filename),
-                                "status": "unsupported_format",
-                                "message": "The file is not supported and will be skipped",
-                                "path" : ""
-                            })
-                        continue
-                    
-                    file_path, file_size = image_funcs.store_temp_file(item)
-                    file_n += 1
-
-                total_file_size += file_size
-                                
-                try:
-                    logger.info(f"Processing of {file_path}")
-                    #Spliter functions required here for multiple file format support
-                    file_path, meta_dict = image_funcs.file_format_splitter(file_path, verbose=True)
-                    file_paths.append(file_path)
-                    meta_dict = meta_dict | batch_tag #merge the batch tag to the meta_dictionnary
-                    folder = os.path.basename(os.path.dirname(filename))
-                    if folder != '': meta_dict['Folder'] = folder
-                    logger.info(f"Metadata successfully extracted from {filename}")
-
-                    scopes.append([meta_dict['Microscope']])
-                    project_name = meta_dict['Microscope']
-                    acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
-                    dataset_name = acquisition_date_time.strftime("%Y-%m-%d")
-                    
-                    # Get or create project and dataset
-                    projID = conn.get_or_create_project(project_name)
-                    dataID = conn.get_or_create_dataset(projID, dataset_name)
-                    
-                    logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
-                    
-                    # Check if image is already in the dataset and has the acquisition time
-                    dataset = conn.getDataset(dataID)
-                    file_exists = False
-                    
-                    dup, childId =  omero_funcs.check_duplicate_filename(conn,filename,dataset)
-                    if dup:
-                        sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
-                        if not sameTime: #same name but different acquisition times, rename the imported file 
-                            acq_time = acquisition_date_time.strftime("%H-%M-%S")
-                            new_name = ''.join(file_path.split('.')[:-1]+['_', acq_time,'.',file_path.split('.')[-1]])   
-                            os.rename(file_path, new_name)
-                            logger.info(f'Rename {file_path} to {new_name} in order to avoid name duplication')
-                            file_path = new_name
-                        else: #same file, a duplicate
-                            file_exists = True
-                    
-                    if file_exists:
-                        logger.info(f'{filename} already exists, skip.')
-                        processed_files[filename] = 'duplicate'
-                        imported_files.append({"name": os.path.basename(filename),
-                                            "status": "duplicate",
-                                            "message": "File already exists",
-                                            "path":''
-                                            })
-
-                    else:
-                        #import the file
-                        logger.info(f'Importing {filename}.')
-                        user = conn.get_logged_in_user_name()
-                        index = user.find('@')
-                        user_name = user[:index] if index != -1 else user
-                        
-                        dst_path = f'{user_name} / {project_name} / {dataset_name}'
-                        image_id = omero_funcs.import_image(conn.get_omero_connection(), file_path, dataset, meta_dict, batch_tag)
-                        processed_files[filename] = 'success'
-                        logger.info(f"ezimport result for {filename}: {image_id}, path: {dst_path}")
-                        
-                        imported_files.append({
-                            "name": os.path.basename(filename),
-                            "status": "success",
-                            "message": f"Successfully imported as Image ID: {image_id}",
-                            "path" : f'{dst_path}'
-                        })
-
-                except Exception as e:
-                    logger.error(f"Error during import of {filename}: {str(e)}, line: {traceback.format_exc()}")
-                    processed_files[filename] = 'error'
-                    imported_files.append({
-                        "name": os.path.basename(filename),
-                        "status": "error",
-                        "message": str(e),
-                        "path":''
-                    })
-                
-                finally: #in any case, delete the whole content of the upload folder                    
-                    for file in file_paths:
-                        if os.path.exists(file):
-                            os.remove(file)
-                    logger.info(f"Deleting the temporary file(s): {file_paths}")
-            
-            # Only add an entry in the database (and log) if at least one transfer is successfull!
-            if any(x["status"] == 'success' for x in imported_files):
-                scope = None
-                import_time = time.time() - import_time_start
-                if len(scopes) > 0:
-                    scope = sorted(scopes, key=scopes.count, reverse=True)[0] #take only one scope
-                    if isinstance(scope, list):
-                        if len(scope) > 0:
-                            scope = scope[0]
-    
-                logger.info("Import done")
-                
-                #get some data
-                user = conn.get_user()
-                time_stamp = datetime.datetime.today().strftime('%Y-%m-%d')
-                username = user.getFullName()
-                group = conn.get_omero_connection().getGroupFromContext()
-                groupname = group.getName()
-    
-                # security:
-                groupname = str(groupname) if groupname else "Unknown Group"
-                username = str(username) if username else "Unknown User"
-                scope = str(scope) if scope else "Unknown Scope"
-                file_n = int(file_n) if file_n else 0
-                total_file_size = float(total_file_size) if total_file_size else 0.0
-                import_time = float(import_time) if import_time else 0.0
-                
-                #show the data in the log
-                logger.info('User information:')
-                logger.info(f"    Time: {time_stamp}")
-                logger.info(f"    Full Name: {username}")
-                logger.info(f"    Current group: {groupname}")
-                logger.info(f"    Main microscope: {scope}")
-                logger.info(f"    File number: {file_n}")
-                logger.info(f"    File total size (MB): {total_file_size /1024 / 1024}")
-                logger.info(f"    Import time (s): {import_time}")
-                logger.info("")
-                
-                # Insert data into the database
-                database.insert_import_data(
-                    time=time_stamp,
-                    username=username,
-                    groupname=groupname,
-                    scope=scope,
-                    file_count=file_n,
-                    total_file_size_mb=total_file_size / 1024 / 1024,
-                    import_time_s=import_time
-                )
-            
+            # Parse the JSON string into a Python dictionary or list
+            if key_value_pairs:
+                key_value_pairs = json.loads(key_value_pairs)
             else:
-                logger.info("Import failed")
-            
-            
-            return jsonify({"files": imported_files})
-        
+                return jsonify({"error": "No keyValuePairs found in the request"}), 400
+    
+            # Example: Print key-value pairs or process them further
+            logger.info(f"Received key-value pairs: {key_value_pairs}")
+    
+            # Assuming you want to handle key-value pairs (this is a placeholder logic)
+            batch_tag = {}
+            for pair in key_value_pairs:
+                key = pair.get("key")
+                value = pair.get("value", "None")  # Default to "None" if no value is provided
+                batch_tag[key] = value.strip()
+
         except Exception as e:
-            logger.error(f"Error during import process: {str(e)}")
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": str(e)}), 500 #may want to just continue?
+    
+        files = request.files.getlist('files')
+        logger.info(f"Received file: {files}")
+        
+        res = importer.startImport(files,batch_tag,conn)
+        
+        if res:
+            return jsonify({"status":"Ok"})
+        else:
+            return jsonify({"status":"Failed"})
             
     @app.route('/get_projects', methods=['POST'])
     def get_projects():
@@ -341,12 +159,16 @@ def create_app(test_config=None):
 
         return jsonify(projects)        
     
+    @app.route('/supported_file_formats', methods=['POST','GET'])
+    def supported_formats():
+        return jsonify({"folder_formats" : conf.ALLOWED_FOLDER_FILE_EXT,
+                        "single_formats" : conf.ALLOWED_SINGLE_FILE_EXT})
+    
     @app.route("/error_page", methods=['POST','GET'])
     def error_page():
         err_type = request.args.get('error_type')
         err_msg = request.args.get('message')
         return render_template('error_page.html',error_type=err_type, error_message=err_msg)
-        
     
     @app.route('/log', methods=['POST'])
     def log():
@@ -393,6 +215,17 @@ def create_app(test_config=None):
         html += f"OMERO_BASE_URL: {conf.OMERO_BASE_URL}<br/>"
         html += "</body></html>"
         return html
+
+    @app.route('/import_updates')
+    def import_updates_stream():
+        def generate():
+            count = 0
+            while True:
+                event = importer.getEvent()
+                yield f"data: {json.dumps(event)}\n\n"
+        
+        #should check for ConnectinError exception!!!
+        return Response(generate(), mimetype='text/event-stream')
 
     app.register_blueprint(conn_bp)
     return app

@@ -211,26 +211,27 @@ def pair_mrc_xml(files: list): #list of filename
         
     return list(paired_files.values()) + unpaired_files
 
-
-def file_format_splitter(img_path, verbose:bool):
+def file_format_splitter(fileData, verbose:bool):
     #different strategies in case of different file format
-    if isinstance(img_path, str):
-        logger.info(f"Received file is of format {img_path.split('.')[-1].lower()}")
-        if img_path.split('.')[-1].lower() == "czi": #Light microscope format - CarlZeissImage
-            key_pair = get_info_metadata_from_czi(img_path, verbose=verbose)
-        elif img_path.split('.')[-1].lower() == "emi": #Electron microscope format
-            img_path, key_pair = convert_emi_to_ometiff(img_path, verbose=verbose)
-        elif img_path.split('.')[-1].lower() == "emd": #Electron microscope format
-            img_path, key_pair = convert_emd_to_ometiff(img_path, verbose=verbose)
-        elif img_path.split('.')[-1].lower() == "tif": #Tif, but only SEM-TIF
-            img_path, key_pair = convert_semtif_to_ometiff(img_path, verbose=verbose)
-    elif isinstance(img_path, dict): #Electron microscope format
-        logger.info(f"Received a pair of files is of format {' '.join([img_path[x].split('.')[-1].lower() for x in img_path.keys()])}")
-        img_path, key_pair = convert_atlas_to_ometiff(img_path, verbose=verbose)
+#    if isinstance(img_path, str):
+    ext = fileData.getMainFileExtension().lower()
+    img_path = fileData.getMainFileTempPath()
+    logger.info(f"Received file is of format {ext}")
+    if ext == "czi": #Light microscope format - CarlZeissImage
+        converted_path = img_path
+        key_pair = get_info_metadata_from_czi(img_path, verbose=verbose)
+    elif ext == "emi": #Electron microscope format
+        converted_path, key_pair = convert_emi_to_ometiff(img_path, verbose=verbose)
+    elif ext == "emd": #Electron microscope format
+        converted_path, key_pair = convert_emd_to_ometiff(img_path, verbose=verbose)
+    elif ext == "tif": #Tif, but only SEM-TIF
+        converted_path, key_pair = convert_semtif_to_ometiff(img_path, verbose=verbose)
+    elif ext == "mrc":
+#   elif isinstance(img_path, dict): #Electron microscope format
+#      logger.info(f"Received a pair of files is of format {' '.join([img_path[x].split('.')[-1].lower() for x in img_path.keys()])}")
+        converted_path, key_pair = convert_atlas_to_ometiff(img_path, verbose=verbose)
     
-    
-    return img_path, key_pair
-
+    return converted_path, key_pair
 
 def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
     """
@@ -348,7 +349,7 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
                      'Image Size':size,
                      'Comment':comment,
                      'Description':description,
-                     'Acquisition date':date_object.strftime('%Y-%m-%d'),
+                     'Acquisition date':date_object.strftime(conf.DATE_TIME_FMT),
                      }
     # Unpack Physical pixel size
     for axis, value in physical_pixel_sizes.items():
@@ -417,7 +418,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     }
 
     date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
-    key_pair['Acquisition date'] = date_object.strftime('%Y-%m-%d')
+    key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
     
     #extra pair for the general metadata
     extra_pair = {
@@ -445,7 +446,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     image = model.Image(
         id="Image:0",
         name=os.path.basename(img_path),
-        acquisition_date=date_object.strftime('%Y-%m-%d %H:%M:%S'),
+        acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
         
         pixels = model.Pixels(
             id="Pixels:0",
@@ -559,7 +560,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     }
     
     date_object = datetime.datetime.fromtimestamp(int(dict_crawler(data, 'AcquisitionDatetime')[0]['DateTime']))
-    key_pair['Acquisition date'] = date_object.strftime('%Y-%m-%d')
+    key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
     mode = dict_crawler(data, 'TemOperatingSubMode')[0]+' '
     mode += dict_crawler(data, 'ObjectiveLensMode')[0]+' '
     mode += dict_crawler(data, 'HighMagnificationMode')[0]+' '
@@ -589,7 +590,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     image = model.Image(
         id="Image:0",
         name=os.path.basename(img_path),
-        acquisition_date=date_object.strftime('%Y-%m-%d %H:%M:%S'),
+        acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
         
         pixels = model.Pixels(
             id="Pixels:0",
@@ -703,7 +704,7 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
         'Image Size Y': img_array.shape[1],
     }
     date_object = parser.isoparse(dict_crawler(data, 'acquisitionDateTime')[0])
-    key_pair['Acquisition date'] = date_object.strftime('%Y-%m-%d')
+    key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
     
     mode = dict_crawler(data, 'ColumnOperatingMode')[0]+' '
     mode += dict_crawler(data, 'ColumnOperatingTemSubMode')[0]+' '
@@ -730,7 +731,7 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
     image = model.Image(
         id="Image:0",
         name = os.path.basename(img_path['mrc']),
-        acquisition_date=date_object.strftime('%Y-%m-%d %H:%M:%S'),
+        acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
         
         pixels = model.Pixels(
             id="Pixels:0",
@@ -860,7 +861,7 @@ def convert_semtif_to_ometiff(img_path: str, verbose:bool=False):
             time = dict_crawler(cz_sem_metadata, 'ap_time')[0][1]
             
             date_object = datetime.datetime.strptime(date+' '+time, "%d %b %Y %H:%M:%S")
-            key_pair['Acquisition date'] = date_object.strftime("%Y-%m-%d")
+            key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
                                                   
             # Create an OME object
             ome = model.OME()
@@ -869,7 +870,7 @@ def convert_semtif_to_ometiff(img_path: str, verbose:bool=False):
             image = model.Image(
                 id="Image:0",
                 name = os.path.basename(img_path),
-                acquisition_date=date_object.strftime("%Y-%m-%d %H:%M:%S"),
+                acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
                 
                 pixels = model.Pixels(
                     id="Pixels:0",
@@ -994,25 +995,3 @@ def delete(file_path:str):
         logger.info(f"Successfully deleted temporary file: {file_path}")
     else:
         logger.warning(f"Temporary file not found for deletion: {file_path}")
-
-def store_temp_file(img_obj):
-    filename = img_obj.filename
-    # Create subdirectories if needed
-    file_path = os.path.join(conf.UPLOAD_FOLDER, *os.path.split(filename))
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    
-    img_obj.seek(0)            
-    file_size = len(img_obj.read())
-    img_obj.seek(0)
-    
-        # Save file to temporary directory
-    if file_size <= conf.MAX_SIZE_FULL_UPLOAD: #direct save
-        logger.info(f"File {filename} is smaller than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
-        img_obj.save(file_path) #one go save
-    else: #chunk save
-        logger.info(f"File {filename} is larger than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
-        with open(file_path, 'wb') as f:
-            while chunk := img_obj.stream.read(conf.CHUNK_SIZE):
-                f.write(chunk)
-    
-    return file_path, file_size
