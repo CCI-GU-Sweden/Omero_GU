@@ -9,7 +9,7 @@ Created on Fri Nov 15 15:09:51 2024
 local web server: http://127.0.0.1:5000/
 
 """
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
 from connection_blueprint import conn_bp, connect_to_omero
 import mistune
 import os
@@ -46,6 +46,11 @@ def create_app(test_config=None):
     def index():
         logger.info("Enter index.html")
         return render_template('index.html')
+    
+    @app.route('/favicon.ico')
+    def favicon():
+        return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
     
     @app.route('/help')
     def help_page():
