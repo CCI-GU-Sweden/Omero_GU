@@ -1,6 +1,7 @@
 import logger
 import omero
-from omero.gateway import BlitzGateway, ProjectWrapper
+import omero.rtypes
+from omero.gateway import BlitzGateway, ProjectWrapper, TagAnnotationWrapper
 import omero.rtypes
 
 from threading import Thread, Lock
@@ -174,11 +175,48 @@ class OmeroConnection:
         for group in self.conn.getGroupsMemberOf():
             groups.append(group.getName())
         return groups
-        
+                
+    def getTagAnnotations(self,attributes):
+        return self.conn.getObjects("TagAnnotation", attributes=attributes)
 
     def setGroupNameForSession(self, group):
-        self.conn.setGroupNameForSession(group)
+        with self._mutex:
+            self.conn.setGroupNameForSession(group)
         
     def getDefaultOmeroGroup(self):
         group = self.conn.getGroupFromContext()
         return group.getName()
+    
+    def setAnnotationOnImage(self, image, tag_value):
+        with self._mutex:
+            try:
+                attributes={'textValue': tag_value}
+                tag_ann = None
+                
+                for ann in self.getTagAnnotations(attributes):
+                    if ann != None:
+                        tag_ann = ann
+                    
+                    if not tag_ann:
+                        tag_ann = omero.gateway.TagAnnotationWrapper(self.conn)
+                        tag_ann.setValue(tag_value)
+                        tag_ann.save()
+                    
+                    image.linkAnnotation(tag_ann)
+            except omero.ValidationException as e:
+                logger.warning(f"Failed to insert the tag {tag_value} to image {image}: {str(e)}")
+            except Exception as e:
+                logger.error(f"Failed to set/get tag annotations on image {image}: {str(e)}")
+                
+
+    def setDescriptionOnImage(self, image, descr):
+        with self._mutex:
+            image.setDescription(descr)
+            image.save()
+
+    def setCommentOnImage(self, image, comment):
+        with self._mutex:
+            comment_ann = omero.gateway.CommentAnnotationWrapper(self.conn)
+            comment_ann.setValue(comment)
+            comment_ann.save()
+            image.linkAnnotation(comment_ann)
