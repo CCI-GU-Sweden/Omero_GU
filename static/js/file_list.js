@@ -12,26 +12,41 @@ const FileStatus = Object.freeze({
 });
 
 let fileComponents = [];
+var listChangeCb = null;
 
 function getFileList(){
     return document.getElementById('file-list');
 }
 
-function removePairFromList(index1,index2){
-    const child1ToRemove = fileComponents[index1];
-    const child2ToRemove = fileComponents[index2];
-    fileList.removeChild(child1ToRemove);
-    fileList.removeChild(child2ToRemove);
-    delete fileObjStore[child1ToRemove.textContent];
-    delete fileObjStore[child2ToRemove.textContent];
+// function removePairFromList(index1,index2){
+//     const child1ToRemove = fileComponents[index1];
+//     const child2ToRemove = fileComponents[index2];
+//     fileList.removeChild(child1ToRemove);
+//     fileList.removeChild(child2ToRemove);
+//     delete fileObjStore[child1ToRemove.textContent];
+//     delete fileObjStore[child2ToRemove.textContent];
+// }
+
+export function setFileListChangeCB(ccb)
+{
+    if(ccb)
+        listChangeCb = ccb;
+}
+
+function callCCB()
+{
+    if(listChangeCb)
+        listChangeCb();
 }
 
 function removeFileFromList(index){
     const childToRemove = fileComponents[index]; // index is the position of the child to remove
     var cr = fileComponents.splice(childToRemove,1);
-    delete fileObjStore[cr[0].getName()];
+    //delete fileObjStore[cr[0].getName()];
+    //cr.destroy();
     cr.destroy();
     cr = null;
+    callCCB();
 }
 
 function removeFileFromListByName(filename)
@@ -42,8 +57,16 @@ function removeFileFromListByName(filename)
 
 export function nrFilesForUpload()
 {
-    var fileList = getFileList();
-    return fileList.childElementCount;
+    var cnt = 0;
+    for(var fc of fileComponents){
+        if(fc.getStatus() == FileStatus.PENDING)
+            cnt++;
+    }
+
+    return cnt;
+
+//    var fileList = getFileList();
+//    return fileList.childElementCount;
 }
 
 function checkAndAddFilePairToList(filePair)
@@ -118,6 +141,7 @@ export function clearFileList()
         c.delete();
 
     fileComponents = [];
+    callCCB();
 }
 
 export function updateFileStatus(fileName, fileStatus, message)
@@ -137,6 +161,8 @@ function onDestroyCallback(component){
     var idx = fileComponents.indexOf(component);
     if(idx >= 0)
         fileComponents.splice(idx,1);
+
+    callCCB();
 }
 
 function createComponent(fileObj, status, isChild=false){
@@ -147,9 +173,10 @@ function createComponent(fileObj, status, isChild=false){
 
 function addToFileList(filComponent){
     fileComponents.push(filComponent);
+    callCCB();
 }
 
-export function getFilListForImport()
+export function getFileListForImport()
 {
     var returnList = []
     Array.from(fileComponents).forEach((comp) => {

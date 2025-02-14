@@ -1,5 +1,5 @@
 import { fetchWrapper, showErrorPage } from "./utils.js";
-import { updateFileStatus, addFilesToList, getFilListForImport, nrFilesForUpload, clearFileList } from "./file_list.js";
+import { updateFileStatus, addFilesToList, getFileListForImport, nrFilesForUpload, clearFileList, setFileListChangeCB } from "./file_list.js";
 document.addEventListener('DOMContentLoaded', () => {
     const keysEndpoint = '/get_existing_tags';
     const formatsEndPoint = '/supported_file_formats';
@@ -43,10 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
         importButton.disabled = importCnt == 0;
         const fileCountLabel = document.getElementById('file-count-label');
         fileCountLabel.textContent = importCnt 
-            ? `${importCnt} file(s) ready for import`
-            : 'No files selected for import';
+            ? `${importCnt} object(s) ready for conversion/import`
+            : 'No files selected for conversion/import';
     }
-
 
     function getTags(){
         fetchWrapper(keysEndpoint)
@@ -85,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleFiles(files) {
         addFilesToList(files);
-        updateImportStatus();
+        //updateImportStatus();
     }
 
 	function populateGroupDropdown() {
@@ -103,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	function setDefaultGroup() {
-		fetchWrapper('/get_default_group')
+		fetchWrapper(defaultGroupEndpoint)
 			.then(defaultGroup => {
 				// Ensure the dropdown is populated first
 				if ([...groupDropdown.options].some(option => option.value === defaultGroup)) {
@@ -123,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch keys and populate dropdown
     getTags();
     readAndSetSupportedFileFormats();
+    setFileListChangeCB(updateImportStatus);
 
     interactiveKeyDropdown.addEventListener('change', () => {
         const selectedKey = interactiveKeyDropdown.value;
@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     clearButton.addEventListener('click', () => {
         clearFileList();
-        updateImportStatus();
+        //updateImportStatus();
     });
 
     fileInput.addEventListener('change', () => handleFiles(fileInput.files));
@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		console.log("Starting upload");
         e.preventDefault();
 		
-        const importedFiles = getFilListForImport();
+        const importedFiles = getFileListForImport();
 		importButton.disabled = true; //disable import button
 	
         uploadFiles(importedFiles);
@@ -222,7 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     formData.append('files', file);
                 }
 
-                fetch("/import_images", {
+                //fetch("/import_images", {
+                fetch(importImagesUrl, {
                     method: "POST",
                     body: formData,
                 })
