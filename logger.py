@@ -5,17 +5,18 @@ import sys
 
 class CustomFormatter(logging.Formatter):
 
-    green ="\x1b[36m" 
+    green ="\x1b[32m" 
     grey = "\x1b[38m"
     yellow = "\x1b[33m"
     red = "\x1b[31m"
+    magenta = "\x1b[35m]"
     bold_red = "\x1b[31m"
     reset = "\x1b[0m"
     #format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
     format = '%(process)d: %(asctime)s -%(levelname)s-: %(message)s'
 
     FORMATS = {
-        logging.DEBUG: green + format + reset,
+        logging.DEBUG: magenta + format + reset,
         logging.INFO: green + format + reset,
         logging.WARNING: yellow + format + reset,
         logging.ERROR: red + format + reset,
