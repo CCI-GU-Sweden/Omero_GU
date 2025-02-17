@@ -83,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleFiles(files) {
+
         addFilesToList(files);
         //updateImportStatus();
     }
@@ -196,8 +197,15 @@ document.addEventListener('DOMContentLoaded', () => {
         //updateImportStatus();
     });
 
-    fileInput.addEventListener('change', () => handleFiles(fileInput.files));
-    folderInput.addEventListener('change', () => handleFiles(folderInput.files));
+    function filterUnsupprtedFiles(listOfFiles, acceptedExtensions){
+        const selectedFiles = Array.from(listOfFiles).filter(file => {
+            return acceptedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+        });
+        return selectedFiles;
+    } 
+
+    fileInput.addEventListener('change', () => handleFiles(filterUnsupprtedFiles(fileInput.files,fileInput.accept.split(','))));
+    folderInput.addEventListener('change', () => handleFiles(filterUnsupprtedFiles(folderInput.files,folderInput.accept.split(','))));
     selectFolderButton.addEventListener('click', () => folderInput.click());
 
     setupEventSource();
