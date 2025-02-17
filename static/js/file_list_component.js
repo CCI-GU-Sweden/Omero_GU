@@ -80,6 +80,8 @@ export class FileListComponent {
                 return message;
             case FileStatus.STARTED:
                 return message;
+            case FileStatus.ERROR:
+                return FileStatus.ERROR + " " + message;
             default:
                 return status;
         }
