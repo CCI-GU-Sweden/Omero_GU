@@ -10,6 +10,7 @@ local web server: http://127.0.0.1:5000/
 
 """
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
+from flask_cors import CORS
 from connection_blueprint import conn_bp, connect_to_omero
 import mistune
 import os
@@ -27,6 +28,7 @@ def create_app(test_config=None):
 
     app = Flask(conf.APP_NAME)
     app.secret_key = conf.SECRET_KEY
+    CORS(app, resources={r"/import_updates": {"origins": conf.CORS_DOMAIN}})
 
     logger.setup_logger()
 
@@ -38,6 +40,10 @@ def create_app(test_config=None):
     database.initialize_database()
 
     logger.info("***** Starting CCI Omero Frontend ******")
+
+    if not conf.CORS_DOMAIN:
+        logger.error("no CRS_DOMAIN defined...exiting")
+        exit(1)
 
     importer = file_importer.FileImporter()
     

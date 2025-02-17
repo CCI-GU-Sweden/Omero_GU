@@ -18,6 +18,7 @@ LOGGER_NAME = "omero_logger"
 try:
     import config
     USE_TEST_URL = config.USE_TEST_URL
+    CORS_DOMAIN = config.CORS_DOMAIN
 except ImportError:
     USE_TEST_URL = False
     
