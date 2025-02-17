@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	// Fetch groups and set the current group
-	populateGroupDropdown().then(setDefaultGroup);
+//	populateGroupDropdown().then(setDefaultGroup);
     // Fetch keys and populate dropdown
     getTags();
     readAndSetSupportedFileFormats();
