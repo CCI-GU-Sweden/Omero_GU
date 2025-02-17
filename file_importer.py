@@ -44,13 +44,21 @@ class FileData:
             if not ext == "ser" and not ext == "xml":
                 self.mainFileExtension = ext
                 self.mainFileName = basename
-        
+            else:
+                self.dictFileExtension = ext
+                self.dictFileName = basename
         
     def getMainFileExtension(self):
         return self.mainFileExtension
         
     def getMainFileName(self):
         return self.mainFileName
+        
+    def getDictFileExtension(self):
+        return self.dictFileExtension
+    
+    def getDictFileName(self):
+        return self.dictFileName
         
     def setTempFilePaths(self,paths):
         self.tempPaths = paths
@@ -69,6 +77,14 @@ class FileData:
                 main_p = p
         
         return main_p
+
+    def getDictFileTempPath(self):
+        dict_p = ""
+        for p in self.tempPaths:
+            if self.getDictFileName() in str(p):
+                dict_p = p
+        
+        return dict_p
 
     def setConvertedFileName(self, convertedName):
         self.convertedFileName = convertedName

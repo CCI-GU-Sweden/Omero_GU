@@ -229,7 +229,10 @@ def file_format_splitter(fileData, verbose:bool):
     elif ext == "mrc":
 #   elif isinstance(img_path, dict): #Electron microscope format
 #      logger.info(f"Received a pair of files is of format {' '.join([img_path[x].split('.')[-1].lower() for x in img_path.keys()])}")
-        converted_path, key_pair = convert_atlas_to_ometiff(img_path, verbose=verbose)
+        atlasPair = {}
+        atlasPair[fileData.getDictFileExtension()] = fileData.getDictFileTempPath()
+        atlasPair[fileData.getMainFileExtension()] = img_path
+        converted_path, key_pair = convert_atlas_to_ometiff(atlasPair, verbose=verbose)
     
     return converted_path, key_pair
 
@@ -680,8 +683,8 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
     try:
         full_data = mrc.file_reader(img_path['mrc'])[0]
         img_array, bit = optimize_bit_depth(full_data['data'])
-    except FileNotFoundError:
-        raise FileNotFoundError("The file does not exist.")
+    except FileNotFoundError as fnfe:
+        raise FileNotFoundError(f"The file does not exist. {str(fnfe)}")
     except Exception as e:
         logger.info(f"An error happened when trying to read the atlas file {img_path}\n It is required to be a dict: {e}")
         raise
