@@ -230,10 +230,18 @@ def create_app(test_config=None):
     @app.route('/import_updates')
     def import_updates_stream():
         def generate():
-            count = 0
-            while True:
-                event = importer.getEvent()
-                yield f"data: {json.dumps(event)}\n\n"
+            yield "retry: 5000\n"  # Set retry to 10 seconds (10000 
+            try:
+                while True:
+                    try:
+                        event = importer.getEvent()
+                        yield f"data: {json.dumps(event)}\n\n"
+                    except ConnectionError as e:
+                        logger.warning(f"Connection error in import_updates {str(e)}")
+                        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                        break
+            except GeneratorExit:
+                logger.warning("client disconnected")
         
         #should check for ConnectinError exception!!!
         return Response(generate(), mimetype='text/event-stream')

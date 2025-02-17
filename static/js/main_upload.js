@@ -249,27 +249,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
 
-    function setupEventSource(){
-        const eventSource = new EventSource('/import_updates');
-        console.log("Setting up event source");
-
-        eventSource.onmessage = function(event) {
-            if (event.data === 'done'){
-                console.log("Import done");
+    function setupEventSource() {
+        let retryTime = 3000; // Default retry time (3 seconds)
+        let eventSource;
+    
+        function connect() {
+            eventSource = new EventSource('/import_updates');
+            console.log("Setting up event source");
+    
+            eventSource.onmessage = function(event) {
+                if (event.data === 'done') {
+                    console.log("Import done");
+                    eventSource.close();
+                    return;
+                } 
+    
+                var jsondata = event.data;
+                console.log(event);
+                var fileInfo = JSON.parse(jsondata);
+                updateFileStatus(fileInfo.name, fileInfo.status, fileInfo.message);
+            };
+    
+            eventSource.onerror = function(error) {
+                console.error('EventSource failed:', error);
                 eventSource.close();
-                return;
-            } 
-
-            var jsondata = event.data;
-            console.log(event);
-            var fileInfo = JSON.parse(jsondata);
-            updateFileStatus(fileInfo.name,fileInfo.status,fileInfo.message);
-        };
-
-        eventSource.onerror = function(error) {
-            console.error('EventSource failed:', error);
-            eventSource.close();
-        };
+                
+                // Attempt to reconnect after the retry time
+                setTimeout(connect, retryTime);
+            };
+    
+            // Listen for custom retry time from server
+            eventSource.onopen = function(event) {
+                const serverRetry = eventSource.url.match(/retry: (\d+)/);
+                if (serverRetry) {
+                    retryTime = parseInt(serverRetry[1]);
+                    console.log(`Server specified retry time: ${retryTime}ms`);
+                }
+            };
+        }
+    
+        connect(); // Initial connection
     }
 
     disconnectButton.addEventListener('click', () => {
