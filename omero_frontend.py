@@ -10,17 +10,16 @@ local web server: http://127.0.0.1:5000/
 
 """
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
-from flask_cors import CORS
 from connection_blueprint import conn_bp, connect_to_omero
 import mistune
 import os
 import database
 import omero_funcs
-import traceback
 import conf
 import logger
 import json
 import file_importer
+import queue
 
 processed_files = {} # In-memory storage for processed files (for the session)
 
@@ -28,7 +27,6 @@ def create_app(test_config=None):
 
     app = Flask(conf.APP_NAME)
     app.secret_key = conf.SECRET_KEY
-    CORS(app, resources={r"/import_updates": {"origins": conf.CORS_DOMAIN}})
 
     logger.setup_logger()
 
@@ -37,15 +35,13 @@ def create_app(test_config=None):
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
 
+    importer = file_importer.FileImporter()
     database.initialize_database()
-
     logger.info("***** Starting CCI Omero Frontend ******")
 
     if not conf.CORS_DOMAIN:
         logger.error("no CRS_DOMAIN defined...exiting")
         exit(1)
-
-    importer = file_importer.FileImporter()
     
     #Flask function
     @app.route('/') #Initial
@@ -220,7 +216,7 @@ def create_app(test_config=None):
                 html += f"{name}: {value}<br>"
              
         html += "<br/>"
-        html += "<h3>Omeru Server URLS</h3>"
+        html += "<h3>Omero Server URLS</h3>"
         html += f"USE_TEST_URL: {conf.USE_TEST_URL}<br/>"
         html += f"OMERO_HOST: {conf.OMERO_HOST}<br/>"
         html += f"OMERO_BASE_URL: {conf.OMERO_BASE_URL}<br/>"
@@ -230,18 +226,20 @@ def create_app(test_config=None):
     @app.route('/import_updates')
     def import_updates_stream():
         def generate():
-            yield "retry: 5000\n"  # Set retry to 10 seconds (10000 
+            yield "retry: 5000\n"
             try:
                 while True:
                     try:
-                        event = importer.getEvent()
+                        event = importer.getEvent(timeout=15)
                         yield f"data: {json.dumps(event)}\n\n"
+                    except queue.Empty as ee:
+                        yield f"keep alive\n"
                     except ConnectionError as e:
                         logger.warning(f"Connection error in import_updates {str(e)}")
                         yield f"data: {json.dumps({'error': str(e)})}\n\n"
                         break
             except GeneratorExit:
-                logger.warning("client disconnected")
+                logger.warning("client disconnected in import _updates")
         
         #should check for ConnectinError exception!!!
         return Response(generate(), mimetype='text/event-stream')
