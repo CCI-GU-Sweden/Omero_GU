@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const keysEndpoint = '/get_existing_tags';
     const formatsEndPoint = '/supported_file_formats';
     const importImagesUrl = '/import_images';
+    const importUpdateStream = '/import_updates'
     const interactiveKeyDropdown = document.getElementById('interactive-key-dropdown');
     const interactiveNewInput = document.getElementById('interactive-new-input');
     const interactiveExistingDropdown = document.getElementById('interactive-existing-dropdown');
@@ -119,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	// Fetch groups and set the current group
-//	populateGroupDropdown().then(setDefaultGroup);
+	populateGroupDropdown().then(setDefaultGroup);
     // Fetch keys and populate dropdown
     getTags();
     readAndSetSupportedFileFormats();
@@ -254,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let eventSource;
     
         function connect() {
-            eventSource = new EventSource('/import_updates');
+            eventSource = new EventSource(importUpdateStream);
             console.log("Setting up event source");
     
             eventSource.onmessage = function(event) {
