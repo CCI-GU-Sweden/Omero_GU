@@ -4,7 +4,7 @@ from enum import Enum
 import logger
 import datetime
 import time
-from queue import Queue
+from multiprocessing import Queue
 import image_funcs
 import omero_funcs
 import conf
@@ -20,8 +20,6 @@ class ImportStatus(Enum):
     EXIT_OK = 2,
     EXIT_FAILED = 3
     
-
-
 PENDING = "pending"
 STARTED = "started"
 UPLOADING = "uploading"
@@ -131,7 +129,7 @@ class FileImporter:
             
             if not result:
                 #probably cleanup here!!!
-                self._send_error_event(basename,"Uploading failed!")
+                #self._send_error_event(basename,"Uploading failed!")
                 return False
             
             filePaths.append(filepath)
@@ -174,36 +172,36 @@ class FileImporter:
 
     def _send_started_event(self,fileName):
         event = self._generateEvent(fileName,STARTED,"preparing file...")
-        self._msg_q.put(event)   
+        self.putEvent(event)   
        
     def _send_unsupported_event(self,fileName):
         event = self._generateEvent(fileName,UNSUPPORTED_FORMAT,"unsupported format")
-        self._msg_q.put(event)   
+        self.putEvent(event)   
         
     def _send_uploading_event(self,fileName):
         event = self._generateEvent(fileName,UPLOADING,"Uploading file")
-        self._msg_q.put(event)   
+        self.putEvent(event)   
 
     def _send_progress_event(self,fileName,progress):
         event = self._generateEvent(fileName,PROGRESS,str(progress))
-        self._msg_q.put(event)   
+        self.putEvent(event)   
 
     def _send_success_event(self,fileName,path, imageId):
         msg = f"Image id: {imageId}, stored at {path}"
         event = self._generateEvent(fileName,SUCCESS,msg)
-        self._msg_q.put(event)   
+        self.putEvent(event)   
 
     def _send_duplicate_event(self,fileName):
         event = self._generateEvent(fileName,DUPLICATE,"File already in current group")
-        self._msg_q.put(event)   
+        self.putEvent(event)   
     
     def _send_error_event(self,fileName,message):
         event = self._generateEvent(fileName,ERROR,message)
-        self._msg_q.put(event)   
+        self.putEvent(event)   
     
     def _put_event(self,fileName,status,message,result=""):
         event = self._generateEvent(fileName,status,message,result)
-        self._msg_q.put(event)
+        self.putEvent(event)
     
     def _generateEvent(self,fileName,status,message,result=""):
         event_data = {
@@ -215,9 +213,15 @@ class FileImporter:
         
         return event_data
        
-    def getEvent(self):
-        return self._msg_q.get()
+    def getEvent(self, timeout=None):
+        logger.debug(f"Trying to get event from queue {self._msg_q.qsize()}, {self._msg_q}")
+        event = self._msg_q.get(timeout=timeout)
+        return event
         
+    def putEvent(self,event):
+        logger.debug(f"putting event on queue {event}, {self._msg_q.qsize()} , {self._msg_q}")
+        self._msg_q.put(event)  
+    
     def _store_temp_file(self, file):
         filename = file.filename
         # Create subdirectories if needed
