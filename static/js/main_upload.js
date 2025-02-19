@@ -223,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadFiles(importedFiles);
     });
 
-    function uploadFiles(allFiles) {
+    async function uploadFiles(allFiles) {
         const keyValuePairs = JSON.parse(localStorage.getItem('keyValuePairs') || '[]');
         try{
             for (const files of allFiles) {
@@ -235,25 +235,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 console.log("sending files");
                 //fetch("/import_images", {
-                fetch(importImagesUrl, {
-                    method: "POST",
-                    body: formData,
-                })
-                .then(response => {
+                try {
+                    const response = await fetch(importImagesUrl, {
+                       method: "POST",
+                        body: formData,
+                    });
                     console.log(`returned ${response.status}`);
-                    return response.json()
-                })
-                .then(result => {
+                    const result =
                     console.log("Client upload done:", result);
-                })
-                .catch (error => {
+                } catch (error){
                     console.error(`Error uploading:`);
                     for(const file of files){
                         console.error(`${file}`);
                     }
                     console.error(`Error:`, error);
-
-                })
+                }
             }
         }catch(error){
             console.log(error);
