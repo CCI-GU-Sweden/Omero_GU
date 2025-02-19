@@ -32,6 +32,7 @@
 }
 
 .pending { background-color: #cfcfcf; }
+.queued { background-color: #f2f550; }
 .started { background-color: #cfcfcf; color: #004085;}
 .uploading { background-color: #cce5ff; color: #004085; }
 .progress { background-color: #cce5ff; color: #004085; }

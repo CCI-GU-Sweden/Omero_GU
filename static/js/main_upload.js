@@ -1,5 +1,7 @@
 import { fetchWrapper, showErrorPage } from "./utils.js";
 import { updateFileStatus, addFilesToList, getFileListForImport, nrFilesForUpload, clearFileList, setFileListChangeCB } from "./file_list.js";
+import { FileStatus } from "./file_list_component.js";
+
 document.addEventListener('DOMContentLoaded', () => {
     const keysEndpoint = '/get_existing_tags';
     const formatsEndPoint = '/supported_file_formats';
@@ -229,19 +231,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('keyValuePairs', JSON.stringify(keyValuePairs));
                 for(const file of files){
                     formData.append('files', file);
+                    updateFileStatus(file.name,FileStatus.QUEUED, "");
                 }
-
+                console.log("sending files");
                 //fetch("/import_images", {
                 fetch(importImagesUrl, {
                     method: "POST",
                     body: formData,
                 })
-                .then(response => response.json())
+                .then(response => {
+                    console.log(`returned ${response.status}`);
+                    return response.json()
+                })
                 .then(result => {
-                    console.log("update file status here " + result);
+                    console.log("Client upload done:", result);
                 })
                 .catch (error => {
-                    console.error(`Error uploading ${file.name}:`, error);
+                    console.error(`Error uploading:`);
+                    for(const file of files){
+                        console.error(`${file}`);
+                    }
+                    console.error(`Error:`, error);
+
                 })
             }
         }catch(error){
@@ -251,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
     function setupEventSource() {
-        let retryTime = 3000; // Default retry time (3 seconds)
+        let retryTime = 1000; // Default retry time (3 seconds)
         let eventSource;
     
         function connect() {
@@ -266,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } 
     
                 var jsondata = event.data;
-                console.log(event);
+                //console.log(event);
                 var fileInfo = JSON.parse(jsondata);
                 updateFileStatus(fileInfo.name, fileInfo.status, fileInfo.message);
             };

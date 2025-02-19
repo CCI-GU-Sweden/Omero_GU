@@ -1,6 +1,7 @@
-const FileStatus = Object.freeze({
+export const FileStatus = Object.freeze({
 
     PENDING: "pending",
+    QUEUED: "queued",
     STARTED: "started",
     UPLOADING: "uploading",
     CONVERTING: "converting",
@@ -82,6 +83,8 @@ export class FileListComponent {
                 return message;
             case FileStatus.ERROR:
                 return FileStatus.ERROR + " " + message;
+                case FileStatus.ERROR:
+                    return "Queued for transfer" + message;    
             default:
                 return status;
         }
