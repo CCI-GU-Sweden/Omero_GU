@@ -15,7 +15,7 @@ SECRET_KEY = "s3cr3t"
 APP_NAME = "gu_omero_frontend"
 LOGGER_NAME = "omero_logger"
 
-FILE_IMPORT_THREADS = 1
+FILE_IMPORT_THREADS = 2
 
 try:
     import config
