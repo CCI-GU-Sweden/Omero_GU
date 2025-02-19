@@ -11,14 +11,15 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag):
     
     omeroConn = conn.get_omero_connection()
     namespace = omero.constants.metadata.NSCLIENTMAPANNOTATION
-    image_id = ezomero.ezimport(conn=omeroConn,
-                                target=img_path,
-                                dataset=dataset_id.getId(),
-                                ann=meta_dict,
-                                ns=namespace)
+    with mutex:
+        image_id = ezomero.ezimport(conn=omeroConn,
+                                    target=img_path,
+                                    dataset=dataset_id.getId(),
+                                    ann=meta_dict,
+                                    ns=namespace)
     
-    if image_id is None: #failed to import the image(s)
-        raise ValueError("Failed to upload the image with ezomero. Return an empty list")
+        if image_id is None: #failed to import the image(s)
+            raise ValueError("Failed to upload the image with ezomero. Return an empty list")
 
     #additional tags:
     # batch_tag = [x for x in list(batch_tag.values()) if x != 'None'] #as a list, without the 'None'
