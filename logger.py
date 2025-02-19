@@ -9,7 +9,7 @@ class CustomFormatter(logging.Formatter):
     grey = "\x1b[38m"
     yellow = "\x1b[33m"
     red = "\x1b[31m"
-    magenta = "\x1b[35m]"
+    magenta = "\x1b[35m"
     bold_red = "\x1b[31m"
     reset = "\x1b[0m"
     #format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
