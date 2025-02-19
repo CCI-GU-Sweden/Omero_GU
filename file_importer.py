@@ -110,7 +110,7 @@ class FileImporter:
     
     _mutex = Lock() #needed?
     _msg_q = Queue()
-    _executor = ThreadPoolExecutor(max_workers=5)
+    _executor = ThreadPoolExecutor(max_workers=conf.FILE_IMPORT_THREADS)
     _futures = set()
     
     #asynch method starts a thread, returns imideately
@@ -118,15 +118,17 @@ class FileImporter:
         
         filePaths = []
         fileSizes = []
+        logger.info("in startImport")
         for file in files:
             basename = os.path.basename(file.filename)
             if not self.check_supported_format(file.filename):
                 self._send_unsupported_event(file.filename)
                 return False
             
+            logger.info(f"Storing temp file {basename}")
             self._send_started_event(basename)
             result, filepath, filesize = self._store_temp_file(file)
-            
+            logger.info(f"Done storing temp file {basename}")
             if not result:
                 #probably cleanup here!!!
                 #self._send_error_event(basename,"Uploading failed!")
@@ -139,11 +141,11 @@ class FileImporter:
         fileData.setFileSizes(fileSizes)
         fileData.setTempFilePaths(filePaths)
         
-        logger.info("Starting import images thread")
         future = self._executor.submit(self._do_file_imports,fileData,tags,omeroConnection)
-        #future = self._executor.submit(self._do_file_imports,file.filename,filepath,filesize,tags,omeroConnection)
         future.add_done_callback(self._future_done)
         self._futures.add(future)
+        logger.info("Future added to executor")
+
         return True
     
     def reset(self):
@@ -214,12 +216,12 @@ class FileImporter:
         return event_data
        
     def getEvent(self, timeout=None):
-        logger.debug(f"Trying to get event from queue {self._msg_q.qsize()}, {self._msg_q}")
+        #logger.debug(f"Trying to get event from queue {self._msg_q.qsize()}, {self._msg_q}")
         event = self._msg_q.get(timeout=timeout)
         return event
         
     def putEvent(self,event):
-        logger.debug(f"putting event on queue {event}, {self._msg_q.qsize()} , {self._msg_q}")
+        #logger.debug(f"putting event on queue {event}, {self._msg_q.qsize()} , {self._msg_q}")
         self._msg_q.put(event)  
     
     def _store_temp_file(self, file):
@@ -272,7 +274,7 @@ class FileImporter:
                 import_time = time.time() - import_time_start
                 self._log_and_insert_in_databse(scopes,conn,import_time,fileData)
         except Exception as e:
-            logger.error(f"Error during import process: {str(e)}")
+            logger.error(f"Error during import process: {str(e)}, line: {traceback.format_exc()}")
             self._send_error_event(filename,str(e))
         finally:
             self._remove_temp_files(fileData)
@@ -344,7 +346,8 @@ class FileImporter:
         except Exception as e:
             logger.error(f"Error during import of {filename}: {str(e)}, line: {traceback.format_exc()}")
             self._send_error_event(filename,str(e))
-            return  False, []
+            return  False, [], "", ""
+                
     
     def _log_and_insert_in_databse(self,scopes, conn,import_time,fileData):
     #def _log_and_insert_in_databse(self,scopes, conn,import_time,file_n,total_file_size):
