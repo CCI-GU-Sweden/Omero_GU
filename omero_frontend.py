@@ -226,11 +226,11 @@ def create_app(test_config=None):
     @app.route('/import_updates')
     def import_updates_stream():
         def generate():
-            yield "retry: 5000\n"
+            yield "retry: 1000\n"
             try:
                 while True:
                     try:
-                        event = importer.getEvent(timeout=15)
+                        event = importer.getEvent(2)
                         yield f"data: {json.dumps(event)}\n\n"
                     except queue.Empty as ee:
                         yield f"keep alive\n"
@@ -239,7 +239,7 @@ def create_app(test_config=None):
                         yield f"data: {json.dumps({'error': str(e)})}\n\n"
                         break
             except GeneratorExit:
-                logger.warning("client disconnected in import _updates")
+                logger.warning("client disconnected in import_updates")
         
         #should check for ConnectinError exception!!!
         return Response(generate(), mimetype='text/event-stream')
