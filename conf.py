@@ -15,6 +15,8 @@ SECRET_KEY = "s3cr3t"
 APP_NAME = "gu_omero_frontend"
 LOGGER_NAME = "omero_logger"
 
+FILE_IMPORT_THREADS = 1
+
 try:
     import config
     USE_TEST_URL = config.USE_TEST_URL
