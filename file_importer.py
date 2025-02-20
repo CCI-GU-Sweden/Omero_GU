@@ -26,7 +26,7 @@ UPLOADING = "uploading"
 PROGRESS = "progress"
 SUCCESS = "success"
 
-UNSUPPORTED_FORMAT = "unsupported_format"
+UNSUPPORTED_FORMAT = "unsupported format"
 DUPLICATE = "duplicate"
 UNMATCHED = "unmatched"
 ERROR = "error"
@@ -38,7 +38,7 @@ class FileData:
         for f in files:
             basename = os.path.basename(f.filename)
             self.originalFileNames.append(basename)
-            ext = f.filename.split('.')[1]
+            ext = f.filename.split('.')[-1]
             if not ext == "ser" and not ext == "xml":
                 self.mainFileExtension = ext
                 self.mainFileName = basename
@@ -401,5 +401,5 @@ class FileImporter:
             logger.info(f"{fileName} is not a propper file name")
             return False
         
-        ext = fileName.split('.')[1]
-        return ('.'+ext) in conf.ALLOWED_FOLDER_FILE_EXT
+        ext = fileName.split('.')[-1]
+        return ('.'+ext) in conf.ALLOWED_FOLDER_FILE_EXT or ('.'+ext) in conf.ALLOWED_SINGLE_FILE_EXT 
