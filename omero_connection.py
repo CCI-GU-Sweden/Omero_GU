@@ -3,6 +3,8 @@ import omero
 import omero.rtypes
 from omero.gateway import BlitzGateway, ProjectWrapper, TagAnnotationWrapper
 import omero.rtypes
+from datetime import datetime
+import conf
 
 from threading import Thread, Lock
 
@@ -148,8 +150,17 @@ class OmeroConnection:
 
     def compareImageAcquisitionTime(self,imageId,compareDate, fmtStr="%H-%M-%S"):
         image = self.getImage(imageId)
-        acq_time = image.getAcquisitionDate().strftime(fmtStr)
+        acq_time_obj = image.getAcquisitionDate()
+        if not acq_time_obj:
+            acq_time_str = self.getMapAnnotationValue(imageId,"Acquisition date")
+            if acq_time_str:
+                acq_time_obj = datetime.strptime(acq_time_str,conf.DATE_TIME_FMT)
+            else:
+                logger.warning(f"No acquisition date stored in image id {imageId}")
+                return False        
+        
         check_time = compareDate.strftime(fmtStr)
+        acq_time = acq_time_obj.strftime(fmtStr)        
         return check_time == acq_time
 
     def get_tags_by_key(self, key):
@@ -209,6 +220,19 @@ class OmeroConnection:
                 logger.error(f"Failed to set/get tag annotations on image {image}: {str(e)}")
                 
 
+    #return the first value of the given key or None
+    def getMapAnnotationValue(self, imageId, key):
+        value = None
+        image = self.conn.getObject("Image", imageId)
+        map_annotations = [ann for ann in image.listAnnotations() if isinstance(ann, omero.gateway.MapAnnotationWrapper)]
+        for map_ann in map_annotations:
+            k_list = [x for x in map_ann.getValue() if x[0] == key]
+            if len(k_list):
+                value = k_list[0][1]
+                break
+            
+        return value
+    
     def setDescriptionOnImage(self, image, descr):
         with self._mutex:
             image.setDescription(descr)
