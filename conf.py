@@ -20,7 +20,6 @@ FILE_IMPORT_THREADS = 2
 try:
     import config
     USE_TEST_URL = config.USE_TEST_URL
-    CORS_DOMAIN = config.CORS_DOMAIN
 except ImportError:
     USE_TEST_URL = False
     

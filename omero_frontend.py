@@ -39,10 +39,6 @@ def create_app(test_config=None):
     database.initialize_database()
     logger.info("***** Starting CCI Omero Frontend ******")
 
-    if not conf.CORS_DOMAIN:
-        logger.error("no CRS_DOMAIN defined...exiting")
-        exit(1)
-    
     #Flask function
     @app.route('/') #Initial
     def index():
