@@ -6,7 +6,7 @@ const FileStatus = Object.freeze({
     UNMATCHED: "unmatched",
     SUCCESS: "success",
     ERROR: "error",
-    UNSUPPORTED_FORMAT: "unsopperted_format",
+    UNSUPPORTED_FORMAT: "unsupported format",
     DUPLICATE: "duplicate",
     UPLOADING: "uploading"
 });
