@@ -1,16 +1,17 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>OMERO Login</title>
-</head>
-<body>
-    <h1>OMERO Login</h1>
-    <p>Click the button below to log in to OMERO:</p>
-    <a href="{{ url_for('login') }}" target="_blank">Login to OMERO</a>
+{% extends "base.html" %}
+{% block title %}OMERO Login{% endblock %}
+{% block content %}
+<h4 class="title is-4 has-text-dark pb-4">OMERO Login</h4>
 
-    <p>After logging in, go to the session token page and copy the token.</p>
-    <p>Then <a href="{{ url_for('enter_token') }}">click here</a> to enter your session token.</p>
-	
-	<p><a href="{{ url_for('help_page') }}">Help</a></p>
-</body>
-</html>
+<p>Click the button below to log in to OMERO:</p>
+<a href="{{ url_for('login') }}" target="_blank">
+    <button class="button is-small is-primary">Login to OMERO
+    </button>
+</a>
+
+<br/>
+<br/>
+<p>After logging in, go to the session token page and copy the token.</p>
+<p>Then <a href="{{ url_for('enter_token') }}">click here</a> to enter your session token.</p>
+
+{% endblock %}

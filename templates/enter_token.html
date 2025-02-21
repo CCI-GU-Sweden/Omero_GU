@@ -1,14 +1,9 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Enter OMERO Session Token</title>
-</head>
-<body>
-    <h1>Enter OMERO Session Token</h1>
+{% extends "base.html" %}
+{% block title %}Enter token {% endblock %}
+{% block content %}
+    <h3 class="title is-4 has-text-dark">Enter OMERO Session Token</h3>
     <form action="{{ url_for('enter_token') }}" method="post">
-        <label for="session_token">Session Token:</label>
-        <input type="text" id="session_token" name="session_token" required>
-        <input type="submit" value="Submit">
+        <input class="input is-rounded is-small is-focused is-primary" type="text" id="session_token" name="session_token" required>
+        <input class="button is-small is-rounded is-primary mt-3" type="submit" value="Submit">
     </form>
-</body>
-</html>
+{% endblock %}
