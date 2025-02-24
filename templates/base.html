@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet"href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='upload_style.css') }}">
+    <title>{% block title %}My Website{% endblock %}</title> 
+    <style>
+        .custom-header {
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+        .custom-footer {
+            border-bottom-left-radius: 10px;
+            border-bottom-right-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="columns is-centered">
+            <div class="column ">
+                <header class="section has-background-light custom-header">
+                    <div class="columns is-vcentered">
+                        <div class="column">
+                           <figure class="image is-128x128">
+                                <img class="is-rounded is-centered" src="{{ url_for('static', filename='images/upload_image.jpeg') }}" />
+                            </figure>
+                        </div>
+                        <div class="column is-three-quarters">
+                            <h1 class="title has-text-dark">CCI Omero File Storage Frontend</h1>
+                        </div>
+                    </div>
+
+                    {% include "navbar.html" %}
+                    {% block header %}
+                    {% endblock %}
+                </header>
+                <main class="section has-background-light has-text-dark">
+                    {% block content %}{% endblock %}
+                </main>
+
+                <footer class="section has-background-light has-text-dark custom-footer">
+                    {% block footer %}
+                    <p class="has-text-right">&copy; 2025 Centre for Cellular Imaging, Univeristy of Gothenburg. All rights reserved.</p>
+            
+                    {% endblock %}
+                </footer>
+            </div>
+        </div>
+    </div>
+
+
+</body>
+</html>

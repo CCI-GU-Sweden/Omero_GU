@@ -1,16 +1,38 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>OMERO Login</title>
-</head>
-<body>
-    <h1>OMERO Login</h1>
-    <p>Click the button below to log in to OMERO:</p>
-    <a href="{{ url_for('login') }}" target="_blank">Login to OMERO</a>
+{% extends "base.html" %}
+{% block title %}Login to OMERO{% endblock %}
+{% block content %}
+<h4 class="title is-4 has-text-dark pb-4">OMERO Login</h4>
 
-    <p>After logging in, go to the session token page and copy the token.</p>
-    <p>Then <a href="{{ url_for('enter_token') }}">click here</a> to enter your session token.</p>
-	
-	<p><a href="{{ url_for('help_page') }}">Help</a></p>
-</body>
-</html>
+<div class="content">
+    <ol typ="1">
+        <li>
+            <p>Click the button below to log in to OMERO (Login with Adfs):
+                <br />
+                <a href="{{ url_for('login') }}" target="_blank">
+                    <button class="button is-small is-primary is-rounded mt-3">Login to OMERO
+                    </button>
+                </a>
+            </p>
+            <br>
+        </li>
+        <li>
+            <p>Get the session token by clicking the link "obtain a session toke here" on the login page</p>
+            <figure class="image is-3by1" style="width:40%;">
+                <img src="static/images/session_token.png" />
+            </figure>
+            <br />
+        </li>
+        <li>
+            <p>Type (or paste) the session token in the field below and press continue
+                <form action="{{ url_for('enter_token') }}" method="post">
+                    <input class="input is-rounded is-small is-focused" style="width: 40%;" type="text" id="session_token"
+                        name="session_token" required>
+                   <br>
+                    <input class="button is-small is-rounded is-primary mt-3" type="submit" value="Continue">
+                </form>
+            </p>
+        </li>
+    </ol>
+</div>
+
+{% endblock %}

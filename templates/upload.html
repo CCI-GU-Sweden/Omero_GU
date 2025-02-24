@@ -1,56 +1,81 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='upload_style.css') }}">
-    <title>Upload Files to OMERO</title>
-</head>
-<body>
-    <h1>Upload Files to OMERO</h1>
-    <div id="group-selection">
-	<label>Group:</label>
-	<select id="group-dropdown"></select>
-	</div>
-    <!-- Interactive Top Section -->
-    <div id="interactive-section">
-        <label>Key:</label>
-        <select id="interactive-key-dropdown"></select>
-        <label>Value:</label>
-        <input type="radio" name="value-option" id="new-value-radio" checked> New
-        <input type="text" id="interactive-new-input" placeholder="Enter new value">
-        <input type="radio" name="value-option" id="existing-value-radio"> Existing
-        <select id="interactive-existing-dropdown" disabled></select>
-        <button type="button" id="add-key-value-pair">Add Key-Value Pair</button>
+{% extends "base.html" %}
+{% block title %}Upload files{% endblock %}
+{% block content %}
+
+<h4 class="title is-4 has-text-dark pb-4">Upload Files to OMERO</h4>
+<div id="group-selection" class="pb-4">
+    <h5 class="title is-5 has-text-primary">Select your group to upload into</h5>
+    <div class="ml-5">
+        <label>Your groups:</label>
+        <div class="select is-small is-primary">
+            <select id="group-dropdown"></select>
+        </div>
     </div>
-    <!-- Static Key-Value Pairs Section -->
-    <div id="static-section">
-        <!-- Rows will be dynamically added -->
-    </div>
-	
-    <br/>
-    <h3>Select Files to Import</h3>
+</div>
+<!-- Interactive Top Section -->
+
+<div id="interactive-section">
+    <h5 class="title is-5 has-text-primary">(optional)Set key-value pairs on all uploaded images</h4>
+        <div class="ml-5">
+            <div class="columns is-vcentered">
+                <div class="column is-auto has-text-centered">
+                    <label>Select Name/Key:</label><br/>
+                    <div class="select is-small is-primary">
+                        <select id="interactive-key-dropdown"></select>
+                    </div>
+                </div>
+                <div class="column is-auto has-text-centered">
+                    <label class="is-centered">Set a new value:
+                        <input class="radio" type="radio" name="value-option" id="new-value-radio" checked>
+                    </label>
+                    <input class="input is-rounded is-small is-centered is-primary" type="text"
+                        id="interactive-new-input" placeholder="Enter new value">
+                </div>
+                <div class="column has-text-centered">
+                    <label class="radio">Or select already existing:</label>
+                    <input type="radio" name="value-option" id="existing-value-radio">
+                    <br />
+                    <div class="select is-small is-primary">
+                        <select id="interactive-existing-dropdown" disabled></select>
+                    </div>
+                </div>
+                <div class="column">
+                    <button class="button is-rounded is-small is-primary" type="button" id="add-key-value-pair">
+                        Add Pair</button>
+                </div>
+            </div>
+        </div>
+</div>
+<!-- Static Key-Value Pairs Section -->
+<div id="static-section">
+    <!-- Rows will be dynamically added -->
+</div>
+
+<br />
+<h5 class="title is-5 has-text-primary">Select Files to Import</h5>
+<div class="ml-5">
     <div id="upload-form">
         <input type="file" id="file-input" name="files" multiple style="display: none;" />
-		<button id="custom-file-input">Select Files</button>
+        <button class="button is-rounded is-small" id="custom-file-input">Select Files</button>
         <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none;">
-        <button type="button" id="select-folder-button">Select Folder</button>
-		<button id="clear-button" class="action-button">Clear List</button>
-        <button type="button" id="import-button" disabled>Import</button>
-		<span id="file-count-label">No files selected for import</span>
+        <button class="button is-rounded is-small" type="button" id="select-folder-button">Select Folder</button>
+        <button class="button is-rounded is-small" id="clear-button" class="action-button">Clear List</button>
+        <button class="button is-rounded is-small is-primary" type="button" id="import-button" disabled>Import</button>
+        <span id="file-count-label">No files selected for import</span>
     </div>
     <div id="file-list-div">
         <div id="file-list">
         </div>
     </div>
-    <button id="disconnect-button" style="display:none;">Disconnect</button>
+</div>
+<button class="button is-rounded is-small" id="disconnect-button" style="display:none;">Disconnect</button>
 
-    <!-- External Scripts -->
-	<script>
-		var importImagesUrl = "{{ url_for('conn_bp.import_images') }}";
-	</script>
-    <script src="{{ url_for('static', filename='js/utils.js') }}" type="module"></script>
-    <script src="{{ url_for('static', filename='js/file_list.js') }}" type="module"></script>
-    <script src="{{ url_for('static', filename='js/main_upload.js') }} "type="module"></script>
-</body>
-</html>
+<!-- External Scripts -->
+<script>
+    var importImagesUrl = "{{ url_for('conn_bp.import_images') }}";
+</script>
+<script src="{{ url_for('static', filename='js/utils.js') }}" type="module"></script>
+<script src="{{ url_for('static', filename='js/file_list.js') }}" type="module"></script>
+<script src="{{ url_for('static', filename='js/main_upload.js') }} " type="module"></script>
+
+{% endblock %}
