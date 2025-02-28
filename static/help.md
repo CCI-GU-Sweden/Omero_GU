@@ -87,12 +87,15 @@ ___
 **Log into the OMERO Upload App**  
 Follow the instructions provided in the "Connecting to OMERO from the Microscope Computers" section to access the OMERO Upload App. 
 
+&#65039; **Setup the Upload**
+If you are part of different group, you can upload directly in the group the data belongs to. Select the group in the "Your groups" drop-down menu.
+
+Optionaly, you can set a key-value pairs on **ALL** the image to upload. So far we propose only a 'Sample' key. You can either set a new value or grab an existing one, be sure to click on the "Add Pair" button. A new line will be added, and all images uploaded will have a new tag as well as a new entry in the key-pair values. You can remove it by clicking the <span style="color:red">'Remove'</span> text.
+
 &#128194; **Select Files or Folders to Upload**  
 You can choose to upload either individual files or an entire folder. 
 - *Single File Upload*: Select individual files from your local system. 
-- *Folder Upload*: Select a folder to upload all supported files within it. Unsupported file types will be ignored.
-
-ALL files will be displayed here, including non-image files (.csv, .txt...). These files will **NOT** be uploaded.  
+- *Folder Upload*: Select a folder to upload all supported files within it. Unsupported file types will be ignored. It is recursive, and the folder **name** will be stored in the key-value pair.
 
 For now, the app support the following file formats:  
 - CZI file from Zeiss Light Microscope (LSM700, LSM710, LSM880, LSM980, CD7, Observer, Imager and ELYRA7).  
@@ -100,10 +103,6 @@ For now, the app support the following file formats:
 - EMI/SER files Electron Microscopy. Both need to be present in the file list to upload. This file will be converted to OME-TIFF.  
 - MRC/XML files from ATLAS Electron Microscopy. Both need to be present in the file list to upload. This file will be converted to OME-TIFF.  
 - SEM-TIF file from Smart-SEM Electron Microscopy. This file will be converted to OME-TIFF.  
-
-Optionally, it is possible to add an extra tag, new or existing, to the data in order to better organize the images.
-
-It is possible to remove any file or tag from the list by clicking the *remove* button.  
 
 ![Omero_uploadFiles](images/Omero_uploadFiles.png)
 
@@ -113,6 +112,7 @@ Files will be uploaded one at a time in the order they appear in the queue.
 
 The image row color has a meaning:  
 - <span style="color:gray">gray</span>, pending upload
+- <span style="color:yellow">yellow</span>, in queue
 - <span style="color:cyan">cyan</span>, uploading
 - <span style="color:green">green</span>, uploaded
 - <span style="color:orange">orange</span>, image already exist
@@ -143,8 +143,10 @@ To download the data, select one or multiple images, then click on the download 
 - *Download...*: will download the original data that has been uploaded. Not always possible for Electron Microscopy
 - *Original Metadata*: will download the original metadata of the image as a text file (individual file only)
 - *EXPORT as OME-TIFF*: will export the image as a OME-TIFF, a TIFF with a XML header that contains all relevant metadata (individual file only) in a zip file that will be attached to the image.
-- *EXPORT as PNG, JPG, TIFF*: will export the image as png, jpg or tiff image respectively. Not metadata will be saved in these files (**NO** pixel size!)
+- *EXPORT as PNG, JPEG, TIFF*: will export the image as png, jpg or tiff image respectively. Not metadata will be saved in these files (**NO** pixel size!)
 
-Check that the data has been correctly transfer.  
+Alternativly, there is an export script (click on &#65039; in Omero, 'export_script' then 'Batch Image Export...') which allow you to export the selected images in OME-TIFF, PNG, JPEG or TIFF.
+
+Check that the data has been correctly transfered.  
 
 &#9888; Files must not remain in the system for more than **<span style="color:red">4</span>** weeks.
