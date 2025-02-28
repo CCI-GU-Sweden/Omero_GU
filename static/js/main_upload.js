@@ -241,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: formData,
                     });
                     console.log(`returned ${response.status}`);
-                    const result =
+                    const result = response.result;
                     console.log("Client upload done:", result);
                 } catch (error){
                     console.error(`Error uploading:`);
