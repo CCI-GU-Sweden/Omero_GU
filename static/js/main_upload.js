@@ -240,9 +240,8 @@ document.addEventListener('DOMContentLoaded', () => {
                        method: "POST",
                         body: formData,
                     });
-                    console.log(`returned ${response.status}`);
-                    const result = response.result;
-                    console.log("Client upload done:", result);
+                    const fileNames = files.map(file => file.name);
+                    console.log(`Files ${fileNames} sent to server. Response status: ${response.status}`);
                 } catch (error){
                     console.error(`Error uploading:`);
                     for(const file of files){
