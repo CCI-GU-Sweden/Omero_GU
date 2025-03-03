@@ -7,8 +7,8 @@ ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
 LOG_DIR = "logs/"
 LOG_FILE = "omero_app.log"
 
-DB_DIR = "database"
-DB_NAME = 'omero_imports.db'
+#DB_DIR = "database"
+DB_NAME = 'omerofilestats'#'omero_imports.db'
 
 DB_USERNAME = "gu_cci_postgres"
 DB_PASSWORD = "gu_cci_postgres"
