@@ -361,7 +361,7 @@ class FileImporter:
         
         #get some data
         user = conn.get_user()
-        time_stamp = datetime.datetime.today().strftime('%Y-%m-%d')
+        time_stamp = datetime.datetime.today().strftime(conf.DATE_TIME_FMT)
         username = user.getFullName()
         group = conn.get_omero_connection().getGroupFromContext()
         groupname = group.getName()
