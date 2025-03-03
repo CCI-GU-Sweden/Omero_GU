@@ -10,6 +10,9 @@ LOG_FILE = "omero_app.log"
 DB_DIR = "database"
 DB_NAME = 'omero_imports.db'
 
+DB_USERNAME = "gu_cci_postgres"
+DB_PASSWORD = "gu_cci_postgres"
+
 SECRET_KEY = "s3cr3t"
 
 APP_NAME = "gu_omero_frontend"
@@ -20,8 +23,12 @@ FILE_IMPORT_THREADS = 2
 try:
     import config
     USE_TEST_URL = config.USE_TEST_URL
+    DB_HOST = config.DB_HOST
+    DB_PORT = config.DB_PORT
 except ImportError:
     USE_TEST_URL = False
+    DB_HOST = "localhost"
+    DB_PORT = 5432
     
 if USE_TEST_URL:
     OMERO_HOST = '130.241.39.241'
