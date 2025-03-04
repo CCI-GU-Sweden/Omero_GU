@@ -35,10 +35,20 @@ def create_app(test_config=None):
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
 
-    importer = file_importer.FileImporter()
-    database.initialize_database()
     logger.info("***** Starting CCI Omero Frontend ******")
-
+    importer = file_importer.FileImporter()
+    
+    if conf.DB_HANDLER == "sqlite":
+        db = database.SqliteDatabaseHandler()
+        logger.info("Using SQLite database... (is this a local instance?)")
+        
+    else:
+        db = database.PostgresDatabaseHandler()
+        logger.info("Using postgres database")
+    
+    db.initialize_database()
+    importer.setDatabaseHandler(db)
+    
     #Flask function
     @app.route('/') #Initial
     def index():

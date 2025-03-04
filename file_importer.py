@@ -33,6 +33,8 @@ ERROR = "error"
 
 class FileData:
     
+    
+    
     def __init__(self,files):
         self.originalFileNames = []
         for f in files:
@@ -45,6 +47,11 @@ class FileData:
             else:
                 self.dictFileExtension = ext
                 self.dictFileName = basename
+        
+        self.db = None
+        
+    def setDatabaseHandler(self, dbHandler):
+        self.db = dbHandler
         
     def getMainFileExtension(self):
         return self.mainFileExtension
@@ -386,15 +393,16 @@ class FileImporter:
         logger.info("")
         
         # Insert data into the database
-        database.insert_import_data(
-            time=time_stamp,
-            username=username,
-            groupname=groupname,
-            scope=scope,
-            file_count=file_n,
-            total_file_size_mb=total_file_size / 1024 / 1024,
-            import_time_s=import_time
-        )
+        if self.db:
+            self.db.insert_import_data(
+                time=time_stamp,
+                username=username,
+                groupname=groupname,
+                scope=scope,
+                file_count=file_n,
+                total_file_size_mb=total_file_size / 1024 / 1024,
+                import_time_s=import_time
+            )
         
     def check_supported_format(self,fileName):
         if not '.' in fileName:
