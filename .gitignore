@@ -5,3 +5,4 @@ database/
 uploads/
 git_hash.txt
 __pycache__/
+config.py
