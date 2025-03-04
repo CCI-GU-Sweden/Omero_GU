@@ -25,10 +25,18 @@ try:
     USE_TEST_URL = config.USE_TEST_URL
     DB_HOST = config.DB_HOST
     DB_PORT = config.DB_PORT
+    DB_HANDLER = config.DB_HANDLER
 except ImportError:
     USE_TEST_URL = False
     DB_HOST = "localhost"
     DB_PORT = 5432
+    DB_HANDLER = "postgres"
+    
+    
+if DB_HANDLER == "sqlite":
+    DB_DIR = "database"
+    DB_NAME = 'omero_imports.db'
+
     
 if USE_TEST_URL:
     OMERO_HOST = '130.241.39.241'
