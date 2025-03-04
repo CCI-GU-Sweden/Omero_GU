@@ -47,12 +47,7 @@ class FileData:
             else:
                 self.dictFileExtension = ext
                 self.dictFileName = basename
-        
-        self.db = None
-        
-    def setDatabaseHandler(self, dbHandler):
-        self.db = dbHandler
-        
+                        
     def getMainFileExtension(self):
         return self.mainFileExtension
         
@@ -119,6 +114,7 @@ class FileImporter:
     _msg_q = Queue()
     _executor = ThreadPoolExecutor(max_workers=conf.FILE_IMPORT_THREADS)
     _futures = set()
+    _db = None
     
     #asynch method starts a thread, returns imideately
     def startImport(self, files, tags, omeroConnection):
@@ -157,6 +153,9 @@ class FileImporter:
     
     def reset(self):
         self._futures = set()
+    
+    def setDatabaseHandler(self, dbHandler):
+        self._db = dbHandler
     
     def _future_done(self,future):
         if future.cancelled():
@@ -393,8 +392,8 @@ class FileImporter:
         logger.info("")
         
         # Insert data into the database
-        if self.db:
-            self.db.insert_import_data(
+        if self._db:
+            self._db.insert_import_data(
                 time=time_stamp,
                 username=username,
                 groupname=groupname,
