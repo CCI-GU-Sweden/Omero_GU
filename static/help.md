@@ -46,6 +46,31 @@ The following rules govern the use of the OMERO system at the Centre for Cellula
 By adhering to these rules, you help maintain the integrity and efficiency of the OMERO system for all users. Thank you for your cooperation. 
 
 ___
+## Initial Login
+
+The creation of your account only require your xaccount or your guaccount.
+
+In case you are not part of GU, please contact in advance the CCI staff so that we can setup a temporary account for you.
+
+Please, send us by email your xaccount or your guaccount, and we will enable you OMERO usage.
+
+&#128275; **Login to OMERO**
+
+Visit the following link: [https://omero-cci-users.gu.se/](https://omero-cci-users.gu.se/).
+Click on "Login with ADFS" to proceed.  
+![Omero_login_2FA](images/Omero_login_2FA.png)
+
+Authenticate using your preferred method (e.g., BankID), following the instructions provided on the website. 
+
+By default, you will belong to the new-pi group:
+![Omero_inital_login](images/Omero_inital_login.png)
+
+Please logout, by going to the top right corner, and click on your name:
+![Omero_logout](images/Omero_logout.png)
+
+&#9989; Let us know if it worked then we can create your group.
+
+___
 
 ## Connecting to OMERO from the Microscope computers &#128187;
 
@@ -59,14 +84,8 @@ On the iLab CrossLab page, navigate to the "About Our Core" tab.
 Scroll down to the Links, Materials, and Resources section. Here, you will always find the latest link to the OMERO Upload App.  
 Link: [https://omero-flask.apps.k8s.gu.se/](https://omero-flask.apps.k8s.gu.se/)  
 
-&#128275; **Login to OMERO**
-Click "Login to OMERO" to begin the authentication process. This requires two-factor authentication.  
+Click "Login to OMERO" to begin the authentication process. This requires two-factor authentication as with the initial login.  
 ![Omero_login_1](images/Omero_login_1.png)
-
-Click on "Login with ADFS" to proceed.  
-![Omero_login_2FA](images/Omero_login_2FA.png)
-
-Authenticate using your preferred method (e.g., BankID), following the instructions provided on the website. 
 
 After successful authentication, do not click on "Continue." Instead, select "obtain a session token here."  
 ![Omero_login_getKey](images/Omero_login_getKey.png)

@@ -58,7 +58,7 @@ CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
 UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
 
-USER_VARIABLES = ["Sample"]
+USER_VARIABLES = ["Sample", "User", "PI", "Preparation"]
 
 DATE_TIME_FMT = "%Y-%m-%d %H:%M:%S"
 
