@@ -48,24 +48,23 @@ By adhering to these rules, you help maintain the integrity and efficiency of th
 ___
 ## Initial Login
 
-The creation of your account only require your xaccount or your guaccount.
-
-In case you are not part of GU, please contact in advance the CCI staff so that we can setup a temporary account for you.
-
-Please, send us by email your xaccount or your guaccount, and we will enable you OMERO usage.
+The creation of your account only require your xaccount or your guaccount.  
+In case you are not part of GU, please contact in advance the CCI staff so that we can setup a temporary account for you.  
+Please, send us by email your xaccount or your guaccount, and we will enable you OMERO usage.  
 
 &#128275; **Login to OMERO**
 
-Visit the following link: [https://omero-cci-users.gu.se/](https://omero-cci-users.gu.se/).
+Visit the following link: [https://omero-cci-users.gu.se/](https://omero-cci-users.gu.se/).  
+
 Click on "Login with ADFS" to proceed.  
 ![Omero_login_2FA](images/Omero_login_2FA.png)
 
-Authenticate using your preferred method (e.g., BankID), following the instructions provided on the website. 
+Authenticate using your preferred method (e.g., BankID), following the instructions provided on the website.  
 
-By default, you will belong to the new-pi group:
+By default, you will belong to the new-pi group:  
 ![Omero_inital_login](images/Omero_inital_login.png)
 
-Please logout, by going to the top right corner, and click on your name:
+Please logout, by going to the top right corner, and click on your name:  
 ![Omero_logout](images/Omero_logout.png)
 
 &#9989; Let us know if it worked then we can create your group.

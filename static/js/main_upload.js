@@ -50,15 +50,23 @@ document.addEventListener('DOMContentLoaded', () => {
             : 'No files selected for conversion/import';
     }
 
-    function getTags(){
+    function getTags(selectedKey = null){
         fetchWrapper(keysEndpoint)
             .then(keysAndValues => {
                 const keys = Object.keys(keysAndValues);
                 interactiveKeyDropdown.innerHTML = keys
                     .map(key => `<option value="${key}">${key}</option>`)
                     .join('');
+				
+				if (!selectedKey && keys.length > 0) {
+					selectedKey = keys[0];
+				}
+				
+				if (selectedKey && keys.includes(selectedKey)) {
+					interactiveKeyDropdown.value = selectedKey;
+				}
         
-                if (keys.length > 0) loadExistingValues(keys[0], keysAndValues[keys[0]]);
+                if (keys.length > 0) loadExistingValues(interactiveKeyDropdown.value, keysAndValues[interactiveKeyDropdown.value]);
             })
             .catch(error => {
                 console.log("skit händer här " + error.message);
@@ -130,7 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     interactiveKeyDropdown.addEventListener('change', () => {
         const selectedKey = interactiveKeyDropdown.value;
-        getTags();
+		console.log("Set key to: "+selectedKey);
+        getTags(selectedKey);
     });
 
     newRadio.addEventListener('change', () => {

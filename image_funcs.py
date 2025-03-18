@@ -236,6 +236,33 @@ def file_format_splitter(fileData, verbose:bool):
     
     return converted_path, key_pair
 
+def mapping(microscope):
+    #Map potential name to the more convential name
+    micro_mapping = {#LM
+                     '2842001059':'LSM 980',
+                     'LSM 880, AxioObserver':'LSM 880',
+                     'LSM 710, Axio Examiner': 'LSM 710',
+                     'LSM 700, AxioObserver': 'LSM 700',
+                     'Celldiscoverer 7':'CD7',
+                     'Elyra 7 DUOLINK':'Elyra 7',
+                     'Axio Imager.Z2':'Imager',
+                     'Axio Observer.Z1 / 7':'Observer',
+                     #EM
+                     'TALOS': 'Talos L120C',
+                     'Talos': 'Talos L120C',
+                     'Microscope TalosL120C 120 kV D5838 CryoTwin':'Talos L120C',
+                     'i':'Talos L120C',
+                     'Gemini':'Gemini SEM 450',
+                     #Other
+                     None:'Undefined',
+                     }
+    
+    if microscope in micro_mapping.keys():
+        microscope = micro_mapping[microscope]
+    
+    return microscope
+
+
 def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
     """
     Extract important metadata from a CZI image file.
@@ -267,7 +294,7 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
     #Initialization
     app_name = None
     app_version = None
-    microscope = ''
+    microscope = None
     acq_type = None
     lensNA = None
     lensMag = None
@@ -275,28 +302,29 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
     comment = None
     description = None
     creation_date = None
-                             
+                                
     #grab the correct version of the metadata
     app = metadata['Information'].get('Application', None)
     if app != None: #security check
         app_name = app['Name']
         app_version = app['Version']
         if verbose: logger.info('Metadata made with %s version %s' %(app_name, app_version))
-        #microscope name, based on the version of the metadata. Do NOT get ELYRA microscope
         #Another way will be to grab the IP address of the room and map it
-        if 'ZEN' in app['Name'] and 'blue' in app['Name'] and app['Version'].startswith("3."): #CD7, 980
-            microscope += metadata['Scaling']['AutoScaling'].get('CameraName', "") + ", "
-            microscope += metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
-            #hardcoded part :(
-            if 'Axiocam 705 mono' in microscope: microscope = microscope.replace('Axiocam 705 mono', 'LSM 980')
-                
-        elif 'ZEN' in app['Name'] and 'blue' in app['Name'] and app['Version'].startswith("2."): #Observer
+        #microscope name, based on the version of the metadata
+        if 'ZEN' in app['Name'] and app['Version'].startswith("3."): #CD7, 980, Elyra
+            microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('UserDefinedName', None)
+            if microscope == None:
+                microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
+            if microscope == None:
+                microscope = metadata['Scaling']['AutoScaling'].get('CameraName', None)
+
+        elif 'ZEN' in app['Name'] and app['Version'].startswith("2.6"): #Observer, Imager
             microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
             
-        elif 'AIM' in app['Name']: #ELYRA, 700, 880
+        elif 'AIM' in app['Name']: #700, 880, 710
             microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('System', None)
-            #hardcoded part :(
-            if 'Andor1' in microscope: microscope = microscope.replace('Andor1', 'Elyra')
+
+        microscope = mapping(microscope)
             
         if verbose: logger.info('Image made on %s' %(microscope))
         #pixel size (everything in the scaling)
@@ -404,9 +432,9 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     
     # Check if this is possible to reduce its bit size
     img_array, bit = optimize_bit_depth(img_array)
-    
+      
     key_pair = {
-        'Microscope': dict_crawler(data, 'Microscope')[0],
+        'Microscope':mapping(dict_crawler(data, 'Microscope')[0][1]),
         'Electron source': dict_crawler(data, 'Gun type')[0],
         'Beam tension': dict_crawler(data, 'High tension', partial_search=True)[0],
         'Camera': dict_crawler(data, 'CameraName', partial_search=True)[0],
@@ -550,7 +578,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     if verbose: logger.info(f"{img_path} successfully readen!")  
 
     key_pair = {
-        'Microscope': dict_crawler(data, 'InstrumentModel')[0],
+        'Microscope': mapping(dict_crawler(data, 'InstrumentModel')[0].split('-')[0]),
         'Electron source': dict_crawler(data, 'SourceType')[0],
         'Beam tension': dict_crawler(data, 'AccelerationVoltage')[0],
         'Camera': dict_crawler(data, 'DetectorName')[0],
@@ -695,7 +723,7 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
     if verbose: logger.info(f"{img_path} successfully readen!") 
     
     key_pair = {
-        'Microscope': dict_crawler(data, 'InstrumentModel')[0].split('-')[0],
+        'Microscope': mapping(dict_crawler(data, 'InstrumentModel')[0].split('-')[0]),
         'Electron source': dict_crawler(data, 'Sourcetype')[0],
         'Beam tension': dict_crawler(data, 'AccelerationVoltage')[0],
         'Camera': safe_get(dict_crawler(data, 'camera')[0], ['Name']),
@@ -832,7 +860,7 @@ def convert_semtif_to_ometiff(img_path: str, verbose:bool=False):
             if verbose: logger.info(f"{img_path} data successfully readen!") 
                                
             key_pair = {
-            'Microscope': dict_crawler(cz_sem_metadata, 'dp_sem')[0][1],
+            'Microscope': mapping(dict_crawler(cz_sem_metadata, 'dp_sem')[0][1]),
             'Image type':dict_crawler(cz_sem_metadata, 'dp_final_lens')[0][1],
             'Lens Magnification': convert_magnification(dict_crawler(cz_sem_metadata, 'ap_mag')[0][1]),
             'WD value': dict_crawler(cz_sem_metadata, 'ap_wd')[0][1],
