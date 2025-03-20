@@ -858,11 +858,15 @@ def convert_semtif_to_ometiff(img_path: str, verbose:bool=False):
             
             img_array = tif.asarray()
             if verbose: logger.info(f"{img_path} data successfully readen!") 
+                        
+            #construct mag string
+            mag_str_list = list(map(str,dict_crawler(cz_sem_metadata, 'ap_mag')[0]))
+            mag_str = " ".join(mag_str_list)
                                
             key_pair = {
             'Microscope': mapping(dict_crawler(cz_sem_metadata, 'dp_sem')[0][1]),
             'Image type':dict_crawler(cz_sem_metadata, 'dp_final_lens')[0][1],
-            'Lens Magnification': convert_magnification(dict_crawler(cz_sem_metadata, 'ap_mag')[0][1]),
+            'Lens Magnification': convert_magnification(mag_str),
             'WD value': dict_crawler(cz_sem_metadata, 'ap_wd')[0][1],
             'WD unit': dict_crawler(cz_sem_metadata, 'ap_wd')[0][2],
             'EHT value': dict_crawler(cz_sem_metadata, 'ap_actualkv')[0][1],
@@ -975,7 +979,8 @@ def convert_magnification(mag_str):
     """Convert magnification string like '81.20 K X' to a real number."""
     
     # Extract numeric part and unit using regex
-    match = re.match(r"([\d\.]+)\s*([KMG]?)\s*X", mag_str, re.IGNORECASE)
+    match = re.match(r"(?:MAG\s*)?(\d+(?:\.\d+)?)\s*([KMG]?)\s*X", mag_str, re.IGNORECASE)
+#    match = re.match(r"([\d\.]+)\s*([KMG]?)\s*X", mag_str, re.IGNORECASE)
     
     if not match:
         raise ValueError(f"Invalid magnification format: {mag_str}")
