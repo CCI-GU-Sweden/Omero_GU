@@ -83,3 +83,5 @@ OMERO_SESSION_HOST_KEY  = "omero_host"
 OMERO_SESSION_PORT_KEY  = "omero_port"
 OMERO_G_CONNECTION_KEY  = "connection"
 OMERO_G_IMPORTER_KEY    = "importer"
+
+SEM_TIF_VALID_MAGIC = 34118

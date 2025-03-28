@@ -849,12 +849,14 @@ def convert_semtif_to_ometiff(img_path: str, verbose:bool=False):
     if verbose: logger.info(f"Conversion to ometiff from tif required for {img_path}")
     try:
         with tifffile.TiffFile(img_path) as tif:
-            cz_sem_metadata = dict(tif.pages[0].tags.get(34118).value)
             
-            if verbose: logger.info(f"{img_path} metadata successfully readen!") 
-            
-            if cz_sem_metadata is None:
+            cz_sem_data = tif.pages[0].tags.get(conf.SEM_TIF_VALID_MAGIC)
+            if cz_sem_data is None:
                 raise TypeError("Image may be a tif, but not a SEM-TIF or metadata failed to be read")
+            
+            cz_sem_metadata = dict(cz_sem_data.value)
+            
+            logger.debug(f"{img_path} metadata successfully read!") 
             
             img_array = tif.asarray()
             if verbose: logger.info(f"{img_path} data successfully readen!") 
