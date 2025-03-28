@@ -64,7 +64,7 @@ export class FileListComponent {
 
     setStatus(status, message)
     {
-        console.log("setting component status: " + status);
+        console.log("setting component status: " + status + " " + message);
         this.container.classList.remove(this.status);
         this.status = status;
         this.container.classList.add(status);
@@ -84,9 +84,9 @@ export class FileListComponent {
             case FileStatus.ERROR:
                 return FileStatus.ERROR + " " + message;
                 case FileStatus.ERROR:
-                    return "Queued for transfer" + message;    
+                    return "Queued for transfer " + message;    
             default:
-                return status;
+                return status + " " + message;
         }
     }
 
