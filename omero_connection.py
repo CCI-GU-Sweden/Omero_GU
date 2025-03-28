@@ -1,3 +1,4 @@
+import omero.api
 import logger
 import omero
 import omero.rtypes
@@ -187,6 +188,11 @@ class OmeroConnection:
             groups.append(group.getName())
         return groups
                 
+    def getTagAnnotationIfItExists(self, tag_value):
+        tag_gen = self.getTagAnnotations(tag_value)
+        return next((x for x in tag_gen if x.geValue() == tag_value),None) 
+        
+                
     def getTagAnnotations(self,tag_value):
         attributes={'textValue': tag_value}
         return self.conn.getObjects("TagAnnotation", attributes=attributes)
@@ -206,7 +212,7 @@ class OmeroConnection:
     def setAnnotationOnImage(self, image, tag_value):
         with self._mutex:
             try:
-                tag_ann = self.getTagAnnotation(tag_value)
+                tag_ann = self.getTagAnnotationIfItExists(tag_value)
                 if not tag_ann:
                     tag_ann = omero.gateway.TagAnnotationWrapper(self.conn)
                     tag_ann.setValue(tag_value)
@@ -215,9 +221,10 @@ class OmeroConnection:
                 image.linkAnnotation(tag_ann)
             except omero.ValidationException as e:
                 logger.warning(f"Failed to insert the tag {tag_value} to image {image}: {str(e)}")
+            except omero.ApiUsageException as e:
+                logger.error(f"Failed to set/get tag annotations on image {image}: {str(e)}")
             except Exception as e:
                 logger.error(f"Failed to set/get tag annotations on image {image}: {str(e)}")
-                
 
     #return the first value of the given key or None
     def getMapAnnotationValue(self, imageId, key):
