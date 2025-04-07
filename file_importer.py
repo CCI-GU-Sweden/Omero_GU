@@ -236,8 +236,10 @@ class FileImporter:
         file_path = os.path.join(conf.UPLOAD_FOLDER, *os.path.split(filename))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
     
-        file.seek(0)    
+        file.seek(0)
+        logger.debug("file seek 0")
         file_size = len(file.read())
+        logger.debug("file read for size")
         file.seek(0)
     
         # Save file to temporary directory    
