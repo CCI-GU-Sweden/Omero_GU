@@ -242,7 +242,7 @@ class FileImporter:
     
         # Save file to temporary directory    
         if file_size > conf.MAX_SIZE_FULL_UPLOAD and conf.USE_CHUNK_READ_ON_LARGE_FILES:
-            logger.info(f"File {filename} is larger than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
+            logger.info(f"File {filename} of size {file_size / (1024 * 1024)} MB,  is larger than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
             with open(file_path, 'wb') as f:
                 while chunk := file.stream.read(conf.CHUNK_SIZE):
                     f.write(chunk)
