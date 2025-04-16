@@ -84,7 +84,9 @@ export class FileListComponent {
             case FileStatus.ERROR:
                 return FileStatus.ERROR + " " + message;
                 case FileStatus.ERROR:
-                    return "Queued for transfer" + message;    
+                    return "Queued for transfer" + message;
+            case FileStatus.UNSUPPORTED_FORMAT:
+                return "Unsupported format: " + message
             default:
                 return status;
         }
