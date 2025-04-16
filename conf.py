@@ -19,7 +19,7 @@ LOGGER_NAME = "omero_logger"
 
 FILE_IMPORT_THREADS = 2
 
-USE_TEST_URL = True
+USE_TEST_URL = False
 DB_HOST = "localhost"
 DB_PORT = 5432
 DB_HANDLER = "postgres"
@@ -39,7 +39,7 @@ if DB_HANDLER == "sqlite":
 
     
 if USE_TEST_URL:
-    OMERO_HOST = '130.241.39.241'
+    OMERO_HOST = 'omero-cli.test.gu.se'
     OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
 
 else: #production mode
