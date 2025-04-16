@@ -4,6 +4,8 @@ import os
 import logger
 from threading import Lock
 import conf
+import xml.etree.ElementTree as ET
+from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -33,6 +35,34 @@ class FileChangeHandler(FileSystemEventHandler):
 
 mutex = Lock()
 
+def setup_log_and_progress_files(import_file_stem):
+
+    progress_log_file = conf.LOG_DIR + conf.IMPORT_PROGRESS_FILE_STEM + "-" + import_file_stem + conf.IMPORT_LOG_FILE_EXTENSION
+    import_log_file = conf.LOG_DIR + conf.IMPORT_LOG_FILE_STEM + "-" + import_file_stem + conf.IMPORT_LOG_FILE_EXTENSION
+    logback_file = import_file_stem + "-" + conf.IMPORT_LOGBACK_FILE
+
+    # 1. Parse the XML
+    tree = ET.parse('logback.xml')
+    root = tree.getroot()
+
+    # 2. Modify the <file> element(s)
+    for appender in root.findall(".//appender"):
+        appender_name = appender.attrib.get("name")
+        file_elem = appender.find("file")
+        if appender_name == "IMPORT": 
+            if file_elem is not None:
+                file_elem.text = import_log_file
+        if appender_name == "PROGRESS": 
+            if file_elem is not None:
+                file_elem.text = progress_log_file
+
+    # 3. Save the modified XML
+    tree.write(logback_file, encoding='utf-8', xml_declaration=True)
+
+    return progress_log_file, import_log_file, logback_file 
+
+
+
 def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func):
     # import the image
     
@@ -44,8 +74,9 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
     rt = 0
     while not done:
         with mutex:
-            file_to_watch = conf.LOG_DIR + conf.IMPORT_PROGRESS_FILE
-            event_handler = FileChangeHandler(file_to_watch, progress_func)
+            file_stem = Path(img_path).stem
+            progress, log, logback_conf = setup_log_and_progress_files(file_stem)
+            event_handler = FileChangeHandler(progress, progress_func)
             observer = Observer()
             observer.schedule(event_handler, path=conf.LOG_DIR, recursive=False)
             observer.start()
@@ -56,24 +87,32 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
                                             target=img_path,
                                             dataset=dataset_id.getId(),
                                             ann=meta_dict,
-                                            ns=namespace, logback="./logback.xml")
+                                            ns=namespace, logback=logback_conf)
+            
+                if image_id is None: #failed to import the image(s)
+                    logger.warning(f"ezomero.ezimport returned image id None. Try {rt} of {conf.IMPORT_NR_OF_RETRIES}") 
+                    was_error = True
+            
             except Exception as e:
                 logger.warning(f"ezomero.ezimport caused exception: {str(e)}. Try {rt} of {conf.IMPORT_NR_OF_RETRIES}") 
                 was_error = True
         
-            if image_id is None: #failed to import the image(s)
-                logger.warning(f"ezomero.ezimport returned image id None. Try {rt} of {conf.IMPORT_NR_OF_RETRIES}") 
-                was_error = True
+            finally:
+                rt += 1
+                done = (not was_error) or not (was_error and  rt < conf.IMPORT_NR_OF_RETRIES)
+                observer.stop()
+                if (not done and was_error) or (done and not was_error):
+                    os.remove(progress)
+                    os.remove(log)
+                    os.remove(logback_conf)
+                
 
-            rt += 1
-            done = (not was_error) or (was_error and  rt < conf.IMPORT_NR_OF_RETRIES)
-            os.remove(conf.LOG_DIR + conf.IMPORT_PROGRESS_FILE)
-            observer.stop()
 
     #all retris done...
     if image_id is None: #failed to import the image(s)
         logger.warning(f"ezomero.ezimport returned image id None after all retries") 
         raise ValueError("Failed to upload the image with ezomero. Return an empty list")
+    
     
     #additional tags:
     batch_tag = [str(x)+' '+str(batch_tag[x]) for x in batch_tag if batch_tag[x] != 'None']

@@ -8,7 +8,11 @@ LOG_DIR = "logs/"
 LOG_FILE = LOG_DIR + "omero_app.log"
 
 IMPORT_NR_OF_RETRIES = 3
-IMPORT_PROGRESS_FILE = "import_progress.log"
+IMPORT_PROGRESS_FILE_STEM = "import_progress"
+IMPORT_LOG_FILE_STEM = "import_log"
+IMPORT_LOG_FILE_EXTENSION = ".log"
+IMPORT_LOGBACK_FILE = "logback.xml"
+
 
 DB_NAME = 'omerofilestats'
 
