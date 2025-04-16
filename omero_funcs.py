@@ -37,7 +37,7 @@ mutex = Lock()
 
 def setup_log_and_progress_files(import_file_stem):
 
-    progress_log_file = conf.LOG_DIR + conf.IMPORT_PROGRESS_FILE_STEM + "-" + import_file_stem + conf.IMPORT_LOG_FILE_EXTENSION
+    progress_log_file = conf.IMPORT_PROGRESS_DIR + conf.IMPORT_PROGRESS_FILE_STEM + "-" + import_file_stem + conf.IMPORT_LOG_FILE_EXTENSION
     import_log_file = conf.LOG_DIR + conf.IMPORT_LOG_FILE_STEM + "-" + import_file_stem + conf.IMPORT_LOG_FILE_EXTENSION
     logback_file = import_file_stem + "-" + conf.IMPORT_LOGBACK_FILE
 
@@ -78,7 +78,7 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
             progress, log, logback_conf = setup_log_and_progress_files(file_stem)
             event_handler = FileChangeHandler(progress, progress_func)
             observer = Observer()
-            observer.schedule(event_handler, path=conf.LOG_DIR, recursive=False)
+            observer.schedule(event_handler, path=conf.IMPORT_PROGRESS_DIR, recursive=False)
             observer.start()
             was_error = False
             #we need to catch exceptions from this and probably do a retry in some way!! !! !! !! *** *** <== ==>

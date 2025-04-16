@@ -160,7 +160,7 @@ class FileImporter:
         elif future.done():
             error = future.exception()
             if error:
-                logger.info(f"Import Image exception: {error}")
+                logger.error(f"Import Image exception: {error}, line: {traceback.format_exc()}")
             else:
                 result = future.result()
                 logger.info(f"Task completed successfully with result: {result}")
@@ -271,8 +271,8 @@ class FileImporter:
                 self._log_and_insert_in_databse(scopes,conn,import_time,fileData)
 
         except FileNotFoundError as fnf:
-            logger.error(f"FileNotFoundError during import of {filename}: {str(t)}, line: {traceback.format_exc()}")
-            self._send_error_event(filename,str(e))
+            logger.error(f"FileNotFoundError during import of {filename}: {str(fnf)}, line: {traceback.format_exc()}")
+            self._send_error_event(filename,str(fnf))
         except TypeError as t:
             logger.error(f"TypeError during import of {filename}: {str(t)}, line: {traceback.format_exc()}")
             self._send_unsupported_event(filename, str(t))

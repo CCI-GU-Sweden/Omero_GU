@@ -30,11 +30,12 @@ def create_app(test_config=None):
 
     logger.setup_logger()
 
-    # Define a directory for storing uploaded files
-    UPLOAD_FOLDER = 'uploads'
-    if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
-
+    try:
+        os.makedirs(conf.IMPORT_PROGRESS_DIR, exist_ok=True)
+    except Exception as e:
+        logger.error("Error in creating dir...exiting")
+        exit
+    
     logger.info("***** Starting CCI Omero Frontend ******")
     importer = file_importer.FileImporter()
     
