@@ -5,7 +5,8 @@ ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
 
 
 LOG_DIR = "logs/"
-LOG_FILE = "omero_app.log"
+LOG_FILE = LOG_DIR + "omero_app.log"
+
 
 DB_NAME = 'omerofilestats'
 
