@@ -7,6 +7,8 @@ ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
 LOG_DIR = "logs/"
 LOG_FILE = LOG_DIR + "omero_app.log"
 
+IMPORT_NR_OF_RETRIES = 3
+IMPORT_PROGRESS_FILE = "import_progress.log"
 
 DB_NAME = 'omerofilestats'
 
