@@ -10,7 +10,7 @@ from dateutil import parser
 from rsciio import tia, emd, mrc
 from pylibCZIrw import czi as pyczi
 from ome_types import model
-#from ome_types.model.map import M
+from ome_types.model.map import M
 import tifffile
 
 #Metadata function
