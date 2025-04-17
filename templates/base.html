@@ -33,7 +33,11 @@
                         </div>
                         <div class="column is-three-quarters">
                             <h1 class="title has-text-dark">CCI Omero File Storage Frontend</h1>
-                        </div>
+                            {% if is_test_instance %}
+                                <h2 class="has-text-danger">!! TEST INSTANCE !!</h2>
+                            {% endif %}
+                    </div>
+
                     </div>
 
                     {% include "navbar.html" %}
@@ -47,7 +51,6 @@
                 <footer class="section has-background-light has-text-dark custom-footer">
                     {% block footer %}
                     <p class="has-text-right">&copy; 2025 Centre for Cellular Imaging, University of Gothenburg. All rights reserved.</p>
-            
                     {% endblock %}
                 </footer>
             </div>

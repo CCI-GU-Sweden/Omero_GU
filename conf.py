@@ -28,7 +28,8 @@ LOGGER_NAME = "omero_logger"
 
 FILE_IMPORT_THREADS = 2
 
-USE_TEST_URL = False
+#configs for local running
+USE_TEST_URL = True
 DB_HOST = "localhost"
 DB_PORT = 5432
 DB_HANDLER = "postgres"

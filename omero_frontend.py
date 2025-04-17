@@ -50,11 +50,17 @@ def create_app(test_config=None):
     db.initialize_database()
     importer.setDatabaseHandler(db)
     
+    
+    def my_render_template(*args, **kwargs):
+        
+        kwargs['is_test_instance'] = conf.USE_TEST_URL
+        return render_template(*args,**kwargs)
+    
     #Flask function
     @app.route('/') #Initial
     def index():
         logger.info("Enter index.html")
-        return render_template('index.html')
+        return my_render_template('index.html')
     
     @app.route('/favicon.ico')
     def favicon():
@@ -76,7 +82,7 @@ def create_app(test_config=None):
         content = content.replace('images/', url_for('static', filename='images/'))
         
         html = markdown(content)
-        return render_template('help_page.html', content=html)
+        return my_render_template('help_page.html', content=html)
         
     @app.route('/login')
     def login():
@@ -96,7 +102,7 @@ def create_app(test_config=None):
 
                 return redirect(url_for('upload'))
     
-        return render_template('enter_token.html')
+        return my_render_template('enter_token.html')
 
     def hasLoggedIn(session):
         return conf.OMERO_SESSION_TOKEN_KEY in session or conf.OMERO_SESSION_HOST_KEY in session
@@ -106,7 +112,7 @@ def create_app(test_config=None):
         logger.info("Enter upload")
         if not hasLoggedIn(session):
             return redirect(url_for('enter_token'))
-        return render_template('upload.html')
+        return my_render_template('upload.html')
 
     @app.errorhandler(Exception)
     def handle_exception_error(e):
@@ -182,7 +188,7 @@ def create_app(test_config=None):
     def error_page():
         err_type = request.args.get('error_type')
         err_msg = request.args.get('message')
-        return render_template('error_page.html',error_type=err_type, error_message=err_msg)
+        return my_render_template('error_page.html',error_type=err_type, error_message=err_msg)
     
     @app.route('/log', methods=['POST'])
     def log():
