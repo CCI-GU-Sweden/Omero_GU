@@ -9,7 +9,7 @@ LOG_FILE = LOG_DIR + "omero_app.log"
 
 IMPORT_PROGRESS_DIR = LOG_DIR + "progress/"
 
-IMPORT_NR_OF_RETRIES = 3
+IMPORT_NR_OF_RETRIES = 5
 IMPORT_PROGRESS_FILE_STEM = "import_progress"
 IMPORT_LOG_FILE_STEM = "import_log"
 IMPORT_LOG_FILE_EXTENSION = ".log"
@@ -26,7 +26,7 @@ SECRET_KEY = "s3cr3t"
 APP_NAME = "gu_omero_frontend"
 LOGGER_NAME = "omero_logger"
 
-FILE_IMPORT_THREADS = 2
+FILE_IMPORT_THREADS = 4
 
 #configs for local running
 USE_TEST_URL = True

@@ -71,7 +71,7 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
     
     done = False
     image_id = None
-    rt = 0
+    rt = 1
     while not done:
         with mutex:
             file_stem = Path(img_path).stem
@@ -99,7 +99,7 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
         
             finally:
                 rt += 1
-                done = (not was_error) or not (was_error and  rt < conf.IMPORT_NR_OF_RETRIES)
+                done = (not was_error) or not (was_error and  rt <= conf.IMPORT_NR_OF_RETRIES)
                 observer.stop()
                 observer.join()
                 if (not done and was_error) or (done and not was_error):
@@ -112,7 +112,7 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
     #all retris done...
     if image_id is None: #failed to import the image(s)
         logger.warning(f"ezomero.ezimport returned image id None after all retries") 
-        raise ValueError("Failed to upload the image with ezomero. Return an empty list")
+        raise ValueError(f"Failed to upload the image with ezomero after {conf.IMPORT_NR_OF_RETRIES} tries.")
     
     
     #additional tags:
