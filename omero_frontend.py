@@ -244,7 +244,8 @@ def create_app(test_config=None):
                 while True:
                     try:
                         event = importer.getEvent(2)
-                        yield f"data: {json.dumps(event)}\n\n"
+                        yield f"event: {event['type']}\n"
+                        yield f"data: {json.dumps(event['data'])}\n\n"
                     except queue.Empty as ee:
                         yield f"keep alive\n"
                     except ConnectionError as e:

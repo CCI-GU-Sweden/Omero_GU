@@ -31,6 +31,11 @@
     justify-self: left;
 }
 
+.retry {
+    justify-self: left;
+    font-size: 12px;
+}
+
 .pending { background-color: #cfcfcf; }
 .queued { background-color: #f2f550; }
 .started { background-color: #cfcfcf; color: #004085;}

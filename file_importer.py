@@ -202,18 +202,26 @@ class FileImporter:
     def _send_error_event(self,fileName,message):
         event = self._generateEvent(fileName,ERROR,message)
         self.putEvent(event)   
+        
+    def _send_retry_event(self, filename, retry, maxTries):
+        self._put_event(filename,str(retry),str(maxTries),result="",type="retry_event")
     
-    def _put_event(self,fileName,status,message,result=""):
-        event = self._generateEvent(fileName,status,message,result)
+    def _put_event(self,fileName,status,message,result="", type="message"):
+        event = self._generateEvent(fileName,status,message,result, type=type)
         self.putEvent(event)
     
-    def _generateEvent(self,fileName,status,message,result=""):
-        event_data = {
-            "name" : fileName,
-            "status" : status,
-            "message" : message,
-            "result" : result
-        }
+    def _generateEvent(self,fileName,status,message,result="", type="message"):
+        
+        event_data = { 
+            
+            "data" : { 
+                "name" : fileName,
+                "status" : status,
+                "message" : message,
+                "result" : result 
+                },
+            "type" : type 
+            }
         
         return event_data
        
@@ -335,7 +343,8 @@ class FileImporter:
 
         dst_path = f'{user_name} / {project_name} / {dataset_name}'
         pfun = functools.partial(self._send_progress_event,filename)
-        image_id = omero_funcs.import_image(conn, file_path, dataset, meta_dict, batch_tag, pfun)
+        rtFun = functools.partial(self._send_retry_event,filename)
+        image_id = omero_funcs.import_image(conn, file_path, dataset, meta_dict, batch_tag, pfun, rtFun)
         logger.info(f"ezimport result for {filename}: {image_id}, path: {dst_path}")
         
         return True, scopes, image_id, dst_path

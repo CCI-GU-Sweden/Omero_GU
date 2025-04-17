@@ -37,6 +37,12 @@ export class FileListComponent {
         this.statusText.classList.add("status");
         this.container.appendChild(this.statusText);
 
+        this.retryText = document.createElement('p');
+        this.retryText.textContent = "";
+        this.retryText.classList.add("retry");
+        this.container.appendChild(this.retryText);
+
+
         if(!isChild){
             this.removeButton = document.createElement('button');
             this.removeButton.textContent = 'Remove';
@@ -71,6 +77,9 @@ export class FileListComponent {
         this.statusText.textContent = this.createStatusString(status,message);
         if(this.child)
             this.child.setStatus(status,message);
+
+        if(status == FileStatus.SUCCESS)
+            this.clearRetryText()
     }
 
     createStatusString(status, message){
@@ -90,6 +99,18 @@ export class FileListComponent {
             default:
                 return status;
         }
+    }
+
+    clearRetryText(){
+        this.retryText.textContent = "";
+    }
+
+    setRetryText(retry, maxRetries){
+        if(retry == "1")
+            return;
+
+        var msg = "retry: " + retry + "/" + maxRetries;
+        this.retryText.textContent = msg;
     }
 
     getName(){

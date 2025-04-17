@@ -63,7 +63,7 @@ def setup_log_and_progress_files(import_file_stem):
 
 
 
-def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func):
+def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func, retry_func):
     # import the image
     
     omeroConn = conn.get_omero_connection()
@@ -74,6 +74,7 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
     rt = 1
     while not done:
         with mutex:
+            retry_func(rt, conf.IMPORT_NR_OF_RETRIES)
             file_stem = Path(img_path).stem
             progress, log, logback_conf = setup_log_and_progress_files(file_stem)
             event_handler = FileChangeHandler(progress, progress_func)

@@ -1,5 +1,5 @@
 import { fetchWrapper, showErrorPage } from "./utils.js";
-import { updateFileStatus, addFilesToList, getFileListForImport, nrFilesForUpload, clearFileList, setFileListChangeCB } from "./file_list.js";
+import { updateFileStatus, addFilesToList, getFileListForImport, nrFilesForUpload, clearFileList, setFileListChangeCB, updateRetryStatus } from "./file_list.js";
 import { FileStatus } from "./file_list_component.js";
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -273,6 +273,13 @@ document.addEventListener('DOMContentLoaded', () => {
             eventSource = new EventSource(importUpdateStream);
             console.log("Setting up event source");
     
+            eventSource.addEventListener("retry_event", (event) => {
+                var retryInfo = JSON.parse(event.data);
+                updateRetryStatus(retryInfo.name, retryInfo.status, retryInfo.message)
+                console.log(`Retry event for ${retryInfo.name}, try: ${retryInfo.status} of ${retryInfo.message}`);
+
+            });
+
             eventSource.onmessage = function(event) {
                 if (event.data === 'done') {
                     console.log("Import done");

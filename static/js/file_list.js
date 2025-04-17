@@ -151,6 +151,13 @@ export function updateFileStatus(fileName, fileStatus, message)
         fileData.setStatus(fileStatus,message);
 }
 
+export function updateRetryStatus(fileName, retry, maxRetries)
+{
+    var fileData = Array.from(fileComponents).find((element) => element.getName() == fileName);
+    if(fileData)
+        fileData.setRetryText(retry,maxRetries);
+}
+
 function fileAlreadyInList(fileName){
 
     var fileData = Array.from(fileComponents).find((element) => element.getName() == fileName);
