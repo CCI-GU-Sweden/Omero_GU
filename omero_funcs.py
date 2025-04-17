@@ -101,6 +101,7 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
                 rt += 1
                 done = (not was_error) or not (was_error and  rt < conf.IMPORT_NR_OF_RETRIES)
                 observer.stop()
+                observer.join()
                 if (not done and was_error) or (done and not was_error):
                     os.remove(progress)
                     os.remove(log)

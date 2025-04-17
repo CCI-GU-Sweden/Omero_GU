@@ -407,7 +407,8 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     if len(data) == 1:
         data = data[0]
     else:
-        raise ValueError(f"Length of data at {len(data)} different of 1.")
+        logger.error(f"Unable to read file {img_path}. Data was empty. Wrong format?")
+        raise ValueError(f"Unable to read Data of file {img_path}")
     
     img_array = data['data']
     # img_array = img_array[ :, :, np.newaxis, np.newaxis, np.newaxis,]
