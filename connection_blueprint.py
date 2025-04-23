@@ -113,12 +113,12 @@ def set_group():
         try:
             conn.setGroupNameForSession(group)
         except Exception as e:
-            logger.exception("Error setting group in OMERO!")
+            logger.error("Error setting group in OMERO!")
             return jsonify({"error": str(e)}), 500  # Return error message
 
         return jsonify({"message": f"Group set to {group}"}), 200
 
     except Exception as e:
-        logger.exception("Unexpected error occurred!")
+        logger.error("Unexpected error occurred!")
         return jsonify({"error": str(e)}), 500
 

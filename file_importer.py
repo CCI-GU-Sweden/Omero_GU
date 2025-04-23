@@ -270,9 +270,10 @@ class FileImporter:
     
     def _do_file_imports(self, fileData, batchtags, conn):
         res = False
+        filename = fileData.getMainFileName()
+        import_time_start = time.time()
+
         try:
-            filename = fileData.getMainFileName()
-            import_time_start = time.time()
             res, scopes, img_id, img_path = self._importImages(fileData, batchtags, conn)
             if res:
                 import_time = time.time() - import_time_start
@@ -321,7 +322,7 @@ class FileImporter:
         # Check if image is already in the dataset and has the acquisition time
         dataset = conn.getDataset(dataID)
         
-        dup, childId = omero_funcs.check_duplicate_filename(conn,converted_filename,dataset)
+        dup, childId = omero_funcs.check_duplicate_filename(converted_filename,dataset)
         if dup:
             sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
             if sameTime:

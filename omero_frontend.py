@@ -166,16 +166,16 @@ def create_app(test_config=None):
     @app.route('/get_projects', methods=['POST'])
     def get_projects():
 
-        conn = omero_funcs.get_omero_connection()
-        projects = omero_funcs.get_user_projects(conn)
+        conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
+        projects = conn.get_user_projects()
 
         return jsonify(projects)        
     
     @app.route('/create_project', methods=['POST'])
     def create_project():
         
-        conn = omero_funcs.get_omero_connection()
-        projects = omero_funcs.create_project(conn, request.projectName)
+        conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
+        projects = conn.create_project(request.projectName)
 
         return jsonify(projects)        
     

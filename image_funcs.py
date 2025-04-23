@@ -229,6 +229,10 @@ def file_format_splitter(fileData, verbose:bool):
         atlasPair[fileData.getDictFileExtension()] = fileData.getDictFileTempPath()
         atlasPair[fileData.getMainFileExtension()] = img_path
         converted_path, key_pair = convert_atlas_to_ometiff(atlasPair, verbose=verbose)
+
+    else:
+        converted_path = ""
+        key_pair = None
     
     return converted_path, key_pair
 
@@ -360,7 +364,10 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
         # creation_date = metadata['Information']['Document'].get('CreationDate', None)
         date_object = parser.isoparse(metadata['Information']['Document'].get('CreationDate', None))
         if verbose: logger.info('Image\n    Comment: %s,\n    Description: %s,\n    Creation date: %s' % (comment, description, creation_date))
-           
+    
+    else:
+        return None
+         
     if verbose: logger.info("_"*25)
     
     mini_metadata = {'Microscope':microscope,

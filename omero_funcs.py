@@ -1,13 +1,16 @@
-import omero
-import ezomero
 import os
-import logger
 from threading import Lock
-import conf
-import xml.etree.ElementTree as ET
 from pathlib import Path
+import xml.etree.ElementTree as ET
+import omero
+import omero.constants.metadata
+import ezomero
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import conf
+import logger
+from omero_connection import OmeroConnection
+
 
 class FileChangeHandler(FileSystemEventHandler):
     def __init__(self, file_path, progress_func):
@@ -26,19 +29,21 @@ class FileChangeHandler(FileSystemEventHandler):
                 self.last_position = f.tell()
                 if new_data:
                     if new_data.startswith("FILE_UPLOAD"):
-                        return 
-                    
+                        return
+
                     data = new_data.split(' ')
                     ratio = 100 * (float(data[0]) / float(data[1].rstrip()))
                     self.prog_fun(int(ratio))
-                
+
 
 mutex = Lock()
 
 def setup_log_and_progress_files(import_file_stem):
 
-    progress_log_file = conf.IMPORT_PROGRESS_DIR + conf.IMPORT_PROGRESS_FILE_STEM + "-" + import_file_stem + conf.IMPORT_LOG_FILE_EXTENSION
-    import_log_file = conf.LOG_DIR + conf.IMPORT_LOG_FILE_STEM + "-" + import_file_stem + conf.IMPORT_LOG_FILE_EXTENSION
+    progress_log_file = conf.IMPORT_PROGRESS_DIR + conf.IMPORT_PROGRESS_FILE_STEM + "-" \
+                        + import_file_stem + conf.IMPORT_LOG_FILE_EXTENSION
+    import_log_file = conf.LOG_DIR + conf.IMPORT_LOG_FILE_STEM + "-" + import_file_stem + \
+                        conf.IMPORT_LOG_FILE_EXTENSION
     logback_file = import_file_stem + "-" + conf.IMPORT_LOGBACK_FILE
 
     # 1. Parse the XML
@@ -49,26 +54,26 @@ def setup_log_and_progress_files(import_file_stem):
     for appender in root.findall(".//appender"):
         appender_name = appender.attrib.get("name")
         file_elem = appender.find("file")
-        if appender_name == "IMPORT": 
+        if appender_name == "IMPORT":
             if file_elem is not None:
                 file_elem.text = import_log_file
-        if appender_name == "PROGRESS": 
+        if appender_name == "PROGRESS":
             if file_elem is not None:
                 file_elem.text = progress_log_file
 
     # 3. Save the modified XML
     tree.write(logback_file, encoding='utf-8', xml_declaration=True)
 
-    return progress_log_file, import_log_file, logback_file 
+    return progress_log_file, import_log_file, logback_file
 
 
 
-def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func, retry_func):
+def import_image(conn : OmeroConnection, img_path, dataset_id, meta_dict, batch_tag, progress_func, retry_func):
     # import the image
-    
-    omeroConn = conn.get_omero_connection()
+
+    omero_conn = conn.get_omero_connection()
     namespace = omero.constants.metadata.NSCLIENTMAPANNOTATION
-    
+
     done = False
     image_id = None
     rt = 1
@@ -82,22 +87,24 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
             observer.schedule(event_handler, path=conf.IMPORT_PROGRESS_DIR, recursive=False)
             observer.start()
             was_error = False
-            #we need to catch exceptions from this and probably do a retry in some way!! !! !! !! *** *** <== ==>
+            #we need to catch exceptions from this and probably do a retry in some way!! !! !! !!
             try:
-                image_id = ezomero.ezimport(conn=omeroConn,
+                image_id = ezomero.ezimport(conn=omero_conn,
                                             target=img_path,
                                             dataset=dataset_id.getId(),
                                             ann=meta_dict,
                                             ns=namespace, logback=logback_conf)
-            
+
                 if image_id is None: #failed to import the image(s)
-                    logger.warning(f"ezomero.ezimport returned image id None. Try {rt} of {conf.IMPORT_NR_OF_RETRIES}") 
+                    logger.warning(f"""ezomero.ezimport returned image id None.
+                                        Try {rt} of {conf.IMPORT_NR_OF_RETRIES}""")
                     was_error = True
-            
+
             except Exception as e:
-                logger.warning(f"ezomero.ezimport caused exception: {str(e)}. Try {rt} of {conf.IMPORT_NR_OF_RETRIES}") 
+                logger.warning(f"""ezomero.ezimport caused exception: {str(e)}.
+                                        Try {rt} of {conf.IMPORT_NR_OF_RETRIES}""")
                 was_error = True
-        
+
             finally:
                 rt += 1
                 done = (not was_error) or not (was_error and  rt <= conf.IMPORT_NR_OF_RETRIES)
@@ -107,18 +114,18 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
                     os.remove(progress)
                     os.remove(log)
                     os.remove(logback_conf)
-                
+
 
 
     #all retris done...
     if image_id is None: #failed to import the image(s)
-        logger.warning(f"ezomero.ezimport returned image id None after all retries") 
+        logger.warning("ezomero.ezimport returned image id None after all retries")
         raise ValueError(f"Failed to upload the image with ezomero after {conf.IMPORT_NR_OF_RETRIES} tries.")
-    
-    
+
+
     #additional tags:
     batch_tag = [str(x)+' '+str(batch_tag[x]) for x in batch_tag if batch_tag[x] != 'None']
-    
+
     #add tag in the image
     for im in image_id: #in case of dual or more image in the same (generated by CD7)
         image = conn.getImage(im)
@@ -127,21 +134,21 @@ def import_image(conn, img_path, dataset_id, meta_dict, batch_tag, progress_func
         tags += batch_tag
         for tag_value in tags:
             tag_value = str(tag_value)
-            conn.setAnnotationOnImage(image,tag_value)    
-        
+            conn.setAnnotationOnImage(image,tag_value)
+
         # Add description
         if meta_dict.get('Description'):
             conn.setDescriptionOnImage(image, str(meta_dict.get('Description')))
-        
+
         # Add comment
         if meta_dict.get("Comment"):
-            conn.setCommentInImage(image,meta_dict.get("Comment"))
-    
+            conn.setCommentOnImage(image,meta_dict.get("Comment"))
+
     return image_id
 
-def check_duplicate_filename(conn, filename,dataset):
+def check_duplicate_filename(filename,dataset):
     for child in dataset.listChildren():
         if child.getName().startswith(filename):
             return True, child.getId()
-        
+
     return False, None
