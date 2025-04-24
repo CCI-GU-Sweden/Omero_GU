@@ -174,25 +174,25 @@ Check that the data has been correctly transfered.
 ___
 ## Tutorial Videos &#9654;
 
-&#128273; **Login and Intro**  
+&#128273; **Login and Intro** - 2 min  
 [![Login and Intro](https://img.youtube.com/vi/T9c0qxD1ES4/hqdefault.jpg)](https://youtu.be/T9c0qxD1ES4)
 
-&#128228; **Upload**  
+&#128228; **Upload** - 4 min  
 [![Login and Intro](https://img.youtube.com/vi/pamW_MuN6oU/hqdefault.jpg)](https://youtu.be/pamW_MuN6oU)
 
-&#128193; **Organize your data**  
+&#128193; **Organize your data** - 2 min  
 [![Login and Intro](https://img.youtube.com/vi/ZgPq6SNhFqM/hqdefault.jpg)](https://youtu.be/ZgPq6SNhFqM)
 
-&#128221; **Metadata**  
+&#128221; **Metadata** - 2 min  
 [![Login and Intro](https://img.youtube.com/vi/F-r9AQK1O8s/hqdefault.jpg)](https://youtu.be/F-r9AQK1O8s)
 
-&#128229; **Download**  
+&#128229; **Download** - 3 min  
 [![Login and Intro](https://img.youtube.com/vi/wZQs1-qqjx8/hqdefault.jpg)](https://youtu.be/wZQs1-qqjx8)
 
-&#128247; **Omero Viewer**  
+&#128247; **Omero Viewer** - 2 min  
 [![Login and Intro](https://img.youtube.com/vi/siKex4RZkas/hqdefault.jpg)](https://youtu.be/siKex4RZkas)
 
-&#128451; **Omero Figure**  
+&#128451; **Omero Figure** - 4 min  
 [![Login and Intro](https://img.youtube.com/vi/8lDUhJA1GkI/hqdefault.jpg)](https://youtu.be/8lDUhJA1GkI)
 
 
