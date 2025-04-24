@@ -19,6 +19,8 @@ At the Centre for Cellular Imaging, we aim to improve the efficiency, reliabilit
 - **Secure and Reliable Storage**: Data stored in OMERO is backed by robust storage infrastructure, reducing the risk of data loss or unauthorized access.  
 - **Future Expansion**: While the initial rollout focuses on data transfer, OMERO’s capabilities will allow us to introduce advanced data management and analysis services in the future, supporting more sophisticated research workflows.
 
+&#9654; **Tutorial Video links** at the end of the document!
+
 ## Data Management Rules
 
 The following rules govern the use of the OMERO system at the Centre for Cellular Imaging (CCI):  
@@ -168,3 +170,29 @@ Alternativly, there is an export script (click on &#65039; in Omero, 'export_scr
 Check that the data has been correctly transfered.  
 
 &#9888; Files must not remain in the system for more than **<span style="color:red">4</span>** weeks.
+
+___
+## Tutorial Videos &#9654;
+
+&#128273; **Login and Intro**  
+[![Login and Intro](https://img.youtube.com/vi/T9c0qxD1ES4/hqdefault.jpg)](https://youtu.be/T9c0qxD1ES4)
+
+&#128228; **Upload**  
+[![Login and Intro](https://img.youtube.com/vi/pamW_MuN6oU/hqdefault.jpg)](https://youtu.be/pamW_MuN6oU)
+
+&#128193; **Organize your data**  
+[![Login and Intro](https://img.youtube.com/vi/ZgPq6SNhFqM/hqdefault.jpg)](https://youtu.be/ZgPq6SNhFqM)
+
+&#128221; **Metadata**  
+[![Login and Intro](https://img.youtube.com/vi/F-r9AQK1O8s/hqdefault.jpg)](https://youtu.be/F-r9AQK1O8s)
+
+&#128229; **Download**  
+[![Login and Intro](https://img.youtube.com/vi/wZQs1-qqjx8/hqdefault.jpg)](https://youtu.be/wZQs1-qqjx8)
+
+&#128247; **Omero Viewer**  
+[![Login and Intro](https://img.youtube.com/vi/siKex4RZkas/hqdefault.jpg)](https://youtu.be/siKex4RZkas)
+
+&#128451; **Omero Figure**  
+[![Login and Intro](https://img.youtube.com/vi/8lDUhJA1GkI/hqdefault.jpg)](https://youtu.be/8lDUhJA1GkI)
+
+
