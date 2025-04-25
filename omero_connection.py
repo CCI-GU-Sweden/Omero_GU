@@ -192,8 +192,15 @@ class OmeroConnection:
         return self.conn.getObjects("TagAnnotation", attributes=attributes)
 
     def getTagAnnotation(self,tag_value):
-        attributes={'textValue': tag_value}
-        return self.conn.getObject("TagAnnotation", attributes=attributes)
+        # attributes={'textValue': tag_value}
+        # return self.conn.getObject("TagAnnotation", attributes=attributes)
+        the_tag = None
+        for tag in self.getTagAnnotations(tag_value):
+            if tag.getValue() == tag_value:
+                the_tag = tag
+                
+        return the_tag
+
 
     def setGroupNameForSession(self, group):
         with self._mutex:
@@ -208,13 +215,17 @@ class OmeroConnection:
             try:
                 tag_ann = self.getTagAnnotation(tag_value)
                 if not tag_ann:
+                    logger.info(f"tag {tag_value} does not exist. Creating it")
                     tag_ann = omero.gateway.TagAnnotationWrapper(self.conn)
                     tag_ann.setValue(tag_value)
                     tag_ann.save()
 
+                logger.info(f"linking tag {tag_value} to image {image.getId()}")
                 image.linkAnnotation(tag_ann)
             except omero.ValidationException as e:
                 logger.warning(f"Failed to insert the tag {tag_value} to image {image}: {str(e)}")
+            except omero.ApiUsageException as e:
+                 logger.warning(f"Failed to insert the tag {tag_value} to image {image}: {str(e)}")
             except Exception as e:
                 logger.error(f"Failed to set/get tag annotations on image {image}: {str(e)}")
                 
