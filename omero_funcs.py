@@ -67,6 +67,14 @@ def setup_log_and_progress_files(import_file_stem):
     return progress_log_file, import_log_file, logback_file
 
 
+def safe_remove(filepath):
+    try:
+        os.remove(filepath)
+    except FileNotFoundError:
+        logger.warning(f"File not found, could not remove: {filepath}")
+    except Exception as e:
+        logger.warning(f"Error removing file {filepath}: {str(e)}")
+
 
 def import_image(conn : OmeroConnection, img_path, dataset_id, meta_dict, batch_tag, progress_func, retry_func):
     # import the image
@@ -111,13 +119,10 @@ def import_image(conn : OmeroConnection, img_path, dataset_id, meta_dict, batch_
                 observer.stop()
                 observer.join()
                 if (not done and was_error) or (done and not was_error):
-                    os.remove(progress)
-                    os.remove(log)
-                    os.remove(logback_conf)
+                    for f in (progress, log, logback_conf):
+                        safe_remove(f)
 
-
-
-    #all retris done...
+    #all retries done...
     if image_id is None: #failed to import the image(s)
         logger.warning("ezomero.ezimport returned image id None after all retries")
         raise ValueError(f"Failed to upload the image with ezomero after {conf.IMPORT_NR_OF_RETRIES} tries.")

@@ -35,6 +35,7 @@ class FileData:
     
     def __init__(self,files):
         self.originalFileNames = []
+        self.convertedFileName = ""
         for f in files:
             basename = os.path.basename(f.filename)
             self.originalFileNames.append(basename)
@@ -83,6 +84,9 @@ class FileData:
                 dict_p = p
         
         return dict_p
+
+    def hasConvertedFileName(self):
+        return self.convertedFileName != ""
 
     def setConvertedFileName(self, convertedName):
         self.convertedFileName = convertedName
@@ -254,19 +258,25 @@ class FileImporter:
     
         return True, file_path, file_size
 
-    def _remove_temp_files(self,fileData):
+    def _remove_temp_files(self,fileData : FileData):
         for f in fileData.getTempFilePaths():
-            logger.info(f"Deleting temporary file: {f}")
             if os.path.exists(f):
+                logger.info(f"Deleting temporary file: {f}")
                 os.remove(f)
+            else:
+                logger.info(f"Temporary file {f} does not exist, unable to remove")
 
+        if not fileData.hasConvertedFileName():
+            return
+        
         cf = fileData.getConvertedFileName()
         basePath = fileData.getBasePath()
         cfile = os.path.join(basePath,cf)
         if os.path.exists(cfile):
-            
             logger.info(f"Deleting converted files file: {cfile}")
             os.remove(cfile)
+        else:
+            logger.error(f"Unable to remove converted temp file: {cfile}")
     
     def _do_file_imports(self, fileData, batchtags, conn):
         res = False
