@@ -1,7 +1,6 @@
-import conf
+from . import conf
 import logging #info, warning, error and critical
 import sys
-from pathlib import Path 
 
 
 class CustomFormatter(logging.Formatter):
@@ -31,21 +30,22 @@ class CustomFormatter(logging.Formatter):
 
 def setup_logger(level=logging.DEBUG):
 
-    #check logfile existance
-    if not Path(conf.LOG_FILE).is_file():
-        Path(conf.LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
-        Path(conf.LOG_FILE).touch()
-        
     logging.getLogger(conf.APP_NAME)
     fmtStr = '%(process)d: %(asctime)s -%(levelname)s-: %(message)s'
     
-    logging.basicConfig(filename=conf.LOG_FILE, level=level,
-                        format=fmtStr)
-    localLogger = logging.StreamHandler(sys.stdout)
-    llFmt = CustomFormatter()
-    localLogger.setFormatter(llFmt)
-    localLogger.setLevel(level)
-    logging.getLogger(conf.APP_NAME).addHandler(localLogger)
+    if level == logging.DEBUG:
+        logging.basicConfig(filename='omero_app.log', level=level,
+                           format=fmtStr)
+        localLogger = logging.StreamHandler(sys.stdout)
+        #llFmt = logging.Formatter(fmtStr,datefmt='%Y%m%d %H:%M:%S')
+        llFmt = CustomFormatter()
+        localLogger.setFormatter(llFmt)
+        localLogger.setLevel(level)
+        logging.getLogger(conf.APP_NAME).addHandler(localLogger)
+        
+    else: #only log to stdout
+        logging.basicConfig(stream=sys.stdout, level=level,
+                           format=fmtStr)
         
     str_level = logging.getLevelName(level)
     info(f"Logger set up with level: {str_level}")

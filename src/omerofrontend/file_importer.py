@@ -1,17 +1,19 @@
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-import logger
+from . import logger
 import datetime
 import time
 from multiprocessing import Queue
-import image_funcs
-import omero_funcs
-import conf
+from . import image_funcs
+from . import omero_funcs
+from . import conf
 import os
 import traceback
-import functools
+#import database
+from .file_data import FileData
 from dateutil import parser
+
 
 class ImportStatus(Enum):
     IDLE = 0,
@@ -19,92 +21,17 @@ class ImportStatus(Enum):
     EXIT_OK = 2,
     EXIT_FAILED = 3
     
-#make sure these match javascript versions of same "structs"
 PENDING = "pending"
 STARTED = "started"
 UPLOADING = "uploading"
 PROGRESS = "progress"
 SUCCESS = "success"
 
-UNSUPPORTED_FORMAT = "unsupported_format"
+UNSUPPORTED_FORMAT = "unsupported format"
 DUPLICATE = "duplicate"
 UNMATCHED = "unmatched"
 ERROR = "error"
 
-class FileData:
-    
-    def __init__(self,files):
-        self.originalFileNames = []
-        for f in files:
-            basename = os.path.basename(f.filename)
-            self.originalFileNames.append(basename)
-            ext = f.filename.split('.')[-1]
-            if not ext == "ser" and not ext == "xml":
-                self.mainFileExtension = ext
-                self.mainFileName = basename
-            else:
-                self.dictFileExtension = ext
-                self.dictFileName = basename
-                        
-    def getMainFileExtension(self):
-        return self.mainFileExtension
-        
-    def getMainFileName(self):
-        return self.mainFileName
-        
-    def getDictFileExtension(self):
-        return self.dictFileExtension
-    
-    def getDictFileName(self):
-        return self.dictFileName
-        
-    def setTempFilePaths(self,paths):
-        self.tempPaths = paths
-        self.basePath = os.path.dirname(paths[0])
-        
-    def getTempFilePaths(self):
-        return self.tempPaths
-
-    def getBasePath(self):
-        return self.basePath
-
-    def getMainFileTempPath(self):
-        main_p = ""
-        for p in self.tempPaths:
-            if self.getMainFileName() in str(p):
-                main_p = p
-        
-        return main_p
-
-    def getDictFileTempPath(self):
-        dict_p = ""
-        for p in self.tempPaths:
-            if self.getDictFileName() in str(p):
-                dict_p = p
-        
-        return dict_p
-
-    def setConvertedFileName(self, convertedName):
-        self.convertedFileName = convertedName
-        
-    def getConvertedFileName(self):
-        return self.convertedFileName
-
-    def setFileSizes(self, sizes):
-        self.fileSizes = sizes
-        
-    def getFileSizes(self):
-        return self.fileSizes
-
-    def getNrOfFiles(self):
-        return len(self.originalFileNames)
-    
-    def getTotalFileSize(self):
-        tot = 0
-        for s in self.fileSizes:
-            tot += int(s)
-            
-        return tot
 
 class FileImporter:
     
@@ -128,10 +55,12 @@ class FileImporter:
             
             logger.info(f"Storing temp file {basename}")
             self._send_started_event(basename)
+            #TODO: move the _store_temp_files to somewhere where it is done in a thread...
             result, filepath, filesize = self._store_temp_file(file)
             logger.info(f"Done storing temp file {basename}")
             if not result:
                 #probably cleanup here!!!
+                #self._send_error_event(basename,"Uploading failed!")
                 return False
             
             filePaths.append(filepath)
@@ -160,9 +89,10 @@ class FileImporter:
         elif future.done():
             error = future.exception()
             if error:
-                logger.error(f"Import Image exception: {error}, line: {traceback.format_exc()}")
+                logger.info(f"Import Image exception: {error}")
             else:
                 result = future.result()
+                #send success here??
                 logger.info(f"Task completed successfully with result: {result}")
         
         self._futures.discard(future)
@@ -178,8 +108,8 @@ class FileImporter:
         event = self._generateEvent(fileName,STARTED,"preparing file...")
         self.putEvent(event)   
        
-    def _send_unsupported_event(self,fileName, msg = ""):
-        event = self._generateEvent(fileName,UNSUPPORTED_FORMAT,f" {msg}")
+    def _send_unsupported_event(self,fileName):
+        event = self._generateEvent(fileName,UNSUPPORTED_FORMAT,"unsupported format")
         self.putEvent(event)   
         
     def _send_uploading_event(self,fileName):
@@ -202,34 +132,28 @@ class FileImporter:
     def _send_error_event(self,fileName,message):
         event = self._generateEvent(fileName,ERROR,message)
         self.putEvent(event)   
-        
-    def _send_retry_event(self, filename, retry, maxTries):
-        self._put_event(filename,str(retry),str(maxTries),result="",type="retry_event")
     
-    def _put_event(self,fileName,status,message,result="", type="message"):
-        event = self._generateEvent(fileName,status,message,result, type=type)
+    def _put_event(self,fileName,status,message,result=""):
+        event = self._generateEvent(fileName,status,message,result)
         self.putEvent(event)
     
-    def _generateEvent(self,fileName,status,message,result="", type="message"):
-        
-        event_data = { 
-            
-            "data" : { 
-                "name" : fileName,
-                "status" : status,
-                "message" : message,
-                "result" : result 
-                },
-            "type" : type 
-            }
+    def _generateEvent(self,fileName,status,message,result=""):
+        event_data = {
+            "name" : fileName,
+            "status" : status,
+            "message" : message,
+            "result" : result
+        }
         
         return event_data
        
     def getEvent(self, timeout=None):
+        #logger.debug(f"Trying to get event from queue {self._msg_q.qsize()}, {self._msg_q}")
         event = self._msg_q.get(timeout=timeout)
         return event
         
     def putEvent(self,event):
+        #logger.debug(f"putting event on queue {event}, {self._msg_q.qsize()} , {self._msg_q}")
         self._msg_q.put(event)  
     
     def _store_temp_file(self, file):
@@ -238,13 +162,15 @@ class FileImporter:
         file_path = os.path.join(conf.UPLOAD_FOLDER, *os.path.split(filename))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
     
-        file.seek(0)    
+        file.seek(0)
+        logger.debug("file seek 0")
         file_size = len(file.read())
+        logger.debug("file read for size")
         file.seek(0)
     
         # Save file to temporary directory    
         if file_size > conf.MAX_SIZE_FULL_UPLOAD and conf.USE_CHUNK_READ_ON_LARGE_FILES:
-            logger.info(f"File {filename} is larger than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
+            logger.info(f"File {filename} of size {file_size / (1024 * 1024)} MB,  is larger than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
             with open(file_path, 'wb') as f:
                 while chunk := file.stream.read(conf.CHUNK_SIZE):
                     f.write(chunk)
@@ -254,104 +180,113 @@ class FileImporter:
     
         return True, file_path, file_size
 
-    def _remove_temp_files(self,fileData):
+    def _remove_temp_files(self,fileData : FileData):
         for f in fileData.getTempFilePaths():
             logger.info(f"Deleting temporary file: {f}")
             if os.path.exists(f):
                 os.remove(f)
+                os.removedirs(os.path.dirname(f))
 
-        cf = fileData.getConvertedFileName()
-        basePath = fileData.getBasePath()
-        cfile = os.path.join(basePath,cf)
-        if os.path.exists(cfile):
-            
-            logger.info(f"Deleting converted files file: {cfile}")
-            os.remove(cfile)
+        if fileData.hasConvertedFileName():
+            cf = fileData.getConvertedFileName()
+            basePath = fileData.getBasePath()
+            cfile = os.path.join(basePath,cf)
+            if os.path.exists(cfile):
+                
+                logger.info(f"Deleting converted files file: {cfile}")
+                os.remove(cfile)
     
-    def _do_file_imports(self, fileData, batchtags, conn):
-        res = False
-        filename = fileData.getMainFileName()
-        import_time_start = time.time()
 
+    # def _do_file_imports(self, filename, filepath, filesize, batchtags, conn):
+    def _do_file_imports(self, fileData : FileData, batchtags, conn):
+        res = False
         try:
+            filename = fileData.getMainFileName()
+            self._send_progress_event(filename,10)
+            import_time_start = time.time()
             res, scopes, img_id, img_path = self._importImages(fileData, batchtags, conn)
             if res:
+                self._send_progress_event(filename,95)
                 import_time = time.time() - import_time_start
                 self._log_and_insert_in_databse(scopes,conn,import_time,fileData)
-
-        except FileNotFoundError as fnf:
-            logger.error(f"FileNotFoundError during import of {filename}: {str(fnf)}, line: {traceback.format_exc()}")
-            self._send_error_event(filename,str(fnf))
-        except TypeError as t:
-            logger.error(f"TypeError during import of {filename}: {str(t)}, line: {traceback.format_exc()}")
-            self._send_unsupported_event(filename, str(t))
         except Exception as e:
-            logger.error(f"Error during import of {filename}: {str(e)}, line: {traceback.format_exc()}")
-            self._send_error_event(filename,str(e))
+            logger.error(f"Error during import process: {str(e)}, line: {traceback.format_exc()}")
+            self._send_error_event(filename,str(e)) #type: ignore
         finally:
             self._remove_temp_files(fileData)
             if res:
-                self._send_success_event(filename,img_path,img_id)
+                self._send_success_event(filename,img_path,img_id)#type: ignore
 
-    def _importImages(self, fileData, batch_tag, conn):
+    #def _importImages(self, filename, path, batch_tag, conn):
+    def _importImages(self, fileData : FileData, batch_tag, conn):
         
         scopes = []
-        filename = fileData.getMainFileName()
-        logger.info(f"Processing of {fileData.getTempFilePaths()}")
-        #Spliter functions required here for multiple file format support
-        file_path, meta_dict = image_funcs.file_format_splitter(fileData, verbose=True)
-        
-        meta_dict = meta_dict | batch_tag #merge the batch tag to the meta_dictionnary
-        folder = os.path.basename(os.path.dirname(file_path))
-        converted_filename = os.path.basename(file_path)
-        fileData.setConvertedFileName(converted_filename)
-        if folder != '': meta_dict['Folder'] = folder
-        logger.info(f"Metadata successfully extracted from {filename}")
-
-        scopes.append([meta_dict['Microscope']])
-        project_name = meta_dict['Microscope']
-        acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
-        dataset_name = acquisition_date_time.strftime("%Y-%m-%d")
-        
-        # Get or create project and dataset
-        projID = conn.get_or_create_project(project_name)
-        dataID = conn.get_or_create_dataset(projID, dataset_name)
-        
-        logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
-        
-        # Check if image is already in the dataset and has the acquisition time
-        dataset = conn.getDataset(dataID)
-        
-        dup, childId = omero_funcs.check_duplicate_filename(converted_filename,dataset)
-        if dup:
-            sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
-            if sameTime:
-                logger.info(f'{converted_filename} already exists, skip.')
-                self._send_duplicate_event(filename)
-                return False, [], "", ""
+        try:
+            filename = fileData.getMainFileName()
+            logger.info(f"Processing of {fileData.getTempFilePaths()}")
+            #Spliter functions required here for multiple file format support
+            file_path, meta_dict = image_funcs.file_format_splitter(fileData, verbose=True)
             
-            acq_time = acquisition_date_time.strftime("%H-%M-%S")
-            new_name = ''.join(file_path.split('.')[:-1]+['_', acq_time,'.',file_path.split('.')[-1]])   
-            os.rename(file_path, new_name)
-            logger.info(f'Rename {file_path} to {new_name} in order to avoid name duplication')
-            file_path = new_name
+            meta_dict = meta_dict | batch_tag #merge the batch tag to the meta_dictionnary
+            folder = os.path.basename(os.path.dirname(file_path))
+            converted_filename = os.path.basename(file_path)
+            fileData.setConvertedFileName(converted_filename)
+            if folder != '': meta_dict['Folder'] = folder
+            logger.info(f"Metadata successfully extracted from {filename}")
 
-        #import the file
-        logger.info(f'Importing {filename}.')
-        user = conn.get_logged_in_user_name()
-        index = user.find('@')
-        user_name = user[:index] if index != -1 else user
+            scopes.append([meta_dict['Microscope']])
+            project_name = meta_dict['Microscope']
+            acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
+            dataset_name = acquisition_date_time.strftime("%Y-%m-%d")
+            
+            # Get or create project and dataset
+            projID = conn.get_or_create_project(project_name)
+            dataID = conn.get_or_create_dataset(projID, dataset_name)
+            
+            logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
+            
+            # Check if image is already in the dataset and has the acquisition time
+            dataset = conn.getDataset(dataID)
+            
+            dup, childId = omero_funcs.check_duplicate_filename(conn,converted_filename,dataset)
+            if dup:
+                sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
+                if sameTime:
+                    logger.info(f'{converted_filename} already exists, skip.')
+                    self._send_duplicate_event(filename)
+                    return False, [], "", ""
+                
+                acq_time = acquisition_date_time.strftime("%H-%M-%S")
+                new_name = ''.join(file_path.split('.')[:-1]+['_', acq_time,'.',file_path.split('.')[-1]])   
+                os.rename(file_path, new_name)
+                logger.info(f'Rename {file_path} to {new_name} in order to avoid name duplication')
+                file_path = new_name
 
-        dst_path = f'{user_name} / {project_name} / {dataset_name}'
-        pfun = functools.partial(self._send_progress_event,filename)
-        rtFun = functools.partial(self._send_retry_event,filename)
-        image_id = omero_funcs.import_image(conn, file_path, dataset, meta_dict, batch_tag, pfun, rtFun)
-        logger.info(f"ezimport result for {filename}: {image_id}, path: {dst_path}")
-        
-        return True, scopes, image_id, dst_path
+            self._send_progress_event(filename,25)
+            
+            #import the file
+            logger.info(f'Importing {filename}.')
+            user = conn.get_logged_in_user_name()
+            index = user.find('@')
+            user_name = user[:index] if index != -1 else user
+
+            self._send_progress_event(filename,37)
+
+            dst_path = f'{user_name} / {project_name} / {dataset_name}'
+            image_id = omero_funcs.import_image(conn, file_path, dataset, meta_dict, batch_tag)
+            logger.info(f"ezimport result for {filename}: {image_id}, path: {dst_path}")
+            
+            self._send_progress_event(filename,75)
+            return True, scopes, image_id, dst_path
+            
+        except Exception as e:
+            logger.error(f"Error during import of {filename}: {str(e)}, line: {traceback.format_exc()}") #type: ignore
+            self._send_error_event(filename,str(e)) #type: ignore
+            return  False, [], "", ""
                 
     
     def _log_and_insert_in_databse(self,scopes, conn,import_time,fileData):
+    #def _log_and_insert_in_databse(self,scopes, conn,import_time,file_n,total_file_size):
         if len(scopes) > 0:
             scope = sorted(scopes, key=scopes.count, reverse=True)[0] #take only one scope
             if isinstance(scope, list):

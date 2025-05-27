@@ -1,25 +1,16 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Nov 15 15:09:51 2024
 
-@author: simon
-
-
-
-local web server: http://127.0.0.1:5000/
-
-"""
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
-from connection_blueprint import conn_bp, connect_to_omero
+from .connection_blueprint import conn_bp, connect_to_omero
+from . import file_importer
+from . import omero_funcs
+from . import omero_connection
+from . import conf
+from . import logger
+from . import database
 import mistune
 import os
-import database
-import omero_funcs
-import conf
-import logger
 import json
-import file_importer
 import queue
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
 
 processed_files = {} # In-memory storage for processed files (for the session)
 
@@ -30,12 +21,11 @@ def create_app(test_config=None):
 
     logger.setup_logger()
 
-    try:
-        os.makedirs(conf.IMPORT_PROGRESS_DIR, exist_ok=True)
-    except Exception as e:
-        logger.error("Error in creating dir...exiting")
-        exit
-    
+    # Define a directory for storing uploaded files
+    UPLOAD_FOLDER = 'uploads'
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+
     logger.info("***** Starting CCI Omero Frontend ******")
     importer = file_importer.FileImporter()
     
@@ -50,9 +40,7 @@ def create_app(test_config=None):
     db.initialize_database()
     importer.setDatabaseHandler(db)
     
-    
     def my_render_template(*args, **kwargs):
-        
         kwargs['is_test_instance'] = conf.USE_TEST_URL
         return render_template(*args,**kwargs)
     
@@ -94,7 +82,7 @@ def create_app(test_config=None):
         logger.info("Enter enter_token.html")
         if request.method == 'POST':
             session_token = request.form.get('session_token')
-            logger.info("Session Uuid is: " + session_token)
+            logger.info(f"Session Uuid is: {session_token}")
             if session_token:
                 session[conf.OMERO_SESSION_TOKEN_KEY] = session_token
                 session[conf.OMERO_SESSION_HOST_KEY] = conf.OMERO_HOST
@@ -166,16 +154,14 @@ def create_app(test_config=None):
     @app.route('/get_projects', methods=['POST'])
     def get_projects():
 
-        conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
+        conn : omero_connection.OmeroConnection = getattr(g,conf.OMERO_G_CONNECTION_KEY)
         projects = conn.get_user_projects()
-
         return jsonify(projects)        
     
     @app.route('/create_project', methods=['POST'])
     def create_project():
-        
-        conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
-        projects = conn.create_project(request.projectName)
+        conn : omero_connection.OmeroConnection = getattr(g,conf.OMERO_G_CONNECTION_KEY)
+        projects = conn.get_or_create_project(conn, request.projectName) # type: ignore
 
         return jsonify(projects)        
     
@@ -244,8 +230,7 @@ def create_app(test_config=None):
                 while True:
                     try:
                         event = importer.getEvent(2)
-                        yield f"event: {event['type']}\n"
-                        yield f"data: {json.dumps(event['data'])}\n\n"
+                        yield f"data: {json.dumps(event)}\n\n"
                     except queue.Empty as ee:
                         yield f"keep alive\n"
                     except ConnectionError as e:

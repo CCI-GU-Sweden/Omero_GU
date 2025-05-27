@@ -1,17 +1,20 @@
-import conf
-import logger
+from . import logger
+from . import conf
+from . file_data import FileData
+import tifffile
 import os
 import datetime
 import numpy as np
 import re
 import xml.etree.ElementTree as ET
 from dateutil import parser
-
+from pathlib import Path
 from rsciio import tia, emd, mrc
 from pylibCZIrw import czi as pyczi
 from ome_types import model
-from ome_types.model.map import M
-import tifffile
+from ome_types.model import Map
+#from ome_types.model.Map import M
+
 
 #Metadata function
 def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, partial_search:bool=False) -> list:
@@ -120,7 +123,7 @@ def parse_xml_with_namespaces(xml_file):
         return parse_xml_to_dict(root, namespaces)
     
     except ET.ParseError as e:
-        logger.error(f"XML parse error: {e}")
+        print(f"Parse error: {e}")
         return None
 
 
@@ -211,28 +214,33 @@ def pair_mrc_xml(files: list): #list of filename
         
     return list(paired_files.values()) + unpaired_files
 
-def file_format_splitter(fileData, verbose:bool):
+def file_format_splitter(fileData : FileData):
+    #different strategies in case of different file format
+#    if isinstance(img_path, str):
     ext = fileData.getMainFileExtension().lower()
     img_path = fileData.getMainFileTempPath()
     logger.info(f"Received file is of format {ext}")
     if ext == "czi": #Light microscope format - CarlZeissImage
         converted_path = img_path
-        key_pair = get_info_metadata_from_czi(img_path, verbose=verbose)
+        key_pair = get_info_metadata_from_czi(Path(img_path))
     elif ext == "emi": #Electron microscope format
-        converted_path, key_pair = convert_emi_to_ometiff(img_path, verbose=verbose)
+        converted_path, key_pair = convert_emi_to_ometiff(img_path)
     elif ext == "emd": #Electron microscope format
-        converted_path, key_pair = convert_emd_to_ometiff(img_path, verbose=verbose)
+        converted_path, key_pair = convert_emd_to_ometiff(img_path)
     elif ext == "tif": #Tif, but only SEM-TIF
-        converted_path, key_pair = convert_semtif_to_ometiff(img_path, verbose=verbose)
+        converted_path, key_pair = convert_semtif_to_ometiff(img_path)
     elif ext == "mrc":
+#   elif isinstance(img_path, dict): #Electron microscope format
+#      logger.info(f"Received a pair of files is of format {' '.join([img_path[x].split('.')[-1].lower() for x in img_path.keys()])}")
         atlasPair = {}
         atlasPair[fileData.getDictFileExtension()] = fileData.getDictFileTempPath()
         atlasPair[fileData.getMainFileExtension()] = img_path
-        converted_path, key_pair = convert_atlas_to_ometiff(atlasPair, verbose=verbose)
-
+        converted_path, key_pair = convert_atlas_to_ometiff(atlasPair)
+    
     else:
         converted_path = ""
         key_pair = None
+        raise ValueError("Unsupported file format")
     
     return converted_path, key_pair
 
@@ -263,7 +271,7 @@ def mapping(microscope):
     return microscope
 
 
-def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
+def get_info_metadata_from_czi(img_path : Path) -> dict:
     """
     Extract important metadata from a CZI image file.
     
@@ -273,8 +281,7 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
     
     Args:
         img_path : The file path to the CZI image.
-        verbose (bool, optional): If True, print detailed information during processing. Defaults to True.
-    
+        
     Returns:
         ImageMetadata: A dictionnary containing the extracted metadata.
     
@@ -283,8 +290,15 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
         ValueError: If the file is not a valid CZI image or if metadata extraction fails.
     """
     
-    with pyczi.open_czi(img_path) as czidoc:
-        metadata = czidoc.metadata['ImageDocument']['Metadata']
+    if not img_path.exists():
+        raise FileNotFoundError(f"The file {img_path} does not exist.")
+    
+    try:
+        with pyczi.open_czi(str(img_path)) as czidoc:
+            metadata = czidoc.metadata['ImageDocument']['Metadata']
+    except Exception as e:
+        logger.error(f"Error opening or reading metadata: {str(e)}")
+        raise ValueError(f"Error opening or reading metadata: {img_path}")
            
     #Initialization
     app_name = None
@@ -300,75 +314,76 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
                                 
     #grab the correct version of the metadata
     app = metadata['Information'].get('Application', None)
-    if app != None: #security check
-        app_name = app['Name']
-        app_version = app['Version']
-        if verbose: logger.info('Metadata made with %s version %s' %(app_name, app_version))
-        #Another way will be to grab the IP address of the room and map it
-        #microscope name, based on the version of the metadata
-        if 'ZEN' in app['Name'] and app['Version'].startswith("3."): #CD7, 980, Elyra
-            microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('UserDefinedName', None)
-            if microscope == None:
-                microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
-            if microscope == None:
-                microscope = metadata['Scaling']['AutoScaling'].get('CameraName', None)
-
-        elif 'ZEN' in app['Name'] and app['Version'].startswith("2.6"): #Observer, Imager
-            microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
-            
-        elif 'AIM' in app['Name']: #700, 880, 710
-            microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('System', None)
-
-        microscope = mapping(microscope)
-            
-        if verbose: logger.info('Image made on %s' %(microscope))
-        #pixel size (everything in the scaling)
-        physical_pixel_sizes = {}
-        for dim in metadata['Scaling']['Items']['Distance']:
-            physical_pixel_sizes[dim['@Id']] = round(float(dim['Value'])*1e+6, 4)
-            
-        #image dimension
-        dims = metadata['Information']['Image']
-        size = {}
-        for d in dims.keys():
-            if 'Size' in d: #just the different Size (X,Y,Z,C,M,H...)
-                size[d] = int(dims[d])
-        if verbose: logger.info('Image with dimension %s and pixel size of %s' %(size, physical_pixel_sizes))
-            
-        # Acquisition type (not fully correct with elyra)
-        acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel']
-        if isinstance(acq_type, list):
-            acq_type = acq_type[0].get('ChannelType', acq_type[0].get('AcquisitionMode', None))
-            if acq_type == 'Unspecified':
-                acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel'][0].get('AcquisitionMode', None)
-        elif isinstance(acq_type, dict):
-            acq_type = acq_type.get('AcquisitionMode', None)
-        if verbose: logger.info('Image acquired with a %s mode' %(acq_type))
-            
-        #lens info
-        lensNA = metadata['Information']['Instrument']['Objectives']['Objective'].get('LensNA', None)
-        if lensNA != None: lensNA = round(float(lensNA), 2)
-        lensMag = metadata['Information']['Instrument']['Objectives']['Objective'].get('NominalMagnification', None)
-        if lensMag != None: lensMag = int(lensMag)
-        if verbose: logger.info('Objective lens used has a magnification of %s and a NA of %s' %(lensMag, lensNA))
-            
-        #processing (if any)
-        processing = metadata['Information'].get('Processing', None)
-        if processing is not None:
-            pre_processed = list(processing.keys())
-        if verbose: logger.info('Image preprocessed with %s' %(pre_processed))
-            
-        #other
-        comment = metadata['Information']['Document'].get('Comment', None)
-        description = metadata['Information']['Document'].get('Description', None)
-        # creation_date = metadata['Information']['Document'].get('CreationDate', None)
-        date_object = parser.isoparse(metadata['Information']['Document'].get('CreationDate', None))
-        if verbose: logger.info('Image\n    Comment: %s,\n    Description: %s,\n    Creation date: %s' % (comment, description, creation_date))
     
-    else:
-        return None
-         
-    if verbose: logger.info("_"*25)
+    if not app: #security check
+        logger.error("No APP metadata in .czi file")
+        raise ValueError("Missing app metadata")
+    
+    app_name = app['Name']
+    app_version = app['Version']
+    logger.debug('Metadata made with %s version %s' %(app_name, app_version))
+    #Another way will be to grab the IP address of the room and map it
+    #microscope name, based on the version of the metadata
+    if 'ZEN' in app['Name'] and app['Version'].startswith("3."): #CD7, 980, Elyra
+        microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('UserDefinedName', None)
+        if microscope == None:
+            microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
+        if microscope == None:
+            microscope = metadata['Scaling']['AutoScaling'].get('CameraName', None)
+
+    elif 'ZEN' in app['Name'] and app['Version'].startswith("2.6"): #Observer, Imager
+        microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
+        
+    elif 'AIM' in app['Name']: #700, 880, 710
+        microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('System', None)
+
+    microscope = mapping(microscope)
+        
+    logger.debug('Image made on %s' %(microscope))
+    #pixel size (everything in the scaling)
+    physical_pixel_sizes = {}
+    for dim in metadata['Scaling']['Items']['Distance']:
+        physical_pixel_sizes[dim['@Id']] = round(float(dim['Value'])*1e+6, 4)
+        
+    #image dimension
+    dims = metadata['Information']['Image']
+    size = {}
+    for d in dims.keys():
+        if 'Size' in d: #just the different Size (X,Y,Z,C,M,H...)
+            size[d] = int(dims[d])
+    logger.debug('Image with dimension %s and pixel size of %s' %(size, physical_pixel_sizes))
+        
+    # Acquisition type (not fully correct with elyra)
+    acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel']
+    if isinstance(acq_type, list):
+        acq_type = acq_type[0].get('ChannelType', acq_type[0].get('AcquisitionMode', None))
+        if acq_type == 'Unspecified':
+            acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel'][0].get('AcquisitionMode', None)
+    elif isinstance(acq_type, dict):
+        acq_type = acq_type.get('AcquisitionMode', None)
+    logger.debug('Image acquired with a %s mode' %(acq_type))
+        
+    #lens info
+    lensNA = metadata['Information']['Instrument']['Objectives']['Objective'].get('LensNA', None)
+    if lensNA != None: lensNA = round(float(lensNA), 2)
+    lensMag = metadata['Information']['Instrument']['Objectives']['Objective'].get('NominalMagnification', None)
+    if lensMag != None: lensMag = int(lensMag)
+    logger.debug('Objective lens used has a magnification of %s and a NA of %s' %(lensMag, lensNA))
+        
+    #processing (if any)
+    processing = metadata['Information'].get('Processing', None)
+    if processing is not None:
+        pre_processed = list(processing.keys())
+    logger.debug('Image preprocessed with %s' %(pre_processed))
+        
+    #other
+    comment = metadata['Information']['Document'].get('Comment', None)
+    description = metadata['Information']['Document'].get('Description', None)
+    # creation_date = metadata['Information']['Document'].get('CreationDate', None)
+    date_object = parser.isoparse(metadata['Information']['Document'].get('CreationDate', None))
+    logger.debug('Image\n    Comment: %s,\n    Description: %s,\n    Creation date: %s' % (comment, description, creation_date))
+           
+    logger.debug("_"*25)
     
     mini_metadata = {'Microscope':microscope,
                      'Lens Magnification': lensMag,
@@ -394,7 +409,7 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
     return mini_metadata       
 
 
-def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
+def convert_emi_to_ometiff(img_path: str):
     """
     Convert .emi file to ome-tiff format.
     File NEED to finish with emi. A ser file need to be present in the same folder
@@ -407,24 +422,28 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     dict: Contains the key-pair values
     """
             
-    if verbose: logger.info(f"Conversion to ometiff from emi required for {img_path}")
+    logger.debug(f"Conversion to ometiff from emi required for {img_path}")
     
-    data = tia.file_reader(img_path) #Required to pair the emi and ser file!
+    try:
+        data = tia.file_reader(img_path) #Required to pair the emi and ser file!
+        
+        if len(data) == 1:
+            data = data[0]
+        else:
+            raise ValueError(f"Length of data at {len(data)} different of 1.")
+        
+        img_array = data['data']
+        # img_array = img_array[ :, :, np.newaxis, np.newaxis, np.newaxis,]
+    except FileNotFoundError:
+        raise FileNotFoundError(f"The file {img_path} does not exist.")
+    except Exception as e:
+        raise ValueError(f"Error opening or reading metadata: {str(e)}")
     
-    if len(data) == 1:
-        data = data[0]
-    else:
-        logger.error(f"Unable to read file {img_path}. Data was empty. Wrong format?")
-        raise ValueError(f"Unable to read Data of file {img_path}")
-    
-    img_array = data['data']
-    # img_array = img_array[ :, :, np.newaxis, np.newaxis, np.newaxis,]
-    dimension_order = "XYCZT"
-    
-    if verbose: logger.info(f"{img_path} successfully readen!")
+    logger.debug(f"{img_path} successfully readen!")
     # img_array = img_array[np.newaxis, :, :]
     
     # Check if this is possible to reduce its bit size
+    dimension_order = model.Pixels_DimensionOrder.XYCZT
     img_array, bit = optimize_bit_depth(img_array)
       
     key_pair = {
@@ -463,7 +482,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
         'Comment': key_pair['Comment'],
         }
     
-    if verbose: logger.info("Metadata extracted")
+    logger.debug("Metadata extracted")
     # Create an OME object
     ome = model.OME()
     
@@ -471,12 +490,12 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     image = model.Image(
         id="Image:0",
         name=os.path.basename(img_path),
-        acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
+        acquisition_date=date_object,
         
         pixels = model.Pixels(
             id="Pixels:0",
             dimension_order=dimension_order,
-            type=str(img_array.dtype),
+            type=model.PixelType[str(img_array.dtype)],
             size_x=key_pair['Image Size X'],
             size_y=key_pair['Image Size Y'],
             size_c=1,
@@ -505,7 +524,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     instrument = model.Instrument(
         id = "Instrument:0",
         microscope=model.Microscope(
-                                    type='Other',
+                                    type=model.Microscope_Type['Other'],
                                     manufacturer=dict_crawler(data, 'Manufacturer')[0],
                                     model=key_pair['Microscope']
         ),
@@ -524,7 +543,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
         )
     
     ome.instruments.append(instrument)
-    ome.structured_annotations.extend([custom_metadata])
+    ome.structured_annotations.extend([custom_metadata]) #type: ignore
     # Create Objective for Magnification
     objective = model.Objective(
         id="Objective:0",
@@ -534,7 +553,7 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     
     # Convert OME object to XML string
     ome_xml = ome.to_xml()
-    if verbose: logger.info("OME created")
+    logger.debug("OME created")
     
     output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tiff"))   
     
@@ -542,12 +561,12 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     with tifffile.TiffWriter(output_fpath) as tif:
         tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
     
-    if verbose: logger.info(f"Ome-tiff written at {output_fpath}.")
+    logger.debug(f"Ome-tiff written at {output_fpath}.")
     
     return output_fpath, key_pair
 
 
-def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
+def convert_emd_to_ometiff(img_path: str):
     """
     Convert .emd file to ome-tiff format.
     
@@ -558,13 +577,18 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     str: Path to the output OME-TIFF file
     dict: Contains the key-pair values
     """
-    if verbose: logger.info(f"Conversion to ometiff from emd required for {img_path}")
+    logger.debug(f"Conversion to ometiff from emd required for {img_path}")
     
-    img = emd.file_reader(img_path)[0]
-    img_array, bitdepth = optimize_bit_depth(img['data'])
+    try:
+        img = emd.file_reader(img_path)[0]
+        img_array, bitdepth = optimize_bit_depth(img['data'])
+    except FileNotFoundError:
+        raise FileNotFoundError("The file does not exist.")
+    except Exception as e:
+        raise ValueError(f"Error opening or reading metadata: {str(e)}")
         
     data = img['original_metadata']
-    if verbose: logger.info(f"{img_path} successfully readen!")  
+    logger.debug(f"{img_path} successfully readen!")  
 
     key_pair = {
         'Microscope': mapping(dict_crawler(data, 'InstrumentModel')[0].split('-')[0]),
@@ -602,7 +626,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
         'Filter mode': dict_crawler(data, 'EntranceApertureType')[0],
         }
     
-    if verbose: logger.info("Metadata extracted")
+    logger.debug("Metadata extracted")
     # Create an OME object
     ome = model.OME()
     
@@ -610,12 +634,12 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     image = model.Image(
         id="Image:0",
         name=os.path.basename(img_path),
-        acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
+        acquisition_date=date_object,
         
         pixels = model.Pixels(
             id="Pixels:0",
-            dimension_order="XYCZT",
-            type=str(img_array.dtype),
+            dimension_order=model.Pixels_DimensionOrder["XYCZT"],
+            type=model.PixelType[str(img_array.dtype)],
             size_x=key_pair['Image Size X'],
             size_y=key_pair['Image Size Y'],
             size_c=1,
@@ -643,7 +667,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     instrument = model.Instrument(
         id = "Instrument:0",
         microscope=model.Microscope(
-                                    type='Other',
+                                    type=model.Microscope_Type['Other'],
                                     manufacturer=dict_crawler(data, 'Manufacturer')[0],
                                     model=key_pair['Microscope']
         ),
@@ -662,7 +686,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
         )
     
     ome.instruments.append(instrument)
-    ome.structured_annotations.extend([custom_metadata])
+    ome.structured_annotations.extend([custom_metadata]) #type: ignore
     # Create Objective for Magnification
     objective = model.Objective(
         id="Objective:0",
@@ -672,7 +696,7 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     
     # Convert OME object to XML string
     ome_xml = ome.to_xml()
-    if verbose: logger.info("OME created")
+    logger.debug("OME created")
     
     output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emd", ".ome.tiff"))
     
@@ -680,11 +704,11 @@ def convert_emd_to_ometiff(img_path: str, verbose:bool=True):
     with tifffile.TiffWriter(output_fpath) as tif:
         tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
         
-    if verbose: logger.info(f"Ome-tiff written at {output_fpath}.")
+    logger.debug(f"Ome-tiff written at {output_fpath}.")
     return output_fpath, key_pair
 
 
-def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
+def convert_atlas_to_ometiff(img_path: dict):
     """
     Convert atlas file (TEM likely MAPS), which is a pair of mrc and xml, to ome-tiff format.
     
@@ -695,15 +719,21 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
     str: Path to the output OME-TIFF file
     dict: Contains the key-pair values
     """
-    if verbose: logger.info(f"Conversion to ometiff from mrc required for {img_path}")
+    logger.debug(f"Conversion to ometiff from mrc required for {img_path}")
 
-    full_data = mrc.file_reader(img_path['mrc'])[0]
-    img_array, bit = optimize_bit_depth(full_data['data'])
+    try:
+        full_data = mrc.file_reader(img_path['mrc'])[0]
+        img_array, bit = optimize_bit_depth(full_data['data'])
+    except FileNotFoundError as fnfe:
+        raise FileNotFoundError(f"The file does not exist. {str(fnfe)}")
+    except Exception as e:
+        logger.info(f"An error happened when trying to read the atlas file {img_path}\n It is required to be a dict: {e}")
+        raise
     
     data = parse_xml_with_namespaces(img_path.get('xml', None))
     if data is None:
         raise ValueError("Error opening or reading metadata.")
-    if verbose: logger.info(f"{img_path} successfully readen!") 
+    logger.debug(f"{img_path} successfully readen!") 
     
     key_pair = {
         'Microscope': mapping(dict_crawler(data, 'InstrumentModel')[0].split('-')[0]),
@@ -745,12 +775,12 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
     image = model.Image(
         id="Image:0",
         name = os.path.basename(img_path['mrc']),
-        acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
+        acquisition_date=date_object,
         
         pixels = model.Pixels(
             id="Pixels:0",
-            dimension_order="XYCZT",
-            type=str(img_array.dtype),
+            dimension_order=model.Pixels_DimensionOrder["XYCZT"],
+            type=model.PixelType[str(img_array.dtype)],
             size_x=key_pair['Image Size X'],
             size_y=key_pair['Image Size Y'],
             size_c=1,
@@ -778,7 +808,7 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
     instrument = model.Instrument(
         id = "Instrument:0",
         microscope=model.Microscope(
-                                    type='Other',
+                                    type=model.Microscope_Type['Other'],
                                     model=key_pair['Microscope']
         ),
         detectors=[
@@ -794,9 +824,8 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
                 ),
             ]
         )
-    
     ome.instruments.append(instrument)
-    ome.structured_annotations.extend([custom_metadata])
+    ome.structured_annotations.extend([custom_metadata])#type: ignore
     # Create Objective for Magnification
     objective = model.Objective(
         id="Objective:0",
@@ -806,7 +835,7 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
     
     # Convert OME object to XML string
     ome_xml = ome.to_xml()
-    if verbose: logger.info("OME created")
+    logger.debug("OME created")
     
     output_fpath = os.path.join(os.path.dirname(img_path['mrc']), os.path.basename(img_path['mrc']).replace(".mrc", ".ome.tiff"))
     
@@ -814,11 +843,11 @@ def convert_atlas_to_ometiff(img_path: dict, verbose:bool=False):
     with tifffile.TiffWriter(output_fpath) as tif:
         tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
         
-    if verbose: logger.info(f"Ome-tiff written at {output_fpath}.")
+    logger.debug(f"Ome-tiff written at {output_fpath}.")
     return output_fpath, key_pair
 
 
-def convert_semtif_to_ometiff(img_path: str, verbose:bool=False):
+def convert_semtif_to_ometiff(img_path: str):
     """
     Convert SEM TIF file to ome-tiff format.
     
@@ -829,140 +858,143 @@ def convert_semtif_to_ometiff(img_path: str, verbose:bool=False):
     str: Path to the output OME-TIFF file
     dict: Contains the key-pair values
     """
-    if verbose: logger.info(f"Conversion to ometiff from tif required for {img_path}")
-    with tifffile.TiffFile(img_path) as tif:
-        
-        sem_meta = tif.pages[0].tags.get(34118)
-        if sem_meta is None:
-            raise TypeError("Image may be a tif, but not a SEM-TIF or metadata failed to be read")
-        
-        cz_sem_metadata = dict(sem_meta.value)
-        
-        if verbose: logger.info(f"{img_path} metadata successfully readen!") 
-        
-        img_array = tif.asarray()
-        if verbose: logger.info(f"{img_path} data successfully readen!") 
-                    
-        #construct mag string
-        mag_str_list = list(map(str,dict_crawler(cz_sem_metadata, 'ap_mag')[0]))
-        mag_str = " ".join(mag_str_list)
-                            
-        key_pair = {
-        'Microscope': mapping(dict_crawler(cz_sem_metadata, 'dp_sem')[0][1]),
-        'Image type':dict_crawler(cz_sem_metadata, 'dp_final_lens')[0][1],
-        'Lens Magnification': convert_magnification(mag_str),
-        'WD value': dict_crawler(cz_sem_metadata, 'ap_wd')[0][1],
-        'WD unit': dict_crawler(cz_sem_metadata, 'ap_wd')[0][2],
-        'EHT value': dict_crawler(cz_sem_metadata, 'ap_actualkv')[0][1],
-        'EHT unit': dict_crawler(cz_sem_metadata, 'ap_actualkv')[0][2],
-        'I Probe value': dict_crawler(cz_sem_metadata, 'ap_iprobe')[0][1],
-        'I Probe unit': dict_crawler(cz_sem_metadata, 'ap_iprobe')[0][2],
-        'Signal A' : dict_crawler(cz_sem_metadata, 'dp_detector_channel')[0][1],
-        'Signal B': dict_crawler(cz_sem_metadata, 'dp_implied_detector')[0][1],
-        'Mixing' : dict_crawler(cz_sem_metadata, 'dp_mixing')[0][1],
-        'Mixing proportion' : dict_crawler(cz_sem_metadata, 'ap_k2')[0][1],
-        'Scan speed': dict_crawler(cz_sem_metadata, 'dp_scanrate')[0][1],
-        'Dwell time value': dict_crawler(cz_sem_metadata, 'dp_dwell_time')[0][1],
-        'Dwell time unit': dict_crawler(cz_sem_metadata, 'dp_dwell_time')[0][2],
-        'Line Avg.Count': dict_crawler(cz_sem_metadata, 'ap_line_average_count')[0][1],
-        'Vacuum Mode': dict_crawler(cz_sem_metadata, 'dp_vac_mode')[0][1],
-        'Mag': dict_crawler(cz_sem_metadata, 'ap_mag')[0][1],
-        'Mag Range': dict_crawler(cz_sem_metadata, 'dp_mag_range')[0][1],
-        'Image Size X' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[0]),
-        'Image Size Y' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[1]),
-        'Physical pixel size': dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][1],
-        'Physical pixel unit':dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][2],
-        'Image depth': tif.pages[0].tags.get(258).value,
-        'Comment': dict_crawler(cz_sem_metadata, 'sv_user_text')[0][1],
-        }
+    logger.debug(f"Conversion to ometiff from tif required for {img_path}")
+    try:
+        with tifffile.TiffFile(img_path) as tif:
             
-        date = dict_crawler(cz_sem_metadata, 'ap_date')[0][1]
-        time = dict_crawler(cz_sem_metadata, 'ap_time')[0][1]
-        
-        date_object = datetime.datetime.strptime(date+' '+time, "%d %b %Y %H:%M:%S")
-        key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
-                                                
-        # Create an OME object
-        ome = model.OME()
-        
-        # Create an Image object
-        image = model.Image(
-            id="Image:0",
-            name = os.path.basename(img_path),
-            acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
+            cz_sem_data = tif.pages[0].tags.get(conf.SEM_TIF_VALID_MAGIC)
+            if cz_sem_data is None:
+                raise TypeError("Image may be a tif, but not a SEM-TIF or metadata failed to be read")
             
-            pixels = model.Pixels(
-                id="Pixels:0",
-                dimension_order="XYCZT",
-                type=str(img_array.dtype),
-                size_x=key_pair['Image Size X'],
-                size_y=key_pair['Image Size Y'],
-                size_c=1,
-                size_z=1,
-                size_t=1,
-                physical_size_x=key_pair['Physical pixel size'],
-                physical_size_x_unit=key_pair['Physical pixel unit'],
-                physical_size_y=key_pair['Physical pixel size'],
-                physical_size_y_unit=key_pair['Physical pixel unit'],
+            cz_sem_metadata = dict(cz_sem_data.value)
+            
+            logger.debug(f"{img_path} metadata successfully read!") 
+            
+            img_array = tif.asarray()
+            logger.debug(f"{img_path} data successfully readen!") 
+                        
+            #construct mag string
+            mag_str_list = list(map(str,dict_crawler(cz_sem_metadata, 'ap_mag')[0]))
+            mag_str = " ".join(mag_str_list)
+                               
+            key_pair = {
+            'Microscope': mapping(dict_crawler(cz_sem_metadata, 'dp_sem')[0][1]),
+            'Image type':dict_crawler(cz_sem_metadata, 'dp_final_lens')[0][1],
+            'Lens Magnification': convert_magnification(mag_str),
+            'WD value': dict_crawler(cz_sem_metadata, 'ap_wd')[0][1],
+            'WD unit': dict_crawler(cz_sem_metadata, 'ap_wd')[0][2],
+            'EHT value': dict_crawler(cz_sem_metadata, 'ap_actualkv')[0][1],
+            'EHT unit': dict_crawler(cz_sem_metadata, 'ap_actualkv')[0][2],
+            'I Probe value': dict_crawler(cz_sem_metadata, 'ap_iprobe')[0][1],
+            'I Probe unit': dict_crawler(cz_sem_metadata, 'ap_iprobe')[0][2],
+            'Signal A' : dict_crawler(cz_sem_metadata, 'dp_detector_channel')[0][1],
+            'Signal B': dict_crawler(cz_sem_metadata, 'dp_implied_detector')[0][1],
+            'Mixing' : dict_crawler(cz_sem_metadata, 'dp_mixing')[0][1],
+            'Mixing proportion' : dict_crawler(cz_sem_metadata, 'ap_k2')[0][1],
+            'Scan speed': dict_crawler(cz_sem_metadata, 'dp_scanrate')[0][1],
+            'Dwell time value': dict_crawler(cz_sem_metadata, 'dp_dwell_time')[0][1],
+            'Dwell time unit': dict_crawler(cz_sem_metadata, 'dp_dwell_time')[0][2],
+            'Line Avg.Count': dict_crawler(cz_sem_metadata, 'ap_line_average_count')[0][1],
+            'Vacuum Mode': dict_crawler(cz_sem_metadata, 'dp_vac_mode')[0][1],
+            'Mag': dict_crawler(cz_sem_metadata, 'ap_mag')[0][1],
+            'Mag Range': dict_crawler(cz_sem_metadata, 'dp_mag_range')[0][1],
+            'Image Size X' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[0]),
+            'Image Size Y' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[1]),
+            'Physical pixel size': dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][1],
+            'Physical pixel unit':dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][2],
+            'Image depth': tif.pages[0].tags.get(258).value,
+            'Comment': dict_crawler(cz_sem_metadata, 'sv_user_text')[0][1],
+            }
+                
+            date = dict_crawler(cz_sem_metadata, 'ap_date')[0][1]
+            time = dict_crawler(cz_sem_metadata, 'ap_time')[0][1]
+            
+            date_object = datetime.datetime.strptime(date+' '+time, "%d %b %Y %H:%M:%S")
+            key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
+                                                  
+            # Create an OME object
+            ome = model.OME()
+            
+            # Create an Image object
+            image = model.Image(
+                id="Image:0",
+                name = os.path.basename(img_path),
+                acquisition_date=date_object,
+                
+                pixels = model.Pixels(
+                    id="Pixels:0",
+                    dimension_order=model.Pixels_DimensionOrder["XYCZT"],
+                    type=model.PixelType[str(img_array.dtype)],
+                    size_x=key_pair['Image Size X'],
+                    size_y=key_pair['Image Size Y'],
+                    size_c=1,
+                    size_z=1,
+                    size_t=1,
+                    physical_size_x=key_pair['Physical pixel size'],
+                    physical_size_x_unit=key_pair['Physical pixel unit'],
+                    physical_size_y=key_pair['Physical pixel size'],
+                    physical_size_y_unit=key_pair['Physical pixel unit'],
+                )
             )
-        )
-        
-        # Add Image to OME
-        ome.images.append(image)
-        
-        # Create MapAnnotation for custom metadata
-        custom_metadata = model.MapAnnotation(
-            id="Annotation:0",
-            namespace="custom.ome.metadata",
-            value=model.Map(ms=[M(k=safe_encode(_key), value=safe_encode(_value)) for _key, _value in cz_sem_metadata.items()])
-        )
-        
-        # Add Instrument information
-        instrument = model.Instrument(
-            id = "Instrument:0",
-            microscope=model.Microscope(
-                                        type='Other',
-                                        model=key_pair['Microscope']
-            ),
-            detectors=[
-                model.Detector(
-                    id="Detector:0",
-                    voltage=key_pair['EHT value'],
-                    voltage_unit=model.UnitsElectricPotential(key_pair['EHT unit']),
-                    ),
-                ]
-            )
-        
-        ome.instruments.append(instrument)
-        ome.structured_annotations.extend([custom_metadata])
-        # Create Objective for Magnification
-        objective = model.Objective(
-            id="Objective:0",
-            nominal_magnification=float(key_pair['Lens Magnification'])
-        )
-        instrument.objectives.append(objective)
-        
-        # Convert OME object to XML string
-        ome_xml = ome.to_xml()
-        if verbose: logger.info("OME created")
-        
-        output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".tif", ".ome.tiff"))
-        
-        # Write OME-TIFF file
-        with tifffile.TiffWriter(output_fpath) as tif:
-            tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
             
-        if verbose: logger.info(f"Ome-tiff written at {output_fpath}.")
+            # Add Image to OME
+            ome.images.append(image)
+            
+            # Create MapAnnotation for custom metadata
+            custom_metadata = model.MapAnnotation(
+                id="Annotation:0",
+                namespace="custom.ome.metadata",
+                value=model.Map(ms=[M(k=safe_encode(_key), value=safe_encode(_value)) for _key, _value in cz_sem_metadata.items()])
+            )
+            
+            # Add Instrument information
+            instrument = model.Instrument(
+                id = "Instrument:0",
+                microscope=model.Microscope(
+                                            type=model.Microscope_Type['Other'],
+                                            model=key_pair['Microscope']
+                ),
+                detectors=[
+                    model.Detector(
+                        id="Detector:0",
+                        voltage=key_pair['EHT value'],
+                        voltage_unit=model.UnitsElectricPotential(key_pair['EHT unit']),
+                        ),
+                    ]
+                )
+            
+            ome.instruments.append(instrument)
+            ome.structured_annotations.extend([custom_metadata])#type: ignore
+            # Create Objective for Magnification
+            objective = model.Objective(
+                id="Objective:0",
+                nominal_magnification=float(key_pair['Lens Magnification'])
+            )
+            instrument.objectives.append(objective)
+            
+            # Convert OME object to XML string
+            ome_xml = ome.to_xml()
+            logger.debug("OME created")
+            
+            output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".tif", ".ome.tiff"))
+            
+            # Write OME-TIFF file
+            with tifffile.TiffWriter(output_fpath) as tif:
+                tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+                
+            logger.debug(f"Ome-tiff written at {output_fpath}.")
+            
+            return output_fpath, key_pair
         
-        return output_fpath, key_pair
-    
-    raise FileNotFoundError("The file does not exist.")
+    except FileNotFoundError:
+        raise FileNotFoundError("The file does not exist.")
 
 def convert_magnification(mag_str):
     """Convert magnification string like '81.20 K X' to a real number."""
     
     # Extract numeric part and unit using regex
     match = re.match(r"(?:MAG\s*)?(\d+(?:\.\d+)?)\s*([KMG]?)\s*X", mag_str, re.IGNORECASE)
+#    match = re.match(r"([\d\.]+)\s*([KMG]?)\s*X", mag_str, re.IGNORECASE)
     
     if not match:
         raise ValueError(f"Invalid magnification format: {mag_str}")

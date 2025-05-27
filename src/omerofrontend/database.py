@@ -1,11 +1,11 @@
+from . import logger
+from . import conf
 import psycopg
 import sqlite3
 import os
-import logger
-import conf
 from threading import Lock
-_db_mutex = Lock()
 
+_db_mutex = Lock()
 
 class DatabaseHandler:
     

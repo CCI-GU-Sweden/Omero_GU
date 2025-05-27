@@ -5,16 +5,7 @@ ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
 
 
 LOG_DIR = "logs/"
-LOG_FILE = LOG_DIR + "omero_app.log"
-
-IMPORT_PROGRESS_DIR = LOG_DIR + "progress/"
-
-IMPORT_NR_OF_RETRIES = 5
-IMPORT_PROGRESS_FILE_STEM = "import_progress"
-IMPORT_LOG_FILE_STEM = "import_log"
-IMPORT_LOG_FILE_EXTENSION = ".log"
-IMPORT_LOGBACK_FILE = "logback.xml"
-
+LOG_FILE = "omero_app.log"
 
 DB_NAME = 'omerofilestats'
 
@@ -26,16 +17,15 @@ SECRET_KEY = "s3cr3t"
 APP_NAME = "gu_omero_frontend"
 LOGGER_NAME = "omero_logger"
 
-FILE_IMPORT_THREADS = 4
+FILE_IMPORT_THREADS = 2
 
-#configs for local running
 USE_TEST_URL = True
 DB_HOST = "localhost"
 DB_PORT = 5432
 DB_HANDLER = "postgres"
 
 try:
-    import config
+    from . import config
     USE_TEST_URL = config.USE_TEST_URL if hasattr(config,"USE_TEST_URL") else USE_TEST_URL
     DB_HOST = config.DB_HOST if hasattr(config,"DB_HOST") else DB_HOST
     DB_PORT = config.DB_PORT if hasattr(config,"DB_PORT") else DB_PORT
@@ -49,7 +39,7 @@ if DB_HANDLER == "sqlite":
 
     
 if USE_TEST_URL:
-    OMERO_HOST = 'omero-cli.test.gu.se'
+    OMERO_HOST = '130.241.39.241'
     OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
 
 else: #production mode
@@ -93,3 +83,5 @@ OMERO_SESSION_HOST_KEY  = "omero_host"
 OMERO_SESSION_PORT_KEY  = "omero_port"
 OMERO_G_CONNECTION_KEY  = "connection"
 OMERO_G_IMPORTER_KEY    = "importer"
+
+SEM_TIF_VALID_MAGIC = 34118
