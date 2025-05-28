@@ -208,7 +208,7 @@ def create_app(test_config=None):
         session.clear()  # Clear the session
         conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
         conn.kill_session()
-        return redirect(url_for('index'))
+        return my_render_template("logged_out.html")
    
     @app.route('/build_info', methods=['GET'])
     def build_info():
