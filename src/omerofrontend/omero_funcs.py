@@ -7,9 +7,9 @@ import omero.constants.metadata
 import ezomero
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-import conf
-import logger
-from omero_connection import OmeroConnection
+from . import conf
+from . import logger
+from . omero_connection import OmeroConnection
 
 
 class FileChangeHandler(FileSystemEventHandler):

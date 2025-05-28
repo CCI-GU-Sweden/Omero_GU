@@ -1,13 +1,13 @@
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-import logger
+from . import logger
 import datetime
 import time
 from multiprocessing import Queue
-import image_funcs
-import omero_funcs
-import conf
+from . import image_funcs
+from . import omero_funcs
+from . import conf
 import os
 import traceback
 import functools

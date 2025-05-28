@@ -1,3 +1,3 @@
-from omero_frontend import create_app
+from omerofrontend import create_app
 
 app = create_app()
