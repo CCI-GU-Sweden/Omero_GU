@@ -1,17 +1,18 @@
-from threading import Lock
-from concurrent.futures import ThreadPoolExecutor
-from enum import Enum
-from . import logger
+import os
 import datetime
 import time
-from multiprocessing import Queue
-from . import image_funcs
-from . import omero_funcs
-from . import conf
-import os
 import traceback
 import functools
 from dateutil import parser
+from multiprocessing import Queue
+from enum import Enum
+from threading import Lock
+from concurrent.futures import ThreadPoolExecutor
+from . import image_funcs
+from . import omero_funcs
+from . import conf
+from . import logger
+
 
 class ImportStatus(Enum):
     IDLE = 0,

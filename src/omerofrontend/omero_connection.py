@@ -1,12 +1,12 @@
-from . import logger
+from threading import Lock
+from datetime import datetime
 import omero
 import omero.rtypes
-from omero.gateway import BlitzGateway, ProjectWrapper, TagAnnotationWrapper
-import omero.rtypes
-from datetime import datetime
+from omero.gateway import BlitzGateway, ProjectWrapper
 from . import conf
+from . import logger
 
-from threading import Thread, Lock
+
 
 
 class OmeroConnection:

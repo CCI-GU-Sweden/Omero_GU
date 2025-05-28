@@ -1,9 +1,10 @@
+import os
+from threading import Lock
 import psycopg
 import sqlite3
-import os
 from . import logger
 from . import conf
-from threading import Lock
+
 _db_mutex = Lock()
 
 

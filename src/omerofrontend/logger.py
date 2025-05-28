@@ -1,8 +1,7 @@
-from . import conf
-import logging #info, warning, error and critical
 import sys
+import logging
 from pathlib import Path 
-
+from . import conf
 
 class CustomFormatter(logging.Formatter):
 
