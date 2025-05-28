@@ -1,10 +1,10 @@
-import logger
+from . import logger
 import omero
 import omero.rtypes
 from omero.gateway import BlitzGateway, ProjectWrapper, TagAnnotationWrapper
 import omero.rtypes
 from datetime import datetime
-import conf
+from . import conf
 
 from threading import Thread, Lock
 

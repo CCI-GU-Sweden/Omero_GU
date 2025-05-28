@@ -10,15 +10,15 @@ local web server: http://127.0.0.1:5000/
 
 """
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
-from connection_blueprint import conn_bp, connect_to_omero
+from .connection_blueprint import conn_bp, connect_to_omero
 import mistune
 import os
-import database
-import omero_funcs
-import conf
-import logger
+from . import database
+from . import omero_funcs
+from . import conf
+from . import logger
 import json
-import file_importer
+from . import file_importer
 import queue
 
 processed_files = {} # In-memory storage for processed files (for the session)

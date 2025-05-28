@@ -1,5 +1,5 @@
-import conf
-import logger
+from . import conf
+from . import logger
 import os
 import datetime
 import numpy as np

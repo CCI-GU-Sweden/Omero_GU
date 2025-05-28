@@ -1,4 +1,4 @@
-import conf
+from . import conf
 import logging #info, warning, error and critical
 import sys
 from pathlib import Path 
