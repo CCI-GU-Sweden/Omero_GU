@@ -283,8 +283,16 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
         ValueError: If the file is not a valid CZI image or if metadata extraction fails.
     """
     
-    with pyczi.open_czi(img_path) as czidoc:
-        metadata = czidoc.metadata['ImageDocument']['Metadata']
+    if not img_path.exists():
+        raise FileNotFoundError(f"The file {img_path} does not exist.")
+    
+    try:
+        with pyczi.open_czi(str(img_path)) as czidoc:
+            metadata = czidoc.metadata['ImageDocument']['Metadata']
+    except Exception as e:
+        logger.error(f"Error opening or reading metadata: {str(e)}")
+        raise ValueError(f"Error opening or reading metadata: {img_path}")
+
            
     #Initialization
     app_name = None
@@ -407,24 +415,26 @@ def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
     dict: Contains the key-pair values
     """
             
-    if verbose: logger.info(f"Conversion to ometiff from emi required for {img_path}")
+    logger.debug(f"Conversion to ometiff from emi required for {img_path}")
     
-    data = tia.file_reader(img_path) #Required to pair the emi and ser file!
+    try:
+        data = tia.file_reader(img_path) #Required to pair the emi and ser file!
+        
+        if len(data) == 1:
+            data = data[0]
+        else:
+            raise ValueError(f"Length of data at {len(data)} different of 1.")
+        
+        img_array = data['data']
+        # img_array = img_array[ :, :, np.newaxis, np.newaxis, np.newaxis,]
+    except FileNotFoundError:
+        raise FileNotFoundError(f"The file {img_path} does not exist.")
+    except Exception as e:
+        raise ValueError(f"Error opening or reading metadata: {str(e)}")
     
-    if len(data) == 1:
-        data = data[0]
-    else:
-        logger.error(f"Unable to read file {img_path}. Data was empty. Wrong format?")
-        raise ValueError(f"Unable to read Data of file {img_path}")
-    
-    img_array = data['data']
-    # img_array = img_array[ :, :, np.newaxis, np.newaxis, np.newaxis,]
-    dimension_order = "XYCZT"
-    
-    if verbose: logger.info(f"{img_path} successfully readen!")
-    # img_array = img_array[np.newaxis, :, :]
-    
-    # Check if this is possible to reduce its bit size
+    logger.debug(f"{img_path} successfully readen!")
+        # Check if this is possible to reduce its bit size
+    dimension_order = model.Pixels_DimensionOrder.XYCZT
     img_array, bit = optimize_bit_depth(img_array)
       
     key_pair = {
