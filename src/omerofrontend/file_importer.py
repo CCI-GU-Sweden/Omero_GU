@@ -12,7 +12,7 @@ from . import image_funcs
 from . import omero_funcs
 from . import conf
 from . import logger
-
+from .file_data import FileData
 
 class ImportStatus(Enum):
     IDLE = 0,
@@ -32,84 +32,6 @@ DUPLICATE = "duplicate"
 UNMATCHED = "unmatched"
 ERROR = "error"
 
-class FileData:
-    
-    def __init__(self,files):
-        self.originalFileNames = []
-        self.convertedFileName = ""
-        for f in files:
-            basename = os.path.basename(f.filename)
-            self.originalFileNames.append(basename)
-            ext = f.filename.split('.')[-1]
-            if not ext == "ser" and not ext == "xml":
-                self.mainFileExtension = ext
-                self.mainFileName = basename
-            else:
-                self.dictFileExtension = ext
-                self.dictFileName = basename
-                        
-    def getMainFileExtension(self):
-        return self.mainFileExtension
-        
-    def getMainFileName(self):
-        return self.mainFileName
-        
-    def getDictFileExtension(self):
-        return self.dictFileExtension
-    
-    def getDictFileName(self):
-        return self.dictFileName
-        
-    def setTempFilePaths(self,paths):
-        self.tempPaths = paths
-        self.basePath = os.path.dirname(paths[0])
-        
-    def getTempFilePaths(self):
-        return self.tempPaths
-
-    def getBasePath(self):
-        return self.basePath
-
-    def getMainFileTempPath(self):
-        main_p = ""
-        for p in self.tempPaths:
-            if self.getMainFileName() in str(p):
-                main_p = p
-        
-        return main_p
-
-    def getDictFileTempPath(self):
-        dict_p = ""
-        for p in self.tempPaths:
-            if self.getDictFileName() in str(p):
-                dict_p = p
-        
-        return dict_p
-
-    def hasConvertedFileName(self):
-        return self.convertedFileName != ""
-
-    def setConvertedFileName(self, convertedName):
-        self.convertedFileName = convertedName
-        
-    def getConvertedFileName(self):
-        return self.convertedFileName
-
-    def setFileSizes(self, sizes):
-        self.fileSizes = sizes
-        
-    def getFileSizes(self):
-        return self.fileSizes
-
-    def getNrOfFiles(self):
-        return len(self.originalFileNames)
-    
-    def getTotalFileSize(self):
-        tot = 0
-        for s in self.fileSizes:
-            tot += int(s)
-            
-        return tot
 
 class FileImporter:
     
