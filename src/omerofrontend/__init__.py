@@ -1,25 +1,16 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Nov 15 15:09:51 2024
-
-@author: simon
-
-
-
-local web server: http://127.0.0.1:5000/
-
-"""
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
-from .connection_blueprint import conn_bp, connect_to_omero
 import mistune
 import os
+import queue
+
+import json
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
+
 from . import database
-from . import omero_funcs
 from . import conf
 from . import logger
-import json
 from . import file_importer
-import queue
+from .connection_blueprint import conn_bp, connect_to_omero
 
 processed_files = {} # In-memory storage for processed files (for the session)
 

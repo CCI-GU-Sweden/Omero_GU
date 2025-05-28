@@ -1,17 +1,17 @@
-from . import conf
-from . import logger
 import os
 import datetime
+from dateutil import parser
 import numpy as np
 import re
 import xml.etree.ElementTree as ET
-from dateutil import parser
-
 from rsciio import tia, emd, mrc
 from pylibCZIrw import czi as pyczi
 from ome_types import model
 from ome_types.model.map import M
 import tifffile
+from . import conf
+from . import logger
+
 
 #Metadata function
 def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, partial_search:bool=False) -> list:

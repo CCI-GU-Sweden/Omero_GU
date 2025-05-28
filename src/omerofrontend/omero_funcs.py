@@ -1,15 +1,15 @@
 import os
 from threading import Lock
 from pathlib import Path
-import xml.etree.ElementTree as ET
-import omero
-import omero.constants.metadata
-import ezomero
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import ezomero
+import omero.constants.metadata
+import omero
+import xml.etree.ElementTree as ET
+from . omero_connection import OmeroConnection
 from . import conf
 from . import logger
-from . omero_connection import OmeroConnection
 
 
 class FileChangeHandler(FileSystemEventHandler):
