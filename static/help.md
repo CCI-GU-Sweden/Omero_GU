@@ -25,8 +25,10 @@ At the Centre for Cellular Imaging, we aim to improve the efficiency, reliabilit
 
 The following rules govern the use of the OMERO system at the Centre for Cellular Imaging (CCI):  
 - &#128194; **Allowed Data Types:**  
-	- Only microscopy image data is permitted within the OMERO system. 
-	- Attempts to upload unsupported file types will result in an error, and the transfer will be denied &#128683;. 
+	- Only microscopy image data is permitted within the OMERO system.
+ 		- Light Microscope format: *.czi  
+   		- Electron Microscope format: *.tia, *.emd, *.mrc, *.tif (from SEM)  
+	- Unsupported file types will not appear in the OMERO Upload App &#128683;. 
 - &#9201; **Temporary Data Storage:**
 	- OMERO currently supports data transfer only. Files must not remain in the system for more than **<span style="color:red">4</span>** weeks. 
 	- Users will be prompted to remove data after this period. Failure to comply may result in storage charges. 
