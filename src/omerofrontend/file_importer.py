@@ -186,6 +186,7 @@ class FileImporter:
             if os.path.exists(f):
                 logger.info(f"Deleting temporary file: {f}")
                 os.remove(f)
+                os.removedirs(os.path.dirname(f))
             else:
                 logger.info(f"Temporary file {f} does not exist, unable to remove")
 
