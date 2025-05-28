@@ -315,16 +315,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     disconnectButton.addEventListener('click', () => {
-        fileStore = {};
-        localStorage.removeItem('importedFiles');
-        renderFileList();
+        
+        if(confirm("Do you want to log out?") != true)
+        {
+            return
+        }
+        
+        clearFileList();
 
         fetch('/logout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         })
             .then(response => {
-                alert(`You have been disconnected, redirecting to ${response.url}`);
+                //alert(`You have been disconnected, redirecting to ${response.url}`);
                 window.location.href = response.url;
             })
             .catch(console.error);
