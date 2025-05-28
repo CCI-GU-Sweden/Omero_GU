@@ -26,8 +26,12 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*git im
 
-# Install omero-py and its dependencies
 RUN python -m pip install --upgrade pip setuptools wheel
+
+# Install ZeroC Ice from prebuilt wheel (Glencoe Software provides this)
+RUN python3.9 -m pip install \
+    https://github.com/glencoesoftware/zeroc-ice-py-rhel9-x86_64/releases/download/20230830/zeroc_ice-3.6.5-cp39-cp39-linux_x86_64.whl
+
 
 # Set the working directory
 WORKDIR ${APP_HOME}
