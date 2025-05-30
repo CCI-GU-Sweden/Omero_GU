@@ -1,6 +1,7 @@
 import os
 import datetime
 from dateutil import parser
+from pathlib import Path
 import numpy as np
 import re
 import xml.etree.ElementTree as ET
@@ -217,9 +218,9 @@ def file_format_splitter(fileData, verbose:bool):
     logger.info(f"Received file is of format {ext}")
     if ext == "czi": #Light microscope format - CarlZeissImage
         converted_path = img_path
-        key_pair = get_info_metadata_from_czi(img_path, verbose=verbose)
+        key_pair = get_info_metadata_from_czi(Path(img_path), verbose=verbose)
     elif ext == "emi": #Electron microscope format
-        converted_path, key_pair = convert_emi_to_ometiff(img_path, verbose=verbose)
+        converted_path, key_pair = convert_emi_to_ometiff(Path(img_path), verbose=verbose)
     elif ext == "emd": #Electron microscope format
         converted_path, key_pair = convert_emd_to_ometiff(img_path, verbose=verbose)
     elif ext == "tif": #Tif, but only SEM-TIF
@@ -402,7 +403,7 @@ def get_info_metadata_from_czi(img_path, verbose:bool=True) -> dict:
     return mini_metadata       
 
 
-def convert_emi_to_ometiff(img_path: str, verbose: bool=True):
+def convert_emi_to_ometiff(img_path: Path, verbose: bool=True):
     """
     Convert .emi file to ome-tiff format.
     File NEED to finish with emi. A ser file need to be present in the same folder

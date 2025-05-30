@@ -162,7 +162,8 @@ class FileImporter:
     def _store_temp_file(self, file):
         filename = file.filename
         # Create subdirectories if needed
-        file_path = os.path.join(conf.UPLOAD_FOLDER, *os.path.split(filename))
+        #file_path = os.path.join(conf.UPLOAD_FOLDER, *os.path.split(filename))
+        file_path = os.path.join(conf.UPLOAD_FOLDER,os.path.basename(filename))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
     
         file.seek(0)    
@@ -181,18 +182,22 @@ class FileImporter:
     
         return True, file_path, file_size
 
+    def delete_empty_folders(self, root):
+        for dirpath, dirnames, filenames in os.walk(root, topdown=False):
+            for dirname in dirnames:
+                full_path = os.path.join(dirpath, dirname)
+                if not os.listdir(full_path):
+                    logger.info(f"Deleting empty directory: {full_path}")
+                    os.rmdir(full_path)
+
     def _remove_temp_files(self,fileData : FileData):
         for f in fileData.getTempFilePaths():
             if os.path.exists(f):
                 logger.info(f"Deleting temporary file: {f}")
                 os.remove(f)
-                os.removedirs(os.path.dirname(f))
             else:
                 logger.info(f"Temporary file {f} does not exist, unable to remove")
 
-        if not fileData.hasConvertedFileName():
-            return
-        
         cf = fileData.getConvertedFileName()
         basePath = fileData.getBasePath()
         cfile = os.path.join(basePath,cf)
@@ -227,7 +232,7 @@ class FileImporter:
             if res:
                 self._send_success_event(filename,img_path,img_id)
 
-    def _importImages(self, fileData, batch_tag, conn):
+    def _importImages(self, fileData : FileData, batch_tag, conn):
         
         scopes = []
         filename = fileData.getMainFileName()
