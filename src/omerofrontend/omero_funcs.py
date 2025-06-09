@@ -80,7 +80,7 @@ def import_image(conn : OmeroConnection, img_path, dataset_id, meta_dict, batch_
     # import the image
 
     omero_conn = conn.get_omero_connection()
-    namespace = omero.constants.metadata.NSCLIENTMAPANNOTATION#pyright: ignore [reportAttributeAccessIssue]
+    namespace = omero.constants.metadata.NSCLIENTMAPANNOTATION#pyright: ignore [reportAttributeAccessIssue, reportGeneralTypeIssue]
 
     done = False
     image_id = None
