@@ -20,8 +20,6 @@ from flask import Flask, render_template, request, jsonify
 import sqlite3
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
-import json
 import random
 from datetime import datetime, timedelta
 

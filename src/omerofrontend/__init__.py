@@ -23,7 +23,7 @@ def create_app(test_config=None):
 
     try:
         os.makedirs(conf.IMPORT_PROGRESS_DIR, exist_ok=True)
-    except Exception as e:
+    except Exception:
         logger.error("Error in creating dir...exiting")
         exit
     
@@ -213,7 +213,7 @@ def create_app(test_config=None):
     @app.route('/build_info', methods=['GET'])
     def build_info():
         html = "<html><body><h3>Build Info</h3><br>"
-        if not "OPENSHIFT_BUILD_NAME" in os.environ:
+        if "OPENSHIFT_BUILD_NAME" not in os.environ:
             html += "using a local build"
         else:
             for name, value in os.environ.items():
@@ -237,8 +237,8 @@ def create_app(test_config=None):
                         event = importer.getEvent(2)
                         yield f"event: {event['type']}\n"
                         yield f"data: {json.dumps(event['data'])}\n\n"
-                    except queue.Empty as ee:
-                        yield f"keep alive\n"
+                    except queue.Empty:
+                        yield "keep alive\n"
                     except ConnectionError as e:
                         logger.warning(f"Connection error in import_updates {str(e)}")
                         yield f"data: {json.dumps({'error': str(e)})}\n\n"
