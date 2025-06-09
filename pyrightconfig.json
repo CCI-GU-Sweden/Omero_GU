@@ -1,0 +1,7 @@
+{
+    "reportMissingImports": "none",
+    "exclude": [
+        "src/omerofrontend/dashboard.py",
+        "src/omerofrontend/omero_connection.py",
+    ]
+}
