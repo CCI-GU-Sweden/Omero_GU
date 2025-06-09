@@ -1,9 +1,6 @@
-import pytest
-import io
 from omerofrontend import conf
 from omerofrontend.file_data import FileData
 import os
-from pathlib import Path
 from omerofrontend.file_importer import FileImporter
 from werkzeug.datastructures import FileStorage
 import logging
