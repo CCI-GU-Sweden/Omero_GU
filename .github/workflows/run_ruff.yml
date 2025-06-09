@@ -20,5 +20,5 @@ jobs:
         run: ruff check --output-format=github --target-version=py39
     #   - name: Check code formatting with Ruff
     #     run: ruff format --diff --target-version=py39
-        continue-on-error: true
+    #    continue-on-error: true
 
