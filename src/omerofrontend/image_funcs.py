@@ -4,13 +4,18 @@ from dateutil import parser
 import numpy as np
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from rsciio import tia, emd, mrc
 from pylibCZIrw import czi as pyczi
 from ome_types import model
-from ome_types.model.map import M
+from ome_types.model import Microscope_Type, Pixels_DimensionOrder
+
+from ome_types.model import Map
 import tifffile
 from . import conf
 from . import logger
+from .file_data import FileData
+
 
 
 #Metadata function
@@ -211,13 +216,13 @@ def pair_mrc_xml(files: list): #list of filename
         
     return list(paired_files.values()) + unpaired_files
 
-def file_format_splitter(fileData):
+def file_format_splitter(fileData : FileData):
     ext = fileData.getMainFileExtension().lower()
     img_path = fileData.getMainFileTempPath()
     logger.info(f"Received file is of format {ext}")
     if ext == "czi": #Light microscope format - CarlZeissImage
         converted_path = img_path
-        key_pair = get_info_metadata_from_czi(img_path)
+        key_pair = get_info_metadata_from_czi(Path(img_path))
     elif ext == "emi": #Electron microscope format
         converted_path, key_pair = convert_emi_to_ometiff(img_path)
     elif ext == "emd": #Electron microscope format
@@ -263,7 +268,7 @@ def mapping(microscope):
     return microscope
 
 
-def get_info_metadata_from_czi(img_path) -> dict:
+def get_info_metadata_from_czi(img_path : Path) -> dict:
     """
     Extract important metadata from a CZI image file.
     
@@ -435,7 +440,7 @@ def convert_emi_to_ometiff(img_path: str):
     
     logger.debug(f"{img_path} successfully readen!")
         # Check if this is possible to reduce its bit size
-    dimension_order = model.Pixels_DimensionOrder.XYCZT
+    dimension_order = Pixels_DimensionOrder.XYCZT
     img_array, bit = optimize_bit_depth(img_array)
       
     key_pair = {
@@ -454,7 +459,8 @@ def convert_emi_to_ometiff(img_path: str):
     }
 
     date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
-    key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
+    date_str = date_object.strftime(conf.DATE_TIME_FMT)
+    key_pair['Acquisition date'] = date_str
     
     #extra pair for the general metadata
     extra_pair = {
@@ -482,12 +488,12 @@ def convert_emi_to_ometiff(img_path: str):
     image = model.Image(
         id="Image:0",
         name=os.path.basename(img_path),
-        acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
+        acquisition_date=datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
         
         pixels = model.Pixels(
             id="Pixels:0",
             dimension_order=dimension_order,
-            type=str(img_array.dtype),
+            type=img_array.dtype,
             size_x=key_pair['Image Size X'],
             size_y=key_pair['Image Size Y'],
             size_c=1,
@@ -508,7 +514,7 @@ def convert_emi_to_ometiff(img_path: str):
     custom_metadata = model.MapAnnotation(
         id="Annotation:0",
         namespace="custom.ome.metadata",
-        value=model.Map(ms=[M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
+        value=model.Map(ms=[Map.M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
         
     )
     
@@ -516,7 +522,7 @@ def convert_emi_to_ometiff(img_path: str):
     instrument = model.Instrument(
         id = "Instrument:0",
         microscope=model.Microscope(
-                                    type='Other',
+                                    type=Microscope_Type.OTHER,
                                     manufacturer=dict_crawler(data, 'Manufacturer')[0],
                                     model=key_pair['Microscope']
         ),
@@ -535,7 +541,7 @@ def convert_emi_to_ometiff(img_path: str):
         )
     
     ome.instruments.append(instrument)
-    ome.structured_annotations.extend([custom_metadata])
+    ome.structured_annotations.extend([custom_metadata]) #type: ignore
     # Create Objective for Magnification
     objective = model.Objective(
         id="Objective:0",
@@ -591,7 +597,8 @@ def convert_emd_to_ometiff(img_path: str):
     }
     
     date_object = datetime.datetime.fromtimestamp(int(dict_crawler(data, 'AcquisitionDatetime')[0]['DateTime']))
-    key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
+    date_str = date_object.strftime(conf.DATE_TIME_FMT)
+    key_pair['Acquisition date'] = date_str
     mode = dict_crawler(data, 'TemOperatingSubMode')[0]+' '
     mode += dict_crawler(data, 'ObjectiveLensMode')[0]+' '
     mode += dict_crawler(data, 'HighMagnificationMode')[0]+' '
@@ -621,12 +628,11 @@ def convert_emd_to_ometiff(img_path: str):
     image = model.Image(
         id="Image:0",
         name=os.path.basename(img_path),
-        acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
-        
+        acquisition_date=datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
         pixels = model.Pixels(
             id="Pixels:0",
-            dimension_order="XYCZT",
-            type=str(img_array.dtype),
+            dimension_order= model.Pixels_DimensionOrder.XYCZT,
+            type=img_array.dtype,
             size_x=key_pair['Image Size X'],
             size_y=key_pair['Image Size Y'],
             size_c=1,
@@ -646,7 +652,7 @@ def convert_emd_to_ometiff(img_path: str):
     custom_metadata = model.MapAnnotation(
         id="Annotation:0",
         namespace="custom.ome.metadata",
-        value=model.Map(ms=[M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
+        value=model.Map(ms=[Map.M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
         
     )
     
@@ -654,7 +660,7 @@ def convert_emd_to_ometiff(img_path: str):
     instrument = model.Instrument(
         id = "Instrument:0",
         microscope=model.Microscope(
-                                    type='Other',
+                                    type=Microscope_Type.OTHER,
                                     manufacturer=dict_crawler(data, 'Manufacturer')[0],
                                     model=key_pair['Microscope']
         ),
@@ -673,7 +679,7 @@ def convert_emd_to_ometiff(img_path: str):
         )
     
     ome.instruments.append(instrument)
-    ome.structured_annotations.extend([custom_metadata])
+    ome.structured_annotations.extend([custom_metadata])#type: ignore
     # Create Objective for Magnification
     objective = model.Objective(
         id="Objective:0",
@@ -729,7 +735,8 @@ def convert_atlas_to_ometiff(img_path: dict):
         'Image Size Y': img_array.shape[1],
     }
     date_object = parser.isoparse(dict_crawler(data, 'acquisitionDateTime')[0])
-    key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
+    date_str = date_object.strftime(conf.DATE_TIME_FMT)
+    key_pair['Acquisition date'] = date_str
     
     mode = dict_crawler(data, 'ColumnOperatingMode')[0]+' '
     mode += dict_crawler(data, 'ColumnOperatingTemSubMode')[0]+' '
@@ -756,12 +763,12 @@ def convert_atlas_to_ometiff(img_path: dict):
     image = model.Image(
         id="Image:0",
         name = os.path.basename(img_path['mrc']),
-        acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
+        acquisition_date=datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
         
         pixels = model.Pixels(
             id="Pixels:0",
-            dimension_order="XYCZT",
-            type=str(img_array.dtype),
+            dimension_order= Pixels_DimensionOrder.XYCZT,
+            type=img_array.dtype,
             size_x=key_pair['Image Size X'],
             size_y=key_pair['Image Size Y'],
             size_c=1,
@@ -781,7 +788,7 @@ def convert_atlas_to_ometiff(img_path: dict):
     custom_metadata = model.MapAnnotation(
         id="Annotation:0",
         namespace="custom.ome.metadata",
-        value=model.Map(ms=[M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
+        value=model.Map(ms=[Map.M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
         
     )
     
@@ -789,7 +796,7 @@ def convert_atlas_to_ometiff(img_path: dict):
     instrument = model.Instrument(
         id = "Instrument:0",
         microscope=model.Microscope(
-                                    type='Other',
+                                    type=Microscope_Type.OTHER,
                                     model=key_pair['Microscope']
         ),
         detectors=[
@@ -807,7 +814,7 @@ def convert_atlas_to_ometiff(img_path: dict):
         )
     
     ome.instruments.append(instrument)
-    ome.structured_annotations.extend([custom_metadata])
+    ome.structured_annotations.extend([custom_metadata])#type: ignore
     # Create Objective for Magnification
     objective = model.Objective(
         id="Objective:0",
@@ -843,7 +850,7 @@ def convert_semtif_to_ometiff(img_path: str):
     logger.debug(f"Conversion to ometiff from tif required for {img_path}")
     with tifffile.TiffFile(img_path) as tif:
         
-        sem_meta = tif.pages[0].tags.get(34118)
+        sem_meta = tif.pages[0].tags.get(34118) # pyright: ignore[reportGeneralTypeIssues]
         if sem_meta is None:
             raise TypeError("Image may be a tif, but not a SEM-TIF or metadata failed to be read")
         
@@ -883,7 +890,7 @@ def convert_semtif_to_ometiff(img_path: str):
         'Image Size Y' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[1]),
         'Physical pixel size': dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][1],
         'Physical pixel unit':dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][2],
-        'Image depth': tif.pages[0].tags.get(258).value,
+        'Image depth': tif.pages[0].tags.get(258).value, # pyright: ignore[reportOptionalMemberAccess, reportGeneralTypeIssues]
         'Comment': dict_crawler(cz_sem_metadata, 'sv_user_text')[0][1],
         }
             
@@ -891,7 +898,8 @@ def convert_semtif_to_ometiff(img_path: str):
         time = dict_crawler(cz_sem_metadata, 'ap_time')[0][1]
         
         date_object = datetime.datetime.strptime(date+' '+time, "%d %b %Y %H:%M:%S")
-        key_pair['Acquisition date'] = date_object.strftime(conf.DATE_TIME_FMT)
+        date_str = date_object.strftime(conf.DATE_TIME_FMT)
+        key_pair['Acquisition date'] = date_str
                                                 
         # Create an OME object
         ome = model.OME()
@@ -900,12 +908,12 @@ def convert_semtif_to_ometiff(img_path: str):
         image = model.Image(
             id="Image:0",
             name = os.path.basename(img_path),
-            acquisition_date=date_object.strftime(conf.DATE_TIME_FMT),
+            acquisition_date=datetime.datetime.strptime(date_str, conf.DATE_TIME_FMT),
             
             pixels = model.Pixels(
                 id="Pixels:0",
-                dimension_order="XYCZT",
-                type=str(img_array.dtype),
+                dimension_order= Pixels_DimensionOrder.XYCZT,
+                type=model.PixelType(str(img_array.dtype)),
                 size_x=key_pair['Image Size X'],
                 size_y=key_pair['Image Size Y'],
                 size_c=1,
@@ -925,14 +933,14 @@ def convert_semtif_to_ometiff(img_path: str):
         custom_metadata = model.MapAnnotation(
             id="Annotation:0",
             namespace="custom.ome.metadata",
-            value=model.Map(ms=[M(k=safe_encode(_key), value=safe_encode(_value)) for _key, _value in cz_sem_metadata.items()])
+            value=model.Map(ms=[Map.M(k=safe_encode(_key), value=safe_encode(_value)) for _key, _value in cz_sem_metadata.items()])
         )
         
         # Add Instrument information
         instrument = model.Instrument(
             id = "Instrument:0",
             microscope=model.Microscope(
-                                        type='Other',
+                                        type=Microscope_Type.OTHER,
                                         model=key_pair['Microscope']
             ),
             detectors=[
@@ -945,7 +953,7 @@ def convert_semtif_to_ometiff(img_path: str):
             )
         
         ome.instruments.append(instrument)
-        ome.structured_annotations.extend([custom_metadata])
+        ome.structured_annotations.extend([custom_metadata])#type: ignore
         # Create Objective for Magnification
         objective = model.Objective(
             id="Objective:0",
