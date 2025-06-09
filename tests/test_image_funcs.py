@@ -6,14 +6,14 @@ from omerofrontend.image_funcs import get_info_metadata_from_czi, convert_emi_to
 def test_get_info_metadata_from_czi_file_not_found():
     fileName = Path('tests/data/test_image_no_exist.czi')
     with pytest.raises(FileNotFoundError) as excinfo:  
-        dict = get_info_metadata_from_czi(fileName)
+        get_info_metadata_from_czi(fileName)
     assert str(excinfo.value) == f"The file {fileName} does not exist."  
 
 
 def test_get_info_metadata_from_czi_value_error():
     fileName = 'tests/data/fakefile.czi'
     with pytest.raises(ValueError) as excinfo:  
-        dict = get_info_metadata_from_czi(Path(fileName))
+        get_info_metadata_from_czi(Path(fileName))
     assert str(excinfo.value) == f"Error opening or reading metadata: {fileName}"  
     assert True
     
@@ -29,6 +29,22 @@ def test_convert_emi_to_ometiff_file_not_found():
         p, dict = convert_emi_to_ometiff(Path(fileName))#type: ignore
     assert str(excinfo.value) == f"The file {fileName} does not exist."  
     
+
+# def test_file_format_splitter_czi_as_str():
+#     fileName = 'tests/data/test_image.czi'
+    
+#     with open(fileName, "rb") as f:
+#         file_storage = FileStorage(
+#             stream=f,
+#             filename="test_image.czi",      # You can set this to any filename you want
+#             content_type="image/x-czi" # Optional: set the content type
+#         ) 
+#         fileData = FileData([file_storage])
+#         #fileData.setFileSizes(fileSizes)
+#         #fileData.setTempFilePaths(filePaths)
+        
+#         meta_data = file_format_splitter(fileData)
+#         check_image_base_metadata(meta_data)
 
     
 def check_image_base_metadata(meta_dict):
