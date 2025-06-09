@@ -233,13 +233,14 @@ class FileImporter:
         filename = fileData.getMainFileName()
         logger.info(f"Processing of {fileData.getTempFilePaths()}")
         #Spliter functions required here for multiple file format support
-        file_path, meta_dict = image_funcs.file_format_splitter(fileData, verbose=True)
+        file_path, meta_dict = image_funcs.file_format_splitter(fileData)
         
         meta_dict = meta_dict | batch_tag #merge the batch tag to the meta_dictionnary
         folder = os.path.basename(os.path.dirname(file_path))
         converted_filename = os.path.basename(file_path)
         fileData.setConvertedFileName(converted_filename)
-        if folder != '': meta_dict['Folder'] = folder
+        if folder != '': 
+            meta_dict['Folder'] = folder
         logger.info(f"Metadata successfully extracted from {filename}")
 
         scopes.append([meta_dict['Microscope']])
@@ -333,7 +334,7 @@ class FileImporter:
             )
         
     def check_supported_format(self,fileName):
-        if not '.' in fileName:
+        if '.' not in fileName:
             logger.info(f"{fileName} is not a propper file name")
             return False
         

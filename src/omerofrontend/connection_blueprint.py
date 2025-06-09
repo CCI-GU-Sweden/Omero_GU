@@ -29,7 +29,7 @@ def dissconnect_from_omero(response):
     return response
 
 @conn_bp.errorhandler(500)
-def handle_connection_error(e):
+def handle_connection_error_e(e):
     return jsonify(error=str(e)), 500
 
 
