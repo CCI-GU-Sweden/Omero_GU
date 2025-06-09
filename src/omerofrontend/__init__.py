@@ -25,7 +25,7 @@ def create_app(test_config=None):
         os.makedirs(conf.IMPORT_PROGRESS_DIR, exist_ok=True)
     except Exception:
         logger.error("Error in creating dir...exiting")
-        exit
+        return
     
     logger.info("***** Starting CCI Omero Frontend ******")
     importer = file_importer.FileImporter()
@@ -85,7 +85,7 @@ def create_app(test_config=None):
         logger.info("Enter enter_token.html")
         if request.method == 'POST':
             session_token = request.form.get('session_token')
-            logger.info("Session Uuid is: " + session_token)
+            logger.info(f"Session Uuid is: {session_token}")
             if session_token:
                 session[conf.OMERO_SESSION_TOKEN_KEY] = session_token
                 session[conf.OMERO_SESSION_HOST_KEY] = conf.OMERO_HOST
@@ -166,7 +166,7 @@ def create_app(test_config=None):
     def create_project():
         
         conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
-        projects = conn.create_project(request.projectName)
+        projects = conn.create_project(request.projectName) # type: ignore #ignore: pyright[reportAttributeAccessIssue]
 
         return jsonify(projects)        
     
@@ -185,8 +185,8 @@ def create_app(test_config=None):
     def log():
         if request.is_json:
             data = request.json
-            level = data.get('level')
-            msg = data.get('message')
+            level = data.get('level')# type: ignore #ignore: pyright[reportAttributeAccessIssue]
+            msg = data.get('message')# type: ignore #ignore: pyright[reportAttributeAccessIssue]
             logger.log(level, f"Client-side log: {msg}")
             return jsonify({"status": "logged"})
         else:
@@ -255,4 +255,5 @@ def create_app(test_config=None):
 #%%main
 if __name__ == '__main__': #standalone
     app = create_app()
-    app.run(debug=True)
+    if app is not None:
+        app.run(debug=True)
