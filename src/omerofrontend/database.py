@@ -59,7 +59,7 @@ class SqliteDatabaseHandler(DatabaseHandler):
             conn.commit()
             conn.close()
         
-    def get_all_imports(self):
+    def get_all_imports(self):#pyright: ignore[reportIncompatibleMethodOverride]
         with _db_mutex:
             conn = sqlite3.connect(self.DB_FILE)
             cursor = conn.cursor()
@@ -107,7 +107,7 @@ class PostgresDatabaseHandler(DatabaseHandler):
             logger.error(f"Database error: {e}")
             raise
         
-    def get_all_imports(self):
+    def get_all_imports(self):#pyright: ignore[reportIncompatibleMethodOverride]
         try:
             with _db_mutex, psycopg.connect(dbname=conf.DB_NAME,user=conf.DB_USERNAME, password=conf.DB_USERNAME, host=conf.DB_HOST, port=conf.DB_PORT) as conn:
                 with conn.cursor() as cursor: 
