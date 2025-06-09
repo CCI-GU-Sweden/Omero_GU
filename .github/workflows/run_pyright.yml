@@ -28,6 +28,4 @@ jobs:
       with:
         version: 1.1.311
         extra-args: "src/omerofrontend/image_funcs.py"
-
-      continue-on-error: true
-
+        
