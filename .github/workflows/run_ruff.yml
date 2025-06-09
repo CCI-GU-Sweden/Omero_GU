@@ -1,4 +1,4 @@
-name: Python package
+name: lint and format with ruff
 
 on: [push, pull_request]
 
