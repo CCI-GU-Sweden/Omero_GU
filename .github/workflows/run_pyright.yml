@@ -1,0 +1,33 @@
+name: static check of types with pyright
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps: 
+    - uses: actions/checkout@v4        # <-- This checks out your code!
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'  # or your preferred Python version
+
+    - name: Create and activate virtual environment
+      run: |
+        python -m venv .venv
+        source .venv/bin/activate
+        echo PATH=$PWD/.venv/bin:$PATH >> $GITHUB_ENV
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+
+    - uses: jakebailey/pyright-action@v2
+      with:
+        version: 1.1.311
+        extra-args: "src/omerofrontend/image_funcs.py"
+
+      continue-on-error: true
+
