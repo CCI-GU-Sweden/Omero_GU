@@ -38,7 +38,7 @@ try:
     from . import config
     USE_TEST_URL = config.USE_TEST_URL if hasattr(config,"USE_TEST_URL") else USE_TEST_URL
     DB_HOST = config.DB_HOST if hasattr(config,"DB_HOST") else DB_HOST
-    DB_PORT = config.DB_PORT if hasattr(config,"DB_PORT") else DB_PORT
+    DB_PORT = config.DB_PORT if hasattr(config,"DB_PORT") else DB_PORT# pyright: ignore[reportAttributeAccessIssue]
     DB_HANDLER = config.DB_HANDLER if hasattr(config,"DB_HANDLER") else DB_HANDLER
 except ImportError:
     pass    
