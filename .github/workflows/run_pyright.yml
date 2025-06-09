@@ -1,6 +1,6 @@
 name: static check of types with pyright
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   test:
