@@ -206,7 +206,8 @@ class FileImporter:
         res = False
         filename = fileData.getMainFileName()
         import_time_start = time.time()
-
+        img_path = None
+        img_id = None
         try:
             res, scopes, img_id, img_path = self._importImages(fileData, batchtags, conn)
             if res:
@@ -287,6 +288,7 @@ class FileImporter:
                 
     
     def _log_and_insert_in_databse(self,scopes, conn,import_time,fileData):
+        scope = None
         if len(scopes) > 0:
             scope = sorted(scopes, key=scopes.count, reverse=True)[0] #take only one scope
             if isinstance(scope, list):
@@ -305,7 +307,7 @@ class FileImporter:
         # security:
         groupname = str(groupname) if groupname else "Unknown Group"
         username = str(username) if username else "Unknown User"
-        scope = str(scope) if scope else "Unknown Scope"
+        scope = str(scope) if scope is not None else "Unknown Scope"
         file_n = int(fileData.getNrOfFiles()) 
         total_file_size = float(fileData.getTotalFileSize())
         import_time = float(import_time)
