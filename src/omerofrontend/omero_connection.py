@@ -88,7 +88,6 @@ class OmeroConnection:
             projects.append(p)
             
         return projects
-
         
     def get_dataset_for_projects(self, project_id):
         project = self.conn.getObject("Project", project_id)
