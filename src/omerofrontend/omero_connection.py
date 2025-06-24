@@ -38,7 +38,7 @@ class OmeroConnection:
             raise ConnectionError("Failed to connect to OMERO")
 
     def _close_omero_connection(self,hardClose=False):
-        logger.info(f"Closing connection to OMERO with token: {self.omero_token}")
+        logger.info(f"Closing connection to OMERO with token: {self.omero_token}") if self.omero_token else logger.info("Closing connection to OMERO without token")
         if self.conn:
             self.conn.close(hard=hardClose)
 
