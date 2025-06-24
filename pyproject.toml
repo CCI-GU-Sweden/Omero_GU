@@ -29,7 +29,8 @@ where = ["src"]
 [project.optional-dependencies]
 test = [
     "pytest",
-    "tox"
+    "tox",
+    "ruff",
 ]
 
 
