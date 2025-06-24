@@ -16,7 +16,7 @@ IMPORT_LOG_FILE_EXTENSION = ".log"
 IMPORT_LOGBACK_FILE = "logback.xml"
 
 
-DB_NAME = 'omerofilestats'
+SQL_DB_NAME = 'omerofilestats'
 
 DB_USERNAME = "gu_cci_postgres"
 DB_PASSWORD = "gu_cci_postgres"
@@ -35,7 +35,7 @@ DB_PORT = 5432
 DB_HANDLER = "postgres"
 
 try:
-    from . import config #pyright: ignore[reportGeneralTypeIssues]
+    from omerofrontend import config #pyright: ignore[reportGeneralTypeIssues]
     USE_TEST_URL = config.USE_TEST_URL if hasattr(config,"USE_TEST_URL") else USE_TEST_URL
     DB_HOST = config.DB_HOST if hasattr(config,"DB_HOST") else DB_HOST
     DB_PORT = config.DB_PORT if hasattr(config,"DB_PORT") else DB_PORT# pyright: ignore[reportAttributeAccessIssue]
@@ -43,9 +43,9 @@ try:
 except ImportError:
     pass    
     
-if DB_HANDLER == "sqlite":
-    DB_DIR = "database"
-    DB_NAME = 'omero_imports.db'
+#if DB_HANDLER == "sqlite":
+SQL_DB_DIR = "database"
+SQL_DB_NAME = 'omero_imports.db'
 
     
 if USE_TEST_URL:
