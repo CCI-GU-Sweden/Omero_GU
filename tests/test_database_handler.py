@@ -21,9 +21,9 @@ class TestDatabaseHandler:
         except FileNotFoundError:
             pass
         self.sqdbh.initialize_database()
-        assert self.sqdbh.DB_FILE == f"{omerofrontend.conf.DB_DIR}/{omerofrontend.conf.DB_NAME}"
-        assert omerofrontend.conf.DB_DIR is not None
-        assert omerofrontend.conf.DB_NAME is not None
+        assert self.sqdbh.DB_FILE == f"{omerofrontend.conf.SQL_DB_DIR}/{omerofrontend.conf.SQL_DB_NAME}"
+        assert omerofrontend.conf.SQL_DB_DIR is not None
+        assert omerofrontend.conf.SQL_DB_NAME is not None
         
     def test_insert_import_data(self):
         import_time = "2023-10-01 12:00:00"
