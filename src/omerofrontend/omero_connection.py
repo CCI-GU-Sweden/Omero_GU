@@ -13,8 +13,9 @@ class OmeroConnection:
     
     _mutex = Lock()
     
-    def __init__(self, hostname, port, token):
-        self._connect_to_omero(hostname,port,token)
+    def __init__(self, hostname = None, port = None, token = None):
+        if hostname is not None and port is not None and token is not None:
+            self._connect_to_omero(hostname,port,token)
         
     def __del__(self):
         self._close_omero_connection()
@@ -70,9 +71,12 @@ class OmeroConnection:
     def get_user(self):
         return self.conn.getUser()
 
-    def get_logged_in_user_name(self):
+    def get_logged_in_user_name(self) -> str:
         return self.conn.getUser().getName()
-
+    
+    def get_logged_in_user_full_name(self) -> str:
+        return self.conn.getUser().getFullName()
+    
     def get_user_project_ids(self):
         projects = []
         my_expId = self.conn.getUser().getId()
@@ -111,7 +115,7 @@ class OmeroConnection:
 
         return datasets
 
-    def get_or_create_dataset(self, project_id, dataset_name):
+    def get_or_create_dataset(self, project_id, dataset_name) -> int:
         
         project = self.conn.getObject("Project", project_id)
         if not project:
@@ -141,13 +145,22 @@ class OmeroConnection:
             
         return dataset_id
 
-    def getDataset(self, dataID):
-        return self.conn.getObject("Dataset", dataID)
+    def getDataset(self, dataSetId):
+        return self.conn.getObject("Dataset", dataSetId)
         
     def getImage(self, imageID):
         return self.conn.getObject("Image", imageID)
 
-    def compareImageAcquisitionTime(self,imageId,compareDate, fmtStr="%H-%M-%S"):
+    def check_duplicate_filename_in_dataset(self, filename, datasetId):
+        dataset = self.getDataset(datasetId)
+        for child in dataset.listChildren():
+            if child.getName().startswith(filename):
+                #if self.compareImageAcquisitionTime(child.getId(), acquisition_time):
+                return True, child.getId()
+
+        return False, None
+
+    def compareImageAcquisitionTime(self,imageId, compareDate, fmtStr="%H-%M-%S"):
         image = self.getImage(imageId)
         acq_time_obj = image.getAcquisitionDate()
         if not acq_time_obj:
@@ -167,7 +180,6 @@ class OmeroConnection:
         Fetch all tag values associated with a specific key.
         
         Args:
-            conn: OMERO connection object.
             key: The key for which to fetch tag values.
         
         Returns:
@@ -205,9 +217,9 @@ class OmeroConnection:
         with self._mutex:
             self.conn.setGroupNameForSession(group)
         
-    def getDefaultOmeroGroup(self):
+    def getDefaultOmeroGroup(self) -> str:
         group = self.conn.getGroupFromContext()
-        return group.getName()
+        return str(group.getName())
     
     def setAnnotationOnImage(self, image, tag_value):
         with self._mutex:

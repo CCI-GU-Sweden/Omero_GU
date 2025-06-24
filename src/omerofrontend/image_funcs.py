@@ -1,21 +1,20 @@
 import os
 import datetime
-from dateutil import parser
-import numpy as np
 import re
-import xml.etree.ElementTree as ET
+from dateutil import parser
 from pathlib import Path
 from rsciio import tia, emd, mrc
+import numpy as np
+import tifffile
+import xml.etree.ElementTree as ET
 from pylibCZIrw import czi as pyczi
 from ome_types import model
 from ome_types.model import Microscope_Type, Pixels_DimensionOrder
-
 from ome_types.model import Map
-import tifffile
-from . import conf
-from . import logger
-from .file_data import FileData
-
+from omerofrontend import conf
+from omerofrontend import logger
+from omerofrontend.file_data import FileData
+from omerofrontend.exceptions import ImageNotSupported, MetaDataError
 
 
 #Metadata function
@@ -429,14 +428,14 @@ def convert_emi_to_ometiff(img_path: str):
         if len(data) == 1:
             data = data[0]
         else:
-            raise ValueError(f"Length of data at {len(data)} different of 1.")
+            raise MetaDataError(img_path, f"Length of data at {len(data)} different of 1.")
         
         img_array = data['data']
         # img_array = img_array[ :, :, np.newaxis, np.newaxis, np.newaxis,]
     except FileNotFoundError:
         raise FileNotFoundError(f"The file {img_path} does not exist.")
-    except Exception as e:
-        raise ValueError(f"Error opening or reading metadata: {str(e)}")
+    # except Exception as e:
+    #     raise ValueError(f"Error opening or reading metadata: {str(e)}")
     
     logger.debug(f"{img_path} successfully readen!")
         # Check if this is possible to reduce its bit size
@@ -493,7 +492,7 @@ def convert_emi_to_ometiff(img_path: str):
         pixels = model.Pixels(
             id="Pixels:0",
             dimension_order=dimension_order,
-            type=img_array.dtype,
+            type=model.PixelType(str(img_array.dtype)),
             size_x=key_pair['Image Size X'],
             size_y=key_pair['Image Size Y'],
             size_c=1,
@@ -631,8 +630,8 @@ def convert_emd_to_ometiff(img_path: str):
         acquisition_date=datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
         pixels = model.Pixels(
             id="Pixels:0",
-            dimension_order= model.Pixels_DimensionOrder.XYCZT,
-            type=img_array.dtype,
+            dimension_order=model.Pixels_DimensionOrder.XYCZT,
+            type=model.PixelType(str(img_array.dtype)),
             size_x=key_pair['Image Size X'],
             size_y=key_pair['Image Size Y'],
             size_c=1,
@@ -767,8 +766,8 @@ def convert_atlas_to_ometiff(img_path: dict):
         
         pixels = model.Pixels(
             id="Pixels:0",
-            dimension_order= Pixels_DimensionOrder.XYCZT,
-            type=img_array.dtype,
+            dimension_order=Pixels_DimensionOrder.XYCZT,
+            type=model.PixelType(str(img_array.dtype)),
             size_x=key_pair['Image Size X'],
             size_y=key_pair['Image Size Y'],
             size_c=1,
@@ -852,7 +851,7 @@ def convert_semtif_to_ometiff(img_path: str):
         
         sem_meta = tif.pages[0].tags.get(34118) # pyright: ignore[reportGeneralTypeIssues]
         if sem_meta is None:
-            raise TypeError("Image may be a tif, but not a SEM-TIF or metadata failed to be read")
+            raise ImageNotSupported(img_path,"Image may be a tif, but not a SEM-TIF or metadata failed to be read")
         
         cz_sem_metadata = dict(sem_meta.value)
         
@@ -1029,9 +1028,17 @@ def safe_encode(value):
     return str(value)  # Ensure everything else (e.g., None) is converted to string
 
 
-def delete(file_path:str):
-    if os.path.exists(file_path):
-        os.remove(file_path)
-        logger.info(f"Successfully deleted temporary file: {file_path}")
-    else:
-        logger.warning(f"Temporary file not found for deletion: {file_path}")
+# def delete(file_path:str):
+#     if os.path.exists(file_path):
+#         os.remove(file_path)
+#         logger.info(f"Successfully deleted temporary file: {file_path}")
+#     else:
+#         logger.warning(f"Temporary file not found for deletion: {file_path}")
+
+def is_supported_format(fileName):
+    if '.' not in fileName:
+        logger.info(f"{fileName} is not a propper file name")
+        return False
+    
+    ext = fileName.split('.')[-1]
+    return ('.'+ext) in conf.ALLOWED_FOLDER_FILE_EXT or ('.'+ext) in conf.ALLOWED_SINGLE_FILE_EXT 
