@@ -16,7 +16,7 @@ IMPORT_LOG_FILE_EXTENSION = ".log"
 IMPORT_LOGBACK_FILE = "logback.xml"
 
 
-SQL_DB_NAME = 'omerofilestats'
+PG_DB_NAME = 'omerofilestats'
 
 DB_USERNAME = "gu_cci_postgres"
 DB_PASSWORD = "gu_cci_postgres"

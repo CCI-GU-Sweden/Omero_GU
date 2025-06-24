@@ -17,11 +17,11 @@ class TestDatabaseHandler:
         
     def test_initialize_database(self):
         try:
-            os.remove(self.sqdbh.DB_FILE)  # Clean up before test
+            os.remove(self.sqdbh.SQL_DB_FILE)  # Clean up before test
         except FileNotFoundError:
             pass
         self.sqdbh.initialize_database()
-        assert self.sqdbh.DB_FILE == f"{omerofrontend.conf.SQL_DB_DIR}/{omerofrontend.conf.SQL_DB_NAME}"
+        assert self.sqdbh.SQL_DB_FILE == f"{omerofrontend.conf.SQL_DB_DIR}/{omerofrontend.conf.SQL_DB_NAME}"
         assert omerofrontend.conf.SQL_DB_DIR is not None
         assert omerofrontend.conf.SQL_DB_NAME is not None
         
