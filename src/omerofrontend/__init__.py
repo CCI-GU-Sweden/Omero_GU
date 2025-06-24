@@ -2,15 +2,14 @@
 import mistune
 import os
 import queue
-
 import json
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
-
-from . import database
-from . import conf
-from . import logger
-from . import file_importer
-from .connection_blueprint import conn_bp, connect_to_omero
+from werkzeug.datastructures import FileStorage
+from omerofrontend import database
+from omerofrontend import conf
+from omerofrontend import logger
+from omerofrontend.middle_ware import MiddleWare
+from omerofrontend.connection_blueprint import conn_bp, connect_to_omero
 
 processed_files = {} # In-memory storage for processed files (for the session)
 
@@ -28,7 +27,8 @@ def create_app(test_config=None):
         return
     
     logger.info("***** Starting CCI Omero Frontend ******")
-    importer = file_importer.FileImporter()
+    #importer = file_importer.FileImporter()
+    
     
     if conf.DB_HANDLER == "sqlite":
         db = database.SqliteDatabaseHandler()
@@ -39,7 +39,8 @@ def create_app(test_config=None):
         logger.info("Using postgres database")
     
     db.initialize_database()
-    importer.setDatabaseHandler(db)
+    #middle_ware.setDatabaseHandler(db)
+    middle_ware = MiddleWare(db)
     
     
     def my_render_template(*args, **kwargs):
@@ -144,10 +145,11 @@ def create_app(test_config=None):
         except Exception as e:
             return jsonify({"error": str(e)}), 500 #may want to just continue?
     
-        files = request.files.getlist('files')
+        files: list[FileStorage] = request.files.getlist('files')
         logger.info(f"Received file: {files}")
         
-        res = importer.startImport(files,batch_tag,conn)
+        res = middle_ware.import_files(files,batch_tag,conn)
+        #res = importer.startImport(files,batch_tag,conn)
         
         if res:
             return jsonify({"status":"Ok"})
@@ -234,7 +236,7 @@ def create_app(test_config=None):
             try:
                 while True:
                     try:
-                        event = importer.getEvent(2)
+                        event = middle_ware.get_ssevent(2)
                         yield f"event: {event['type']}\n"
                         yield f"data: {json.dumps(event['data'])}\n\n"
                     except queue.Empty:

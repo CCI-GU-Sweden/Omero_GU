@@ -7,10 +7,10 @@ import ezomero
 import omero.constants.metadata
 import omero
 import xml.etree.ElementTree as ET
-from . omero_connection import OmeroConnection
-from . import conf
-from . import logger
-
+from omerofrontend.omero_connection import OmeroConnection
+from omerofrontend import conf
+from omerofrontend import logger
+from omerofrontend.file_data import FileData
 
 class FileChangeHandler(FileSystemEventHandler):
     def __init__(self, file_path, progress_func):
@@ -76,7 +76,7 @@ def safe_remove(filepath):
         logger.warning(f"Error removing file {filepath}: {str(e)}")
 
 
-def import_image(conn : OmeroConnection, img_path, dataset_id, meta_dict, batch_tag, progress_func, retry_func):
+def import_image(conn : OmeroConnection, fileData: FileData, dataset_id, meta_dict, batch_tag, progress_func, retry_func):
     # import the image
 
     omero_conn = conn.get_omero_connection()
@@ -88,7 +88,7 @@ def import_image(conn : OmeroConnection, img_path, dataset_id, meta_dict, batch_
     while not done:
         with mutex:
             retry_func(rt, conf.IMPORT_NR_OF_RETRIES)
-            file_stem = Path(img_path).stem
+            file_stem = Path(fileData.getConvertedFileName()).stem
             progress, log, logback_conf = setup_log_and_progress_files(file_stem)
             event_handler = FileChangeHandler(progress, progress_func)
             observer = Observer()
@@ -98,7 +98,7 @@ def import_image(conn : OmeroConnection, img_path, dataset_id, meta_dict, batch_
             #we need to catch exceptions from this and probably do a retry in some way!! !! !! !!
             try:
                 image_id = ezomero.ezimport(conn=omero_conn,
-                                            target=img_path,
+                                            target=fileData.getConvertedFilePath(),
                                             dataset=dataset_id.getId(),
                                             ann=meta_dict,
                                             ns=namespace, logback=logback_conf)
@@ -151,7 +151,8 @@ def import_image(conn : OmeroConnection, img_path, dataset_id, meta_dict, batch_
 
     return image_id
 
-def check_duplicate_filename(filename,dataset):
+#TODO: Move this function to OmeroConnection?
+def check_duplicate_file(filename, dataset):
     for child in dataset.listChildren():
         if child.getName().startswith(filename):
             return True, child.getId()
