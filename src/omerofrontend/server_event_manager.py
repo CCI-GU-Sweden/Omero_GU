@@ -17,43 +17,43 @@ class ServerEventManager:
     _msg_q = Queue()
     
     @classmethod
-    def _send_started_event(cls,fileName):
+    def send_started_event(cls,fileName):
         event = cls._generateEvent(fileName,STARTED,"preparing file...")
         cls.putEvent(event)   
        
     @classmethod
-    def _send_unsupported_event(cls,fileName, msg = ""):
+    def send_unsupported_event(cls,fileName, msg = ""):
         event = cls._generateEvent(fileName,UNSUPPORTED_FORMAT,f" {msg}")
         cls.putEvent(event)   
         
     @classmethod
-    def _send_uploading_event(cls,fileName):
+    def send_uploading_event(cls,fileName):
         event = cls._generateEvent(fileName,UPLOADING,"Uploading file")
         cls.putEvent(event)   
 
     @classmethod
-    def _send_progress_event(cls,fileName,progress):
+    def send_progress_event(cls,fileName,progress):
         event = cls._generateEvent(fileName,PROGRESS,str(progress))
         cls.putEvent(event)   
 
     @classmethod
-    def _send_success_event(cls,fileName,path, imageId):
+    def send_success_event(cls,fileName,path, imageId):
         msg = f"Image id: {imageId}, stored at {path}"
         event = cls._generateEvent(fileName,SUCCESS,msg)
         cls.putEvent(event)   
 
     @classmethod
-    def _send_duplicate_event(cls,fileName):
+    def send_duplicate_event(cls,fileName):
         event = cls._generateEvent(fileName,DUPLICATE,"File already in current group")
         cls.putEvent(event)   
     
     @classmethod
-    def _send_error_event(cls,fileName,message):
+    def send_error_event(cls,fileName,message):
         event = cls._generateEvent(fileName,ERROR,message)
         cls.putEvent(event)   
         
     @classmethod
-    def _send_retry_event(cls, filename, retry, maxTries):
+    def send_retry_event(cls, filename, retry, maxTries):
         cls._put_event(filename,str(retry),str(maxTries),result="",type="retry_event")
     
     @classmethod

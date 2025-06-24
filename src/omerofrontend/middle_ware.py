@@ -72,7 +72,8 @@ class MiddleWare:
             logger.error(f"General during import of {ge.filename}: {str(ge)}, line: {traceback.format_exc()}")
 
         except DuplicateFileExists as dfe:
-            logger.error(f"Duplicate {dfe.filename}: {str(dfe)}, line: {traceback.format_exc()}")
+            logger.info(f"Duplicate {dfe.filename}: {str(dfe)}, line: {traceback.format_exc()}")
+            ServerEventManager.send_duplicate_event(dfe.filename)
 
         except Exception as e:
             logger.error(f"Error during import: {str(e)}, line: {traceback.format_exc()}")
@@ -89,7 +90,7 @@ class MiddleWare:
     
     def _handle_image_imports(self, fileData: FileData, tags: dict, username: str, groupname: str, conn: OmeroConnection):
         import_time_start = time.time()
-        self._server_event_manager._send_started_event(fileData.getMainFileName())
+        self._server_event_manager.send_started_event(fileData.getMainFileName())
         # username: str = conn.get_logged_in_user_full_name()
         # groupname: str = conn.getDefaultOmeroGroup()
         # fileData = self._store_and_handle_temp_files(files, username, uid)

@@ -82,8 +82,8 @@ class FileImporter:
         filename = fileData.getMainFileName()
         logger.info(f"Processing of {fileData.getTempFilePaths()}")
 
-        pfun = functools.partial(ServerEventManager._send_progress_event,filename)
-        rtFun = functools.partial(ServerEventManager._send_retry_event,filename)
+        pfun = functools.partial(ServerEventManager.send_progress_event,filename)
+        rtFun = functools.partial(ServerEventManager.send_retry_event,filename)
         image_id = omero_funcs.import_image(conn, fileData, dataset, meta_dict, batch_tag, pfun, rtFun)
         
         return image_id#, dst_path
