@@ -1,7 +1,8 @@
+import os
 import pytest
 from pathlib import Path
 
-from omerofrontend.image_funcs import get_info_metadata_from_czi, convert_emi_to_ometiff
+from omerofrontend.image_funcs import get_info_metadata_from_czi, convert_emi_to_ometiff, convert_emd_to_ometiff, convert_atlas_to_ometiff
 
 def test_get_info_metadata_from_czi_file_not_found():
     fileName = Path('tests/data/test_image_no_exist.czi')
@@ -20,46 +21,64 @@ def test_get_info_metadata_from_czi_value_error():
 def test_get_info_metadata_from_czi_metadata():
     fileName = 'tests/data/test_image.czi'
     meta_data = get_info_metadata_from_czi(Path(fileName))
-    check_image_base_metadata(meta_data)
+    check_image_base_lm_metadata(meta_data)
     #also check czi specific meta data? 
     
 def test_convert_emi_to_ometiff_file_not_found():
     fileName = 'tests/data/test_image_no_exist.emi'
     with pytest.raises(FileNotFoundError) as excinfo:  
-        p, dict = convert_emi_to_ometiff(Path(fileName))#type: ignore
+        p, dict = convert_emi_to_ometiff(fileName)#type: ignore
     assert str(excinfo.value) == f"The file {fileName} does not exist."  
     
-
-# def test_file_format_splitter_czi_as_str():
-#     fileName = 'tests/data/test_image.czi'
     
-#     with open(fileName, "rb") as f:
-#         file_storage = FileStorage(
-#             stream=f,
-#             filename="test_image.czi",      # You can set this to any filename you want
-#             content_type="image/x-czi" # Optional: set the content type
-#         ) 
-#         fileData = FileData([file_storage])
-#         #fileData.setFileSizes(fileSizes)
-#         #fileData.setTempFilePaths(filePaths)
-        
-#         meta_data = file_format_splitter(fileData)
-#         check_image_base_metadata(meta_data)
+def test_convert_emi_to_ometiff():
+    fileName = 'tests/data/49944_A1_0001.emi'
+    p, dict = convert_emi_to_ometiff(fileName)
+    assert p == 'tests/data/49944_A1_0001.ome.tiff'
+    check_image_base_em_metadata(dict)
+    assert('Comment' in dict )
+    #TODO: also check emi specific meta data?
+    os.remove(p)  # Clean up the generated file after the test
 
+def test_convert_emd_to_ometiff():
+    fileName = 'tests/data/test_emd_file.emd'
+    p, dict = convert_emd_to_ometiff(fileName)
+    assert p == 'tests/data/test_emd_file.ome.tiff'
+    check_image_base_em_metadata(dict)
+    #TODO: also check emd specific meta data?
+    os.remove(p)  # Clean up the generated file after the test
+    
+def test_convert_mrc_to_ometiff():
+    fileNameMrc = 'tests/data/Atlas_1.mrc'
+    fileNameXml = 'tests/data/Atlas_1.xml'
+    atlasPair = {}
+    atlasPair['xml'] = fileNameXml
+    atlasPair['mrc'] = fileNameMrc
+    p, dict = convert_atlas_to_ometiff(atlasPair)
+    assert p == 'tests/data/Atlas_1.ome.tiff'
+    check_image_base_em_metadata(dict)
+    os.remove(p)  # Clean up the generated file after the test
     
 def check_image_base_metadata(meta_dict):
+    assert('Microscope' in meta_dict)
+    assert('Lens Magnification' in meta_dict)
+    assert('Image type' in meta_dict)
+    assert('Image Size X' in meta_dict)
+    assert('Image Size Y' in meta_dict)
+    assert('Acquisition date' in meta_dict)
     
-    assert(meta_dict['Microscope'])
-    assert(meta_dict['Lens Magnification'])
-    assert(meta_dict['Lens NA'])
-    assert(meta_dict['Image type'])
-    assert(meta_dict['Physical pixel size X'])
-    assert(meta_dict['Physical pixel size Y'])
-    assert(meta_dict['Image Size X'])
-    assert(meta_dict['Image Size Y'])
-    assert('Comment' in meta_dict )
+def check_image_base_lm_metadata(meta_dict):
+    check_image_base_metadata(meta_dict)    
+    assert('Lens NA' in meta_dict)
+    assert('Image type' in meta_dict)
+    assert('Physical pixel size X' in meta_dict)
+    assert('Physical pixel size Y' in meta_dict)
     assert('Description' in meta_dict)
-    assert(meta_dict['Acquisition date'])
-    
-    
-    
+    assert('Comment' in meta_dict )
+
+def check_image_base_em_metadata(meta_dict):
+    check_image_base_metadata(meta_dict)
+    assert('Electron source' in meta_dict)
+    assert('Beam tension' in meta_dict)
+    assert('Camera' in meta_dict)
+    assert('Defocus' in meta_dict)
