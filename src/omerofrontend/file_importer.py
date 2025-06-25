@@ -63,7 +63,7 @@ class FileImporter:
 
     def _check_duplicate_file_rename_if_needed(self, fileData: FileData, dataset, meta_dict, conn: OmeroConnection):
         #acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
-        dup, childId = omero_funcs.check_duplicate_file(fileData.getConvertedFileName(),dataset)
+        dup, childId = conn.check_duplicate_file(fileData.getConvertedFileName(),dataset)
         if dup:
             acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
             sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)

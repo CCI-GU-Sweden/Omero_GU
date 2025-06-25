@@ -72,10 +72,10 @@ class OmeroConnection:
         return self.conn.getUser()
 
     def get_logged_in_user_name(self) -> str:
-        return self.conn.getUser().getName()
+        return self.conn.getUser().getName() if self.conn.getUser() else "Unknown User"
     
     def get_logged_in_user_full_name(self) -> str:
-        return self.conn.getUser().getFullName()
+        return self.conn.getUser().getFullName() if self.conn.getUser() else "Unknown User"
     
     def get_user_project_ids(self):
         projects = []
@@ -151,17 +151,18 @@ class OmeroConnection:
     def getImage(self, imageID):
         return self.conn.getObject("Image", imageID)
 
-    def check_duplicate_filename_in_dataset(self, filename, datasetId):
-        dataset = self.getDataset(datasetId)
+    def check_duplicate_file(self, filename: str, dataset):
         for child in dataset.listChildren():
             if child.getName().startswith(filename):
-                #if self.compareImageAcquisitionTime(child.getId(), acquisition_time):
                 return True, child.getId()
 
         return False, None
 
-    def compareImageAcquisitionTime(self,imageId, compareDate, fmtStr="%H-%M-%S"):
+    def compareImageAcquisitionTime(self,imageId, compareDate, fmtStr="%H-%M-%S") -> bool:
         image = self.getImage(imageId)
+        if not image:
+            logger.warning(f"Image with ID {imageId} not found")
+            return False
         acq_time_obj = image.getAcquisitionDate()
         if not acq_time_obj:
             acq_time_str = self.getMapAnnotationValue(imageId,"Acquisition date")
