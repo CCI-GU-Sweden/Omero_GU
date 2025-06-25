@@ -1,8 +1,9 @@
 from threading import Lock
 from datetime import datetime
+from typing import Optional
 import omero
 import omero.rtypes
-from omero.gateway import BlitzGateway, ProjectWrapper
+from omero.gateway import BlitzGateway, ProjectWrapper, DatasetWrapper
 from . import conf
 from . import logger
 
@@ -14,8 +15,11 @@ class OmeroConnection:
     _mutex = Lock()
     
     def __init__(self, hostname = None, port = None, token = None):
+        self.omero_token = token
+        self.conn = None
         if hostname is not None and port is not None and token is not None:
             self._connect_to_omero(hostname,port,token)
+            
         
     def __del__(self):
         self._close_omero_connection()
@@ -38,7 +42,7 @@ class OmeroConnection:
             raise ConnectionError("Failed to connect to OMERO")
 
     def _close_omero_connection(self,hardClose=False):
-        logger.info(f"Closing connection to OMERO with token: {self.omero_token}") if self.omero_token else logger.info("Closing connection to OMERO without token")
+        logger.info(f"Closing connection to OMERO with token: {self.omero_token}") if self.omero_token is not None else logger.info("Closing connection to OMERO without token")
         if self.conn:
             self.conn.close(hard=hardClose)
 
@@ -145,13 +149,18 @@ class OmeroConnection:
             
         return dataset_id
 
-    def getDataset(self, dataSetId):
+    def get_dataset(self, dataSetId) -> Optional[DatasetWrapper]:
         return self.conn.getObject("Dataset", dataSetId)
         
     def getImage(self, imageID):
         return self.conn.getObject("Image", imageID)
 
-    def check_duplicate_file(self, filename: str, dataset):
+    def check_duplicate_file(self, filename: str, datasetId: int):
+        dataset = self.get_dataset(datasetId)
+        if not dataset:
+            logger.warning(f"Dataset with ID {datasetId} not found")
+            return False, None
+        
         for child in dataset.listChildren():
             if child.getName().startswith(filename):
                 return True, child.getId()
