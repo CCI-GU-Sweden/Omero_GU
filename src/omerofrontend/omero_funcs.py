@@ -150,11 +150,3 @@ def import_image(conn : OmeroConnection, fileData: FileData, dataset_id, meta_di
             conn.setCommentOnImage(image,meta_dict.get("Comment"))
 
     return image_id
-
-#TODO: Move this function to OmeroConnection?
-def check_duplicate_file(filename, dataset):
-    for child in dataset.listChildren():
-        if child.getName().startswith(filename):
-            return True, child.getId()
-
-    return False, None
