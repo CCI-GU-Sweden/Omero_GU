@@ -75,26 +75,25 @@ class TestFileImporter:
 
         conn = OmeroConnection()
         dataset = None
-        with patch.object(conn,'get_or_create_project', return_value=55), patch.object(conn,'get_or_create_dataset', return_value=66),patch.object(conn,'getDataset', side_effect=FakeDataset):
+        with patch.object(conn,'get_or_create_project', return_value=55), patch.object(conn,'get_or_create_dataset', return_value=66),patch.object(conn,'get_dataset', side_effect=FakeDataset):
             now = datetime.now() # current date and time
             date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
             dataset = self.fi._check_create_project_and_dataset_(scopes[0],date_time, conn)
-            assert(dataset is not None)
-            assert(dataset.getValue() == 66)
+            assert(dataset == 66)
             
         fname = fileData.getConvertedFileName()    
-        with patch('omerofrontend.omero_funcs.check_duplicate_file', return_value=(False,None)), patch.object(conn,'compareImageAcquisitionTime', return_value=False):
+        with patch.object(conn,'check_duplicate_file', return_value=(False,None)), patch.object(conn,'compareImageAcquisitionTime', return_value=False):
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
             assert(not isDup)
             assert(fname == fileData.getConvertedFileName())
 
-        with patch('omerofrontend.omero_funcs.check_duplicate_file', return_value=(True,66)), patch.object(conn,'compareImageAcquisitionTime', return_value=True):
+        with patch.object(conn,'check_duplicate_file', return_value=(True,66)), patch.object(conn,'compareImageAcquisitionTime', return_value=True):
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
             assert(isDup)
             assert(fname == fileData.getConvertedFileName())
 
             
-        with patch('omerofrontend.omero_funcs.check_duplicate_file', return_value=(True,66)), patch.object(conn,'compareImageAcquisitionTime', return_value=False):
+        with patch.object(conn,'check_duplicate_file', return_value=(True,66)), patch.object(conn,'compareImageAcquisitionTime', return_value=False):
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
             assert(not isDup)
             assert(fname != fileData.getConvertedFileName())
