@@ -1,9 +1,7 @@
 import os
 from typing import Optional
-from threading import Lock
 
 class FileData:
-    
     
     #TODO: Implement constructor that takes filestoreage instead in order to be able to use FileData in futures context map
     

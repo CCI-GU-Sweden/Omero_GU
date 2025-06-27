@@ -8,7 +8,7 @@ import omero.grid
 import traceback
 from typing import Callable, Optional
 from omero.rtypes import rstring, rbool
-from omero.model.enums import ChecksumAlgorithmSHA1160
+from omero.model.enums import ChecksumAlgorithmSHA1160 # type: ignore
 from omero_version import omero_version
 from omero.callbacks import CmdCallbackI
 from omerofrontend.file_data import FileData
