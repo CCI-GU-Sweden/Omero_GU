@@ -4,8 +4,8 @@ from typing import Optional
 import omero
 import omero.rtypes
 from omero.gateway import BlitzGateway, ProjectWrapper, DatasetWrapper
-from . import conf
-from . import logger
+from omerofrontend import conf
+from omerofrontend import logger
 
 
 
@@ -14,12 +14,9 @@ class OmeroConnection:
     
     _mutex = Lock()
     
-    def __init__(self, hostname = None, port = None, token = None):
+    def __init__(self, hostname: str, port: str, token: str):
         self.omero_token = token
-        self.conn = None
-        if hostname is not None and port is not None and token is not None:
-            self._connect_to_omero(hostname,port,token)
-            
+        self._connect_to_omero(hostname,port,token)
         
     def __del__(self):
         self._close_omero_connection()
@@ -76,14 +73,20 @@ class OmeroConnection:
         return self.conn.getUser()
 
     def get_logged_in_user_name(self) -> str:
-        return self.conn.getUser().getName() if self.conn.getUser() else "Unknown User"
+        user = self.conn.getUser()
+        return user.getName() if user else "Unknown User"
     
     def get_logged_in_user_full_name(self) -> str:
-        return self.conn.getUser().getFullName() if self.conn.getUser() else "Unknown User"
+        user = self.conn.getUser()
+        return user.getFullName() if user else "Unknown User"
     
     def get_user_project_ids(self):
         projects = []
-        my_expId = self.conn.getUser().getId()
+        user = self.conn.getUser()
+        if user is None:
+            logger.warning("No user is currently logged in.")
+            return projects
+        my_expId = user.getId()
         for p in self.conn.listProjects(my_expId):         # Initially we just load Projects
             projects.append((p.getName(),p.getId()))
             
@@ -91,7 +94,11 @@ class OmeroConnection:
     
     def get_user_projects(self):
         projects = []
-        my_expId = self.conn.getUser().getId()
+        user = self.conn.getUser()
+        if user is None:
+            logger.warning("No user is currently logged in.")
+            return projects
+        my_expId = user.getId()
         for p in self.conn.listProjects(my_expId):         # Initially we just load Projects
             projects.append(p)
             

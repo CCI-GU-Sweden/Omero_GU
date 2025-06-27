@@ -13,6 +13,11 @@ def connect_to_omero():
     host = session.get(conf.OMERO_SESSION_HOST_KEY)
     port = session.get(conf.OMERO_SESSION_PORT_KEY)
 
+    if not token or not host or not port:
+        errStr = "No OMERO session token, host or port found in session. Please log in again."
+        logger.error(errStr)
+        raise ConnectionError(errStr)
+
     if not hasattr(g,conf.OMERO_G_CONNECTION_KEY) or getattr(g,conf.OMERO_G_CONNECTION_KEY) is None:
         connection = OmeroConnection(host,port,token)
         setattr(g,conf.OMERO_G_CONNECTION_KEY,connection)
