@@ -1,11 +1,7 @@
-import functools
 import os
 import datetime
 from dateutil import parser
-from typing import Tuple
-from omerofrontend.server_event_manager import ServerEventManager
 from omerofrontend import image_funcs
-from omerofrontend import omero_funcs
 from omerofrontend import logger
 from omerofrontend.omero_connection import OmeroConnection
 from omerofrontend.file_data import FileData

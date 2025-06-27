@@ -13,7 +13,7 @@ from omerofrontend.temp_file_handler import TempFileHandler
 from omerofrontend.file_importer import FileImporter
 from omerofrontend.file_data import FileData
 from omerofrontend.server_event_manager import ServerEventManager
-from omerofrontend.exceptions import ImageNotSupported, DuplicateFileExists, GeneralError, OmeroConnectionError, AssertImportError
+from omerofrontend.exceptions import ImageNotSupported, DuplicateFileExists, GeneralError, OmeroConnectionError
 from omerofrontend.omero_connection import OmeroConnection
 from omerofrontend.database import DatabaseHandler
 
