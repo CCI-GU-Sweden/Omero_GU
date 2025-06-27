@@ -1,6 +1,7 @@
 from threading import Lock
 from datetime import datetime
 from typing import Optional
+import traceback
 import omero
 import omero.rtypes
 from omero.gateway import BlitzGateway, ProjectWrapper, DatasetWrapper
@@ -156,7 +157,7 @@ class OmeroConnection:
             
         return dataset_id
 
-    def get_dataset(self, dataSetId) -> Optional[DatasetWrapper]:
+    def get_dataset(self, dataSetId: int) -> Optional[DatasetWrapper]:
         return self.conn.getObject("Dataset", dataSetId)
         
     def getImage(self, imageID):
@@ -219,7 +220,7 @@ class OmeroConnection:
         attributes={'textValue': tag_value}
         return self.conn.getObjects("TagAnnotation", attributes=attributes)
 
-    def getTagAnnotation(self,tag_value):
+    def get_tag_annotation(self,tag_value):
         # attributes={'textValue': tag_value}
         # return self.conn.getObject("TagAnnotation", attributes=attributes)
         the_tag = None
@@ -229,6 +230,77 @@ class OmeroConnection:
                 
         return the_tag
 
+    def get_tag_annotation_id(self, tag_value) -> Optional[int]:
+        tag = self.get_tag_annotation(tag_value)
+        return tag.getId() if tag else None
+
+    def get_comment_annotations(self):
+        return self.conn.getObjects("CommentAnnotation")
+
+    def get_comment_annotation(self, value):
+        for comment_ann in self.get_comment_annotations():
+            try:
+                if not isinstance(comment_ann, omero.gateway.CommentAnnotationWrapper):
+                    logger.warning(f"Annotation {comment_ann.getId()} is not a CommentAnnotationWrapper")
+                    continue
+                value = comment_ann.getValue()
+                logger.info(f"Found comment annotation with value: {value}")
+
+            except Exception as e:
+                logger.error(f"Failed to get comment annotation: {str(e)} stack: {traceback.format_exc()}")
+                continue
+            
+        return value
+
+    def get_map_annotations(self):
+        return self.conn.getObjects("MapAnnotation")
+
+    # def get_map_annotation(self, name, value):
+    #     for map_ann in self.get_map_annotations():
+    #         try:
+    #             if not isinstance(map_ann, omero.gateway.MapAnnotationWrapper):
+    #                 logger.warning(f"Annotation {map_ann.getId()} is not a MapAnnotationWrapper")
+    #                 continue
+    #             val = map_ann.getValue()
+    #             logger.info(f"Found map annotation {name} {val}")
+    #         except Exception as e:
+    #             logger.error(f"Failed to get map annotation: {str(e)} stack: {traceback.format_exc()}")
+    #             continue
+            
+    #     return None
+
+    #TODO: this is intrusive...need fix
+    def get_map_annotation(self, name, value):
+        for map_ann in self.get_map_annotations():
+            if not isinstance(map_ann._obj, omero.model.MapAnnotationI):
+                #logger.warning(f"Annotation {map_ann.getId()} is not a MapAnnotationWrapper")
+                continue
+            n, v = map_ann.getValue()[0]
+            if n == name and v == value:
+                return map_ann            
+        return None
+
+    def get_image_tags(self, imageId):
+        """
+        Fetch all tags associated with a specific image.
+        
+        Args:
+            imageId: The ID of the image for which to fetch tags.
+        
+        Returns:
+            List of tag values associated with the image.
+        """
+        tags = []
+        image = self.conn.getObject("Image", imageId)
+        if not image:
+            logger.warning(f"Image with ID {imageId} not found")
+            return tags
+        
+        for ann in image.listAnnotations():
+            if isinstance(ann, omero.gateway.TagAnnotationWrapper):
+                tags.append(ann.getValue())
+                
+        return tags
 
     def setGroupNameForSession(self, group):
         with self._mutex:
@@ -241,7 +313,7 @@ class OmeroConnection:
     def setAnnotationOnImage(self, image, tag_value):
         with self._mutex:
             try:
-                tag_ann = self.getTagAnnotation(tag_value)
+                tag_ann = self.get_tag_annotation(tag_value)
                 if not tag_ann:
                     logger.info(f"tag {tag_value} does not exist. Creating it")
                     tag_ann = omero.gateway.TagAnnotationWrapper(self.conn)
