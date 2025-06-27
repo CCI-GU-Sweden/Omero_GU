@@ -1,5 +1,5 @@
 from multiprocessing import Queue
-
+from omerofrontend import logger
 #make sure these match javascript versions of same "structs"
 PENDING = "pending"
 STARTED = "started"
@@ -84,5 +84,6 @@ class ServerEventManager:
         
     @classmethod
     def putEvent(cls,event):
+        logger.debug(f"ServerEventManager: Putting event {event} to queue")
         cls._msg_q.put(event)  
     
