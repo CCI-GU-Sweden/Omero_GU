@@ -215,7 +215,7 @@ def pair_mrc_xml(files: list): #list of filename
         
     return list(paired_files.values()) + unpaired_files
 
-def file_format_splitter(fileData : FileData):
+def file_format_splitter(fileData : FileData) -> tuple[str, dict[str,str]]:
     ext = fileData.getMainFileExtension().lower()
     img_path = fileData.getMainFileTempPath()
     logger.info(f"Received file is of format {ext}")
@@ -236,7 +236,7 @@ def file_format_splitter(fileData : FileData):
 
     else:
         converted_path = ""
-        key_pair = None
+        key_pair: dict[str,str] = {}
     
     return converted_path, key_pair
 

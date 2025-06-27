@@ -1,7 +1,8 @@
 import traceback
 import datetime
 import time
-from typing import Optional
+import functools
+from typing import Optional, Callable, List
 from threading import Lock
 from concurrent.futures import Future, ThreadPoolExecutor
 from werkzeug.datastructures import FileStorage
@@ -12,9 +13,11 @@ from omerofrontend.temp_file_handler import TempFileHandler
 from omerofrontend.file_importer import FileImporter
 from omerofrontend.file_data import FileData
 from omerofrontend.server_event_manager import ServerEventManager
-from omerofrontend.exceptions import ImageNotSupported, DuplicateFileExists, GeneralError
+from omerofrontend.exceptions import ImageNotSupported, DuplicateFileExists, GeneralError, OmeroConnectionError, AssertImportError
 from omerofrontend.omero_connection import OmeroConnection
 from omerofrontend.database import DatabaseHandler
+
+DoneCallback = Optional[Callable[[List[int]], None]]
 
 class MiddleWare:
     """this class holds the connections between the api and the backend"""
@@ -27,18 +30,21 @@ class MiddleWare:
         self._future_filedata_context = {}
         self._future_filedata_mutex = Lock()
         self._db = database_handler
+        self._done_cb = None
 
-    def import_files(self, files: list[FileStorage], tags, connection: OmeroConnection):
+    def import_files(self, files: list[FileStorage], tags, connection: OmeroConnection, done_callback: DoneCallback = None):
     
         username: str = connection.get_logged_in_user_full_name()
         groupname: str = connection.getDefaultOmeroGroup()
         fileData = self._store_and_handle_temp_files(files, username)
         
+        self._done_cb = done_callback
+        
         future = self._executor.submit(self._handle_image_imports, fileData, tags, username, groupname, connection)
         self._safe_add_future_filedata_context(future, fileData)
         future.add_done_callback(self._future_complete_callback)
         logger.debug("Future added to executor")
-        return True
+        #return True
         
     def _safe_add_future_filedata_context(self, future: Future, fileData: FileData):
         with self._future_filedata_mutex:
@@ -58,8 +64,11 @@ class MiddleWare:
             return
 
         try:
-            future.result()
-            logger.info("Image import completed successfull!")    
+            image_ids = future.result()
+            logger.info("Image import completed successfull!")
+            if self._done_cb is not None:
+                logger.debug(f"Calling done callback with image_ids: {image_ids}")
+                self._done_cb(image_ids)
         #catch all kinds of exceptions here!!!
         except FileNotFoundError as fnf:
             logger.error(f"FileNotFoundError during import of {fnf.filename}: {str(fnf)}, line: {traceback.format_exc()}")
@@ -74,6 +83,14 @@ class MiddleWare:
         except DuplicateFileExists as dfe:
             logger.info(f"Duplicate {dfe.filename}: {str(dfe)}, line: {traceback.format_exc()}")
             ServerEventManager.send_duplicate_event(dfe.filename)
+
+        except OmeroConnectionError as oce:
+            logger.error(f"Connection error during import: {str(oce)}, line: {traceback.format_exc()}")
+            #ServerEventManager._send_error_event(filename,str(oce))
+            
+        except ImportError as aie:
+            logger.error(f"Import error during import: {str(aie)}, line: {traceback.format_exc()}")
+            #ServerEventManager._send_error_event(filename,str(aie))
 
         except Exception as e:
             logger.error(f"Error during import: {str(e)}, line: {traceback.format_exc()}")
@@ -91,13 +108,10 @@ class MiddleWare:
     def _handle_image_imports(self, fileData: FileData, tags: dict, username: str, groupname: str, conn: OmeroConnection):
         import_time_start = time.time()
         self._server_event_manager.send_started_event(fileData.getMainFileName())
-        # username: str = conn.get_logged_in_user_full_name()
-        # groupname: str = conn.getDefaultOmeroGroup()
-        # fileData = self._store_and_handle_temp_files(files, username, uid)
-        image_id, scopes = self._import_files_to_omero(fileData,tags,conn)
-        #self._remove_temp_files(fileData)
+        scopes, image_ids = self._import_files_to_omero(fileData,tags,conn)
         import_time = time.time() - import_time_start
         self._register_in_database(scopes[0],username,groupname,import_time,fileData)
+        return image_ids
 
     
     def _store_and_handle_temp_files(self, files: list[FileStorage], username: str) -> FileData:
@@ -106,7 +120,11 @@ class MiddleWare:
         return fileData
     
     def _import_files_to_omero(self, file: FileData, tags, conn: OmeroConnection):
-        return self._file_importer.import_image_data(file, tags, conn)
+        filename = file.getMainFileName()
+        logger.info(f"Processing of {file.getTempFilePaths()}")
+        prog_fun = functools.partial(ServerEventManager.send_progress_event,filename)
+        rt_fun = functools.partial(ServerEventManager.send_retry_event,filename)
+        return self._file_importer.import_image_data(file, tags, prog_fun, rt_fun, conn)
     
     def _remove_temp_files(self, file: FileData):
         self._temp_file_handler._remove_temp_files(file)

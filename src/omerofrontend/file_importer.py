@@ -10,6 +10,7 @@ from omerofrontend import logger
 from omerofrontend.omero_connection import OmeroConnection
 from omerofrontend.file_data import FileData
 from omerofrontend.exceptions import DuplicateFileExists
+from omerofrontend.file_uploader import RetryCallback, ProgressCallback, FileUploader
 
 # class ImportStatus(Enum):
 #     IDLE = 0,
@@ -19,22 +20,23 @@ from omerofrontend.exceptions import DuplicateFileExists
     
 class FileImporter:
     
-    def import_image_data(self, fileData: FileData, batchtags, conn: OmeroConnection) -> Tuple[list[int], list[str]]:
+    def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, conn: OmeroConnection) -> tuple[list[str], list[int]]:
         filename = fileData.getMainFileName()
-        img_ids = []
+        #img_ids = []
+        #all_tags = {}
         file_path, metadict = image_funcs.file_format_splitter(fileData)
-        metadict = metadict | batchtags
         scopes = self._get_scopes_metadata(metadict)
         self._set_folder_and_converted_name(fileData,metadict,file_path)
         date_str = metadict['Acquisition date'] 
-        dataset = self._check_create_project_and_dataset_(scopes[0], date_str, conn)
-        if self._check_duplicate_file_rename_if_needed(fileData, dataset, metadict, conn):
+        dataset_id = self._check_create_project_and_dataset_(scopes[0], date_str, conn)
+        if self._check_duplicate_file_rename_if_needed(fileData, dataset_id, metadict, conn):
             raise DuplicateFileExists(filename)
 
-        img_ids = self._importImages(fileData, dataset, batchtags, metadict, conn)
-        return (img_ids, scopes)
+        fu = FileUploader(conn)
+        image_ids = fu.upload_files(fileData, metadict, batchtags, dataset_id, progress_cb, retry_cb)
+        return scopes, image_ids
 
-    def _check_create_project_and_dataset_(self,proj_name, date_str, conn: OmeroConnection):
+    def _check_create_project_and_dataset_(self,proj_name: str, date_str: str, conn: OmeroConnection) -> int:
 
         project_name = proj_name
         acquisition_date_time: datetime.datetime = parser.parse(date_str)
@@ -43,10 +45,11 @@ class FileImporter:
         # Get or create project and dataset
         projID = conn.get_or_create_project(project_name)
         dataID = conn.get_or_create_dataset(projID, dataset_name)
-        logger.info(f"Check ProjectID: {projID}, DatasetID: {dataID}")
+        logger.debug(f"Check ProjectID: {projID}, DatasetID: {dataID}")
 
-        dataset = conn.getDataset(dataID)
-        return dataset
+        return dataID
+        # dataset = conn.get_dataset(dataID)
+        # return dataset
         
     def _get_scopes_metadata(self, metadict) -> list:
         scopes = []
@@ -54,16 +57,16 @@ class FileImporter:
         return scopes
         
     #TODO: check with Simon if folder data is needed in metadata
-    def _set_folder_and_converted_name(self, fileData: FileData, metadict, file_path: str):
+    def _set_folder_and_converted_name(self, fileData: FileData, metadict: dict[str,str], file_path: str):
         folder = os.path.basename(os.path.dirname(file_path))
         converted_filename = os.path.basename(file_path)
         fileData.setConvertedFileName(converted_filename)
         if folder != '': 
             metadict['Folder'] = folder
 
-    def _check_duplicate_file_rename_if_needed(self, fileData: FileData, dataset, meta_dict, conn: OmeroConnection):
+    def _check_duplicate_file_rename_if_needed(self, fileData: FileData, dataset_id: int, meta_dict: dict[str,str], conn: OmeroConnection):
         #acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
-        dup, childId = conn.check_duplicate_file(fileData.getConvertedFileName(),dataset)
+        dup, childId = conn.check_duplicate_file(fileData.getConvertedFileName(),dataset_id)
         if dup:
             acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
             sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
@@ -77,13 +80,13 @@ class FileImporter:
 
         return False
         
-    def _importImages(self, fileData: FileData, dataset, batch_tag, meta_dict, conn: OmeroConnection):
+    # def _importImages(self, fileData: FileData, dataset_id: int, batch_tag: dict[str,str], meta_dict: dict[str,str], conn: OmeroConnection):
         
-        filename = fileData.getMainFileName()
-        logger.info(f"Processing of {fileData.getTempFilePaths()}")
+    #     filename = fileData.getMainFileName()
+    #     logger.info(f"Processing of {fileData.getTempFilePaths()}")
 
-        pfun = functools.partial(ServerEventManager.send_progress_event,filename)
-        rtFun = functools.partial(ServerEventManager.send_retry_event,filename)
-        image_id = omero_funcs.import_image(conn, fileData, dataset, meta_dict, batch_tag, pfun, rtFun)
+    #     pfun = functools.partial(ServerEventManager.send_progress_event,filename)
+    #     rtFun = functools.partial(ServerEventManager.send_retry_event,filename)
+    #     image_id = omero_funcs.import_image(conn, fileData, dataset_id, meta_dict, batch_tag, pfun, rtFun)
         
-        return image_id#, dst_path
+    #     return image_id#, dst_path
