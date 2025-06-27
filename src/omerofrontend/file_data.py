@@ -34,14 +34,14 @@ class FileData:
     def getDictFileName(self) -> str:
         return self.dictFileName
         
-    def setTempFilePaths(self,paths):
+    def setTempFilePaths(self,paths: list[str]):
         self.tempPaths = paths
         self.basePath = os.path.dirname(paths[0])
         
-    def getTempFilePaths(self) -> str:
+    def getTempFilePaths(self) -> list[str]:
         return self.tempPaths
 
-    def getBasePath(self):
+    def getBasePath(self) -> str:
         return self.basePath
 
     def getMainFileTempPath(self) -> str:
@@ -109,50 +109,3 @@ class FileData:
             
         return tot
     
-
-class FileSet:
-    
-    def __init__(self, proj_name, dataset_name):
-        self._mutex = Lock()
-        self.files : list[FileData] = []
-        self.proj_name = proj_name
-        self.dataset_name = dataset_name
-        
-    def add_file(self,file: FileData):
-        with self._mutex:
-            self.files.append(file)
-        
-    def get_files(self) -> list[FileData]:
-        return self.files
-        
-        
-class FileSetManager:
-    
-    #def __init__(self):
-    _mutex = Lock()
-    filesets: dict[str, FileSet] = {}
-        
-    @classmethod
-    def _construct_dict_string(cls, project_name: str, dataset_name: str):
-        return project_name + "_" + dataset_name
-            
-    @classmethod
-    def get_fileset(cls, project_name: str, dataset_name: str):
-        with cls._mutex:
-            dict_str = cls._construct_dict_string(project_name,dataset_name)
-            if dict_str in cls.filesets:
-                fs = cls.filesets[dict_str]
-            else:
-                fs = FileSet(project_name, dataset_name)
-                cls.filesets[dict_str] = fs
-                
-        return fs
-    
-    @classmethod
-    def add_file_to_fileset(cls, file: FileData, project_name: str, dataset_name: str):
-        fs = cls.get_fileset(project_name, dataset_name)
-        fs.add_file(file)
-        
-    @classmethod
-    def get_filesets(cls) -> dict[str, FileSet]:
-        return cls.filesets
