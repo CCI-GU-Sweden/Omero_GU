@@ -1,6 +1,6 @@
 import os
 import datetime
-from typing import Optional, Tuple
+from typing import Tuple
 from dateutil import parser
 from omerofrontend import image_funcs
 from omerofrontend import logger
@@ -33,7 +33,7 @@ class FileImporter:
         image_ids, omero_path = fu.upload_files(fileData, metadict, batchtags, dataset_id, proj_id, progress_cb, retry_cb)
         return scopes, image_ids, omero_path
 
-    def _check_create_project_and_dataset_(self,proj_name: str, date_str: str, conn: OmeroConnection) -> Tuple[int,Optional[int]]:
+    def _check_create_project_and_dataset_(self,proj_name: str, date_str: str, conn: OmeroConnection) -> Tuple[int,int]:
 
         project_name = proj_name
         acquisition_date_time: datetime.datetime = parser.parse(date_str)
