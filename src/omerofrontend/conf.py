@@ -1,6 +1,6 @@
 import pathlib
 
-ALLOWED_FOLDER_FILE_EXT = [".czi", ".emd", ".tif", ".emi", ".ser", ".mrc", ".xml"]
+ALLOWED_FOLDER_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml", ".emd"]
 ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
 
 
