@@ -4,7 +4,7 @@ from typing import Optional
 import traceback
 import omero
 import omero.rtypes
-from omero.gateway import BlitzGateway, ProjectWrapper, DatasetWrapper
+from omero.gateway import BlitzGateway, DatasetWrapper
 from omerofrontend import conf
 from omerofrontend import logger
 
@@ -52,7 +52,7 @@ class OmeroConnection:
         
         return None
 
-    def get_or_create_project(self, project_name) -> Optional[int]:
+    def get_or_create_project(self, project_name) -> int:
         
         with self._mutex:
             logger.debug(f"Setting or grabbing the Project {self.conn}")
@@ -62,10 +62,9 @@ class OmeroConnection:
             
             if not project:
                 # Create project using UpdateService
-                p = omero.model.ProjectI()
-                project = ProjectWrapper(obj=p,conn=self.conn)
-                project.setName(project_name)
-                project.save()
+                p = omero.model.ProjectI() #type: ignore
+                p.setName(omero.rtypes.rstring(project_name))
+                project = self.conn.getUpdateService().saveAndReturnObject(p)
                 logger.info(f"Created new project - ID: {project.getId()}, Name: {project_name}")
 
             return project.getId()
