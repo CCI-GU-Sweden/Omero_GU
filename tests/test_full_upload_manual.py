@@ -8,7 +8,7 @@ from omerofrontend.database import SqliteDatabaseHandler
 from omerofrontend import conf
 from omerofrontend import logger
 
-session_token = "5e869784-f5d4-4ec3-ad2d-745a1cd5bd8e" # Example session token, replace with valid token
+session_token = "d2122204-5754-463e-9291-ba22ae64f75a" # Example session token, replace with valid token
 
 class TestFullUploadManual:
 
@@ -45,6 +45,7 @@ class TestFullUploadManual:
             t2 = 'Tag2'
             v2 = 'Value2'
             scope = 'LSM 980'
+            mag = '63'
             
             tags = {
                 t1: v1,
@@ -72,10 +73,18 @@ class TestFullUploadManual:
         
         
         #start tests
-        assert len(image_ids) == 3, "wrong nr of image IDs were returned from the upload."
+        assert len(image_ids) == 1, "wrong nr of image IDs were returned from the upload."
         tags = self._conn.get_image_tags(image_ids[0])  # Check if we can retrieve tags for the uploaded image
         assert f"{t1} {v1}" in tags, f"Tag {t1} with value {v1} not found in image tags."
         assert f"{t2} {v2}" in tags, f"Tag {t2} with value {v2} not found in image tags."
         assert scope in tags, f"Scope {scope} not found in image scopes."
+        
+        kv_pairs = self._conn.get_image_map_annotations(image_ids[0])
+        assert kv_pairs is not None, "Key-value pairs should not be None."
+        assert ('Microscope', scope) in kv_pairs, f"Expected scope {scope}"
+        assert ('Lens Magnification', mag) in kv_pairs, "Expected Lens Magnification to be '63'."
+        assert (t1, v1) in kv_pairs, f"Expected {t1} to be {v1}"
+        assert (t2, v2) in kv_pairs, f"Expected {t2} to be {v2}"
+        
         
         
