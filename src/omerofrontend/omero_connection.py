@@ -280,6 +280,28 @@ class OmeroConnection:
                 return map_ann            
         return None
 
+    def get_image_map_annotations(self, imageId):
+        """
+        Fetch all map annotations associated with a specific image.
+        
+        Args:
+            imageId: The ID of the image for which to fetch map annotations.
+        
+        Returns:
+            List of tuples containing key-value pairs from map annotations.
+        """
+        map_annotations = []
+        image = self.conn.getObject("Image", imageId)
+        if not image:
+            logger.warning(f"Image with ID {imageId} not found")
+            return map_annotations
+        
+        for ann in image.listAnnotations():
+            if isinstance(ann, omero.gateway.MapAnnotationWrapper):
+                map_annotations.extend(ann.getValue())
+                
+        return map_annotations
+
     def get_image_tags(self, imageId):
         """
         Fetch all tags associated with a specific image.
