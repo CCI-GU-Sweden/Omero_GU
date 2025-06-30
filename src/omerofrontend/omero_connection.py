@@ -52,7 +52,7 @@ class OmeroConnection:
         
         return None
 
-    def get_or_create_project(self, project_name):
+    def get_or_create_project(self, project_name) -> Optional[int]:
         
         with self._mutex:
             logger.debug(f"Setting or grabbing the Project {self.conn}")
@@ -67,8 +67,9 @@ class OmeroConnection:
                 project.setName(project_name)
                 project.save()
                 logger.info(f"Created new project - ID: {project.getId()}, Name: {project_name}")
-        
-        return project.getId()
+
+            return project.getId()
+            
 
     def get_user(self):
         return self.conn.getUser()
@@ -104,6 +105,21 @@ class OmeroConnection:
             projects.append(p)
             
         return projects
+        
+    def get_project_name(self, proj_id: int) -> str:
+        project = self.conn.getObject("Project", proj_id)
+        if not project:
+            raise Exception(f"Project with ID {proj_id} not found")
+        
+        return project.getName()
+
+    def get_dataset_name(self, dataset_id: int) -> str:
+        dataset = self.conn.getObject("Dataset", dataset_id)
+        if not dataset:
+            raise Exception(f"dataset with id {dataset_id} does not exist")
+        
+        return dataset.getName()
+
         
     def get_dataset_for_projects(self, project_id):
         project = self.conn.getObject("Project", project_id)

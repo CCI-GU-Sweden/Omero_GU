@@ -1,5 +1,6 @@
 import os
 import datetime
+from typing import Optional, Tuple
 from dateutil import parser
 from omerofrontend import image_funcs
 from omerofrontend import logger
@@ -16,7 +17,7 @@ from omerofrontend.file_uploader import RetryCallback, ProgressCallback, FileUpl
     
 class FileImporter:
     
-    def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, conn: OmeroConnection) -> tuple[list[str], list[int]]:
+    def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
         filename = fileData.getMainFileName()
         #img_ids = []
         #all_tags = {}
@@ -24,15 +25,15 @@ class FileImporter:
         scopes = self._get_scopes_metadata(metadict)
         self._set_folder_and_converted_name(fileData,metadict,file_path)
         date_str = metadict['Acquisition date'] 
-        dataset_id = self._check_create_project_and_dataset_(scopes[0], date_str, conn)
+        dataset_id, proj_id = self._check_create_project_and_dataset_(scopes[0], date_str, conn)
         if self._check_duplicate_file_rename_if_needed(fileData, dataset_id, metadict, conn):
             raise DuplicateFileExists(filename)
 
         fu = FileUploader(conn)
-        image_ids = fu.upload_files(fileData, metadict, batchtags, dataset_id, progress_cb, retry_cb)
-        return scopes, image_ids
+        image_ids, omero_path = fu.upload_files(fileData, metadict, batchtags, dataset_id, proj_id, progress_cb, retry_cb)
+        return scopes, image_ids, omero_path
 
-    def _check_create_project_and_dataset_(self,proj_name: str, date_str: str, conn: OmeroConnection) -> int:
+    def _check_create_project_and_dataset_(self,proj_name: str, date_str: str, conn: OmeroConnection) -> Tuple[int,Optional[int]]:
 
         project_name = proj_name
         acquisition_date_time: datetime.datetime = parser.parse(date_str)
@@ -43,7 +44,7 @@ class FileImporter:
         dataID = conn.get_or_create_dataset(projID, dataset_name)
         logger.debug(f"Check ProjectID: {projID}, DatasetID: {dataID}")
 
-        return dataID
+        return dataID, projID
         # dataset = conn.get_dataset(dataID)
         # return dataset
         

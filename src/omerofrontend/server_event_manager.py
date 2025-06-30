@@ -37,7 +37,7 @@ class ServerEventManager:
         cls.putEvent(event)   
 
     @classmethod
-    def send_success_event(cls,fileName,path, imageId):
+    def send_success_event(cls,fileName, path, imageId):
         msg = f"Image id: {imageId}, stored at {path}"
         event = cls._generateEvent(fileName,SUCCESS,msg)
         cls.putEvent(event)   

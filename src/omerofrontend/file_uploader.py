@@ -26,7 +26,7 @@ class FileUploader:
         self._oConn = conn
         pass
     
-    def upload_files(self, filedata: FileData, meta_dict: dict[str, str], tags: dict[str, str], dataset_id: int,  progress_cb: ProgressCallback = None, retry_cb: RetryCallback = None) -> list[int]:
+    def upload_files(self, filedata: FileData, meta_dict: dict[str, str], tags: dict[str, str], dataset_id: int,  project_id : int, progress_cb: ProgressCallback = None, retry_cb: RetryCallback = None) -> tuple[list[int],str]:
         """Upload files to OMERO from local filesystem."""
         
         #TODO: errorhandling in this function is not very good, should be improved
@@ -82,7 +82,29 @@ class FileUploader:
             else:
                 logger.warning(f"Unexpected object type returned: {type(objs)}")
 
-        return image_ids
+        for i in image_ids:
+            self._check_and_create_attachment(filedata, i)
+
+        proj_name = self._oConn.get_project_name(project_id)
+        dataset_name = self._oConn.get_dataset_name(dataset_id)
+
+        omero_path = str(filedata.getUserName()) + '/' + proj_name + '/' + dataset_name
+
+        return image_ids, omero_path
+    
+    def _check_and_create_attachment(self, filedata: FileData, imageid: int):
+
+        attachmentFile = filedata.getAttachmentFile()
+        if attachmentFile:
+            file_ann = self._oConn.conn.createFileAnnfromLocalFile(
+                attachmentFile,
+                mimetype="text/plain",  # Adjust as needed
+                desc="Optional description"
+            )
+            
+            img = self._oConn.getImage(imageid)
+            if img:
+                img.linkAnnotation(file_ann)
     
     def _create_annotation_objects(self, meta_dict: dict[str, str], tags: dict[str,str]):
 
@@ -132,7 +154,7 @@ class FileUploader:
 
         if len(extra_tags) > 0:
            result_list.extend(extra_tags)
-        
+                    
         return result_list
 
         
@@ -178,27 +200,28 @@ class FileUploader:
     def _create_fileset(self, filedata: FileData) -> omero.model.FilesetI: # type: ignore
         """Create a new Fileset from local files."""
         fileset = omero.model.FilesetI() # type: ignore
-        for f in filedata.getTempFilePaths():
-            entry = omero.model.FilesetEntryI() # type: ignore
-            entry.setClientPath(rstring(f))
-            fileset.addFilesetEntry(entry)
-            # Fill version info
-            system, node, release, version, machine, processor = platform.uname()
-            client_version_info = [
-                omero.model.NamedValue('omero.version', omero_version), # type: ignore
-                omero.model.NamedValue('os.name', system), # type: ignore
-                omero.model.NamedValue('os.version', release), # type: ignore
-                omero.model.NamedValue('os.architecture', machine) # type: ignore
-                ]
-            try:
-                client_version_info.append(
-                    omero.model.NamedValue('locale', locale.getdefaultlocale()[0])) #type: ignore
-            except Exception:  # pragma: no cover
-                pass
-            upload = omero.model.UploadJobI() #type: ignore
-            upload.setVersionInfo(client_version_info)
-            fileset.linkJob(upload)
-            return fileset
+        #for f in filedata.getTempFilePaths():
+        f = filedata.getUploadFilePath()
+        entry = omero.model.FilesetEntryI() # type: ignore
+        entry.setClientPath(rstring(f))
+        fileset.addFilesetEntry(entry)
+        # Fill version info
+        system, node, release, version, machine, processor = platform.uname()
+        client_version_info = [
+            omero.model.NamedValue('omero.version', omero_version), # type: ignore
+            omero.model.NamedValue('os.name', system), # type: ignore
+            omero.model.NamedValue('os.version', release), # type: ignore
+            omero.model.NamedValue('os.architecture', machine) # type: ignore
+            ]
+        try:
+            client_version_info.append(
+                omero.model.NamedValue('locale', locale.getdefaultlocale()[0])) #type: ignore
+        except Exception:  # pragma: no cover
+            pass
+        upload = omero.model.UploadJobI() #type: ignore
+        upload.setVersionInfo(client_version_info)
+        fileset.linkJob(upload)
+        return fileset
 
     def _create_settings(self, datasset_id: int, description: str, annotations) -> omero.grid.ImportSettings: # type: ignore
         """Create ImportSettings and set some values."""
@@ -227,30 +250,32 @@ class FileUploader:
         hashes = []
         totSize: int = filedata.getTotalFileSize()
         totRead: int = 0
-        for i, fobj in enumerate(filedata.getTempFilePaths()):
-            rfs = proc.getUploader(i)
-            digest = hashlib.sha1()  # Add 'import hashlib' at top
-        
-            try:
-                with open(fobj, 'rb') as f:  # file is already a Path
-                # Single-pass upload and hash calculation
-                    offset = 0
-                    while (block := f.read(1_000_000)):  # Walrus operator (Python 3.8+)
-                        rfs.write(block, offset, len(block))
-                        digest.update(block)
-                        read_size = len(block)
-                        totRead += read_size
-                        offset += len(block)
-                        if progress_cb:
-                            progress_cb(int((totRead / totSize) * 100))
-            except FileNotFoundError as fnf:
-                error_msg = f"File not found during upload: {fnf.filename}"
-                logger.error(error_msg)
-                raise OmeroConnectionError(error_msg)
-            finally:
-                rfs.close()  # Ensure cleanup even if errors occur
-        
-            hashes.append(digest.hexdigest())
+        fobj = filedata.getUploadFilePath()
+#        for i, fobj in enumerate([filedata.getMainFileName()]):
+        #for i, fobj in enumerate(filedata.getTempFilePaths()):
+        rfs = proc.getUploader(0)
+        digest = hashlib.sha1()  # Add 'import hashlib' at top
+    
+        try:
+            with open(fobj, 'rb') as f:  # file is already a Path
+            # Single-pass upload and hash calculation
+                offset = 0
+                while (block := f.read(1_000_000)):  # Walrus operator (Python 3.8+)
+                    rfs.write(block, offset, len(block))
+                    digest.update(block)
+                    read_size = len(block)
+                    totRead += read_size
+                    offset += len(block)
+                    if progress_cb:
+                        progress_cb(int((totRead / totSize) * 100))
+        except FileNotFoundError as fnf:
+            error_msg = f"File not found during upload: {fnf.filename}"
+            logger.error(error_msg)
+            raise OmeroConnectionError(error_msg)
+        finally:
+            rfs.close()  # Ensure cleanup even if errors occur
+    
+        hashes.append(digest.hexdigest())
 
         return hashes
 
@@ -259,7 +284,7 @@ class FileUploader:
         """Wait and check that we imported an image correctly."""
         if self._oConn.conn is None or self._oConn.conn.c is None:
             raise OmeroConnectionError("Could not assert file upload. No connection to OMERO server established.")
-        handle = proc.verifyUpload(hashes)
+        handle = proc.verifyUpload([hashes[0]])
         cb = CmdCallbackI(self._oConn.conn.c, handle)
         # https://github.com/openmicroscopy/openmicroscopy/blob/v5.4.9/components/blitz/src/ome/formats/importer/ImportLibrary.java#L631     
         while not cb.block(2000):
