@@ -89,7 +89,7 @@ class TestFileImporter:
         with patch.object(conn,'get_dataset', side_effect=FakeDataset):
             now = datetime.now() # current date and time
             date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
-            dataset = self.fi._check_create_project_and_dataset_(scopes[0],date_time, conn)
+            dataset, _ = self.fi._check_create_project_and_dataset_(scopes[0],date_time, conn)
             assert(dataset == 66)
             
         fname = fileData.getConvertedFileName()    
