@@ -222,10 +222,6 @@ def file_format_splitter(fileData : FileData) -> tuple[str, dict[str,str]]:
     if ext == "czi": #Light microscope format - CarlZeissImage
         converted_path = img_path
         key_pair = get_info_metadata_from_czi(Path(img_path))
-    elif ext == "emi": #Electron microscope format
-        converted_path, key_pair = convert_emi_to_ometiff(img_path)
-    elif ext == "emd": #Electron microscope format
-        converted_path, key_pair = convert_emd_to_ometiff(img_path)
     elif ext == "tif": #Tif, but only SEM-TIF
         converted_path, key_pair = convert_semtif_to_ometiff(img_path)
     elif ext == "mrc":
@@ -233,6 +229,13 @@ def file_format_splitter(fileData : FileData) -> tuple[str, dict[str,str]]:
         atlasPair[fileData.getDictFileExtension()] = fileData.getDictFileTempPath()
         atlasPair[fileData.getMainFileExtension()] = img_path
         converted_path, key_pair = convert_atlas_to_ometiff(atlasPair)
+
+    #these formats need to be converted locally due to no bioformats support
+    elif ext == "emi": #Electron microscope format
+        converted_path, key_pair = convert_emi_to_ometiff(img_path)
+    elif ext == "emd": #Electron microscope format
+        converted_path, key_pair = convert_emd_to_ometiff(img_path)
+
 
     else:
         converted_path = ""
@@ -743,95 +746,98 @@ def convert_atlas_to_ometiff(img_path: dict):
     mode += dict_crawler(data, 'ProbeMode')[0]+' '
     mode += dict_crawler(data, 'ProjectorMode')[0]+' '
     key_pair['Image type'] = mode
+
+    output_fpath = img_path['mrc']
     
     #extra pair for the general metadata        
-    extra_pair = {
-        'Mode': mode,
-        'Defocus': dict_crawler(data, 'Defocus',)[0],
-        'Lens intensity': dict_crawler(data, 'Intensity')[0],
-        'Tilt': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'A']),
-        'Stage X': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'X']),
-        'Stage Y': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'Y']),
-        'Stage Z': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'Z']),
-        }
+    # extra_pair = {
+    #     'Mode': mode,
+    #     'Defocus': dict_crawler(data, 'Defocus',)[0],
+    #     'Lens intensity': dict_crawler(data, 'Intensity')[0],
+    #     'Tilt': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'A']),
+    #     'Stage X': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'X']),
+    #     'Stage Y': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'Y']),
+    #     'Stage Z': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'Z']),
+    #     }
     
-    # Create an OME object
-    ome = model.OME()
+    # # Create an OME object
+    # ome = model.OME()
     
-    # Create an Image object
-    image = model.Image(
-        id="Image:0",
-        name = os.path.basename(img_path['mrc']),
-        acquisition_date=datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
+    # # Create an Image object
+    # image = model.Image(
+    #     id="Image:0",
+    #     name = os.path.basename(img_path['mrc']),
+    #     acquisition_date=datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
         
-        pixels = model.Pixels(
-            id="Pixels:0",
-            dimension_order=Pixels_DimensionOrder.XYCZT,
-            type=model.PixelType(str(img_array.dtype)),
-            size_x=key_pair['Image Size X'],
-            size_y=key_pair['Image Size Y'],
-            size_c=1,
-            size_z=1,
-            size_t=1,
-            physical_size_x=key_pair['Physical pixel size'],
-            physical_size_x_unit=key_pair['Physical pixel unit'],
-            physical_size_y=key_pair['Physical pixel size'],
-            physical_size_y_unit=key_pair['Physical pixel unit'],
-        )
-    )
+    #     pixels = model.Pixels(
+    #         id="Pixels:0",
+    #         dimension_order=Pixels_DimensionOrder.XYCZT,
+    #         type=model.PixelType(str(img_array.dtype)),
+    #         size_x=key_pair['Image Size X'],
+    #         size_y=key_pair['Image Size Y'],
+    #         size_c=1,
+    #         size_z=1,
+    #         size_t=1,
+    #         physical_size_x=key_pair['Physical pixel size'],
+    #         physical_size_x_unit=key_pair['Physical pixel unit'],
+    #         physical_size_y=key_pair['Physical pixel size'],
+    #         physical_size_y_unit=key_pair['Physical pixel unit'],
+    #     )
+    # )
     
-    # Add Image to OME
-    ome.images.append(image)
+
+    # # Add Image to OME
+    # ome.images.append(image)
     
-    # Create MapAnnotation for custom metadata
-    custom_metadata = model.MapAnnotation(
-        id="Annotation:0",
-        namespace="custom.ome.metadata",
-        value=model.Map(ms=[Map.M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
+    # # Create MapAnnotation for custom metadata
+    # custom_metadata = model.MapAnnotation(
+    #     id="Annotation:0",
+    #     namespace="custom.ome.metadata",
+    #     value=model.Map(ms=[Map.M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
         
-    )
+    # )
     
-    # Add Instrument information
-    instrument = model.Instrument(
-        id = "Instrument:0",
-        microscope=model.Microscope(
-                                    type=Microscope_Type.OTHER,
-                                    model=key_pair['Microscope']
-        ),
-        detectors=[
-            model.Detector(
-                id="Detector:0",
-                model=key_pair['Electron source'],
-                voltage=key_pair['Beam tension'],
-                voltage_unit=model.UnitsElectricPotential('kV'),
-                ),
-            model.Detector(
-                id="Detector:1",
-                model=key_pair['Camera'],
-                ),
-            ]
-        )
+    # # Add Instrument information
+    # instrument = model.Instrument(
+    #     id = "Instrument:0",
+    #     microscope=model.Microscope(
+    #                                 type=Microscope_Type.OTHER,
+    #                                 model=key_pair['Microscope']
+    #     ),
+    #     detectors=[
+    #         model.Detector(
+    #             id="Detector:0",
+    #             model=key_pair['Electron source'],
+    #             voltage=key_pair['Beam tension'],
+    #             voltage_unit=model.UnitsElectricPotential('kV'),
+    #             ),
+    #         model.Detector(
+    #             id="Detector:1",
+    #             model=key_pair['Camera'],
+    #             ),
+    #         ]
+    #     )
     
-    ome.instruments.append(instrument)
-    ome.structured_annotations.extend([custom_metadata])#type: ignore
-    # Create Objective for Magnification
-    objective = model.Objective(
-        id="Objective:0",
-        nominal_magnification=float(key_pair['Lens Magnification'])
-    )
-    instrument.objectives.append(objective)
+    # ome.instruments.append(instrument)
+    # ome.structured_annotations.extend([custom_metadata])#type: ignore
+    # # Create Objective for Magnification
+    # objective = model.Objective(
+    #     id="Objective:0",
+    #     nominal_magnification=float(key_pair['Lens Magnification'])
+    # )
+    # instrument.objectives.append(objective)
     
-    # Convert OME object to XML string
-    ome_xml = ome.to_xml()
-    logger.debug("OME created")
+    # # Convert OME object to XML string
+    # ome_xml = ome.to_xml()
+    # logger.debug("OME created")
     
-    output_fpath = os.path.join(os.path.dirname(img_path['mrc']), os.path.basename(img_path['mrc']).replace(".mrc", ".ome.tiff"))
+    # output_fpath = os.path.join(os.path.dirname(img_path['mrc']), os.path.basename(img_path['mrc']).replace(".mrc", ".ome.tiff"))
     
-    # Write OME-TIFF file
-    with tifffile.TiffWriter(output_fpath) as tif:
-        tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+    # # Write OME-TIFF file
+    # with tifffile.TiffWriter(output_fpath) as tif:
+    #     tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
         
-    logger.debug(f"Ome-tiff written at {output_fpath}.")
+    # logger.debug(f"Ome-tiff written at {output_fpath}.")
     return output_fpath, key_pair
 
 
@@ -857,7 +863,7 @@ def convert_semtif_to_ometiff(img_path: str):
         
         logger.debug(f"{img_path} metadata successfully readen!") 
         
-        img_array = tif.asarray()
+        #img_array = tif.asarray()
         logger.debug(f"{img_path} data successfully readen!") 
                     
         #construct mag string
@@ -889,6 +895,8 @@ def convert_semtif_to_ometiff(img_path: str):
         'Image Size Y' : int(dict_crawler(cz_sem_metadata, 'dp_image_store')[0][1].split(' * ')[1]),
         'Physical pixel size': dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][1],
         'Physical pixel unit':dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][2],
+        'Physical pixel size X': dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][1],
+        'Physical pixel size Y': dict_crawler(cz_sem_metadata, 'ap_image_pixel_size')[0][1],
         'Image depth': tif.pages[0].tags.get(258).value, # pyright: ignore[reportOptionalMemberAccess, reportGeneralTypeIssues]
         'Comment': dict_crawler(cz_sem_metadata, 'sv_user_text')[0][1],
         }
@@ -899,82 +907,85 @@ def convert_semtif_to_ometiff(img_path: str):
         date_object = datetime.datetime.strptime(date+' '+time, "%d %b %Y %H:%M:%S")
         date_str = date_object.strftime(conf.DATE_TIME_FMT)
         key_pair['Acquisition date'] = date_str
+
+        output_fpath = img_path
+            
                                                 
         # Create an OME object
-        ome = model.OME()
+        # ome = model.OME()
         
-        # Create an Image object
-        image = model.Image(
-            id="Image:0",
-            name = os.path.basename(img_path),
-            acquisition_date=datetime.datetime.strptime(date_str, conf.DATE_TIME_FMT),
+        # # Create an Image object
+        # image = model.Image(
+        #     id="Image:0",
+        #     name = os.path.basename(img_path),
+        #     acquisition_date=datetime.datetime.strptime(date_str, conf.DATE_TIME_FMT),
             
-            pixels = model.Pixels(
-                id="Pixels:0",
-                dimension_order= Pixels_DimensionOrder.XYCZT,
-                type=model.PixelType(str(img_array.dtype)),
-                size_x=key_pair['Image Size X'],
-                size_y=key_pair['Image Size Y'],
-                size_c=1,
-                size_z=1,
-                size_t=1,
-                physical_size_x=key_pair['Physical pixel size'],
-                physical_size_x_unit=key_pair['Physical pixel unit'],
-                physical_size_y=key_pair['Physical pixel size'],
-                physical_size_y_unit=key_pair['Physical pixel unit'],
-            )
-        )
+        #     pixels = model.Pixels(
+        #         id="Pixels:0",
+        #         dimension_order= Pixels_DimensionOrder.XYCZT,
+        #         type=model.PixelType(str(img_array.dtype)),
+        #         size_x=key_pair['Image Size X'],
+        #         size_y=key_pair['Image Size Y'],
+        #         size_c=1,
+        #         size_z=1,
+        #         size_t=1,
+        #         physical_size_x=key_pair['Physical pixel size'],
+        #         physical_size_x_unit=key_pair['Physical pixel unit'],
+        #         physical_size_y=key_pair['Physical pixel size'],
+        #         physical_size_y_unit=key_pair['Physical pixel unit'],
+        #     )
+        # )
         
-        # Add Image to OME
-        ome.images.append(image)
+        # # Add Image to OME
+        # ome.images.append(image)
         
-        # Create MapAnnotation for custom metadata
-        custom_metadata = model.MapAnnotation(
-            id="Annotation:0",
-            namespace="custom.ome.metadata",
-            value=model.Map(ms=[Map.M(k=safe_encode(_key), value=safe_encode(_value)) for _key, _value in cz_sem_metadata.items()])
-        )
+        # # Create MapAnnotation for custom metadata
+        # custom_metadata = model.MapAnnotation(
+        #     id="Annotation:0",
+        #     namespace="custom.ome.metadata",
+        #     value=model.Map(ms=[Map.M(k=safe_encode(_key), value=safe_encode(_value)) for _key, _value in cz_sem_metadata.items()])
+        # )
         
-        # Add Instrument information
-        instrument = model.Instrument(
-            id = "Instrument:0",
-            microscope=model.Microscope(
-                                        type=Microscope_Type.OTHER,
-                                        model=key_pair['Microscope']
-            ),
-            detectors=[
-                model.Detector(
-                    id="Detector:0",
-                    voltage=key_pair['EHT value'],
-                    voltage_unit=model.UnitsElectricPotential(key_pair['EHT unit']),
-                    ),
-                ]
-            )
+        # # Add Instrument information
+        # instrument = model.Instrument(
+        #     id = "Instrument:0",
+        #     microscope=model.Microscope(
+        #                                 type=Microscope_Type.OTHER,
+        #                                 model=key_pair['Microscope']
+        #     ),
+        #     detectors=[
+        #         model.Detector(
+        #             id="Detector:0",
+        #             voltage=key_pair['EHT value'],
+        #             voltage_unit=model.UnitsElectricPotential(key_pair['EHT unit']),
+        #             ),
+        #         ]
+        #     )
         
-        ome.instruments.append(instrument)
-        ome.structured_annotations.extend([custom_metadata])#type: ignore
-        # Create Objective for Magnification
-        objective = model.Objective(
-            id="Objective:0",
-            nominal_magnification=float(key_pair['Lens Magnification'])
-        )
-        instrument.objectives.append(objective)
+        # ome.instruments.append(instrument)
+        # ome.structured_annotations.extend([custom_metadata])#type: ignore
+        # # Create Objective for Magnification
+        # objective = model.Objective(
+        #     id="Objective:0",
+        #     nominal_magnification=float(key_pair['Lens Magnification'])
+        # )
+        # instrument.objectives.append(objective)
         
-        # Convert OME object to XML string
-        ome_xml = ome.to_xml()
-        logger.debug("OME created")
+        # # Convert OME object to XML string
+        # ome_xml = ome.to_xml()
+        # logger.debug("OME created")
         
-        output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".tif", ".ome.tiff"))
+        # output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".tif", ".ome.tiff"))
         
-        # Write OME-TIFF file
-        with tifffile.TiffWriter(output_fpath) as tif:
-            tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+        # # Write OME-TIFF file
+        # with tifffile.TiffWriter(output_fpath) as tif:
+        #     tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
             
-        logger.debug(f"Ome-tiff written at {output_fpath}.")
+        # logger.debug(f"Ome-tiff written at {output_fpath}.")
         
         return output_fpath, key_pair
     
-    raise FileNotFoundError("The file does not exist.")
+    #raise FileNotFoundError("The file does not exist.")
 
 def convert_magnification(mag_str):
     """Convert magnification string like '81.20 K X' to a real number."""

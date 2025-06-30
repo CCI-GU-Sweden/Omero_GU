@@ -61,14 +61,29 @@ class FileData:
     def setUserName(self, username: str):
         self.username = username
     
-    def getUserName(self):
+    def getUserName(self) -> Optional[str]:
         return self.username
     
-    def setFileAnnotations(self, annotations: dict[str,str]):
-        self.annotations = annotations
+    # def setFileAnnotations(self, annotations: dict[str,str]):
+    #     self.annotations = annotations
         
-    def getFileAnnotations(self) -> Optional[dict[str,str]]:
-        return self.annotations
+    # def getFileAnnotations(self) -> Optional[dict[str,str]]:
+    #     return self.annotations
+
+    def hasAttachmentFile(self) -> bool:
+        return hasattr(self, 'dictFileExtension') and self.dictFileExtension == "xml"
+    
+    def getAttachmentFile(self) -> Optional[str]:
+        if self.hasAttachmentFile():
+            return self.getDictFileTempPath()
+        else:
+            return None
+
+    def getUploadFilePath(self) -> str:
+        if self.hasConvertedFileName():
+            return self.getConvertedFilePath()
+
+        return self.getMainFileTempPath()
 
     def hasConvertedFileName(self):
         return hasattr(self, 'convertedFileName')
