@@ -88,8 +88,8 @@ class FileUploader:
 
         result_list = []
 
-        for k, v in meta_dict.items():
-            if k == 'Comment':
+        for k, v in meta_dict.items() | tags.items():
+            if k == 'Comment' and v is not None:
                 ca = omero.model.CommentAnnotationI() # type: ignore
                 ca.setTextValue(rstring(v))
                 result_list.append(ca)
@@ -116,15 +116,18 @@ class FileUploader:
         if len(tags_list) > 0:
             result_list.extend(tags_list)
 
-        extra_tags_names = ['Microscope', 'Lens Magnification', 'Image Type']
+        extra_tags_names = ['Microscope', 'Lens Magnification', 'Image type']
         extra_tags = []
         for tag_name in extra_tags_names:
             if tag_name in meta_dict:
-                if ta := self._oConn.get_tag_annotation_id(meta_dict[tag_name]):
+                tagvalue = meta_dict[tag_name]
+                if tag_name == 'Lens Magnification':
+                    tagvalue = str(tagvalue) + 'X'  # Append 'x' to the lens magnification value
+                if ta := self._oConn.get_tag_annotation_id(tagvalue):
                     ti = omero.model.TagAnnotationI(ta) # type: ignore
                 else:
                     ti = omero.model.TagAnnotationI() # type: ignore
-                ti.setTextValue(rstring(meta_dict[tag_name]))
+                ti.setTextValue(rstring(tagvalue))
                 extra_tags.append(ti)
 
         if len(extra_tags) > 0:
