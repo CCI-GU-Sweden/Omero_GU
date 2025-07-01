@@ -372,15 +372,19 @@ def get_info_metadata_from_czi(img_path : Path) -> dict:
         processing = metadata['Information'].get('Processing', None)
         if processing is not None:
             pre_processed = list(processing.keys())
-        logger.debug('Image preprocessed with %s' %(pre_processed))
+            logger.debug('Image preprocessed with %s' %(pre_processed))
             
         #other
         comment = metadata['Information']['Document'].get('Comment', None)
         description = metadata['Information']['Document'].get('Description', None)
-        # creation_date = metadata['Information']['Document'].get('CreationDate', None)
+        #creation_date = metadata['Information']['Document'].get('CreationDate', None)
         date_object = parser.isoparse(metadata['Information']['Document'].get('CreationDate', None))
-        logger.debug('Image\n    Comment: %s,\n    Description: %s,\n    Creation date: %s' % (comment, description, creation_date))
-    
+        creation_date = date_object.strftime(conf.DATE_TIME_FMT)
+        logger.debug(
+                        f"Image\n    Comment: {comment if comment else 'No comment'},\n" 
+                        f"Description: {description if description else 'No description'},\n"
+                        f"Creation date: {creation_date if creation_date else 'No creation date'}"
+                    )    
     else:
         return {}
          
@@ -394,7 +398,7 @@ def get_info_metadata_from_czi(img_path : Path) -> dict:
                      'Image Size':size,
                      'Comment':comment,
                      'Description':description,
-                     'Acquisition date':date_object.strftime(conf.DATE_TIME_FMT),
+                     'Acquisition date': creation_date,
                      }
     # Unpack Physical pixel size
     for axis, value in physical_pixel_sizes.items():
