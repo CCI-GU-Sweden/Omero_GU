@@ -104,7 +104,7 @@ class FileData:
             pathToRename = self.basePath + "/" + self.getConvertedFileName()
             self.setConvertedFileName(newName)
 
-        os.rename(pathToRename, newName) 
+        os.rename(pathToRename, self.basePath + "/" + newName) 
 
     def setFileSizes(self, sizes):
         self.fileSizes = sizes

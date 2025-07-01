@@ -1,4 +1,6 @@
 from datetime import datetime
+from dateutil import parser
+import os.path
 from unittest.mock import patch
 from werkzeug.datastructures import FileStorage
 from omerofrontend.file_data import FileData
@@ -92,7 +94,7 @@ class TestFileImporter:
             dataset, _ = self.fi._check_create_project_and_dataset_(scopes[0],date_time, conn)
             assert(dataset == 66)
             
-        fname = fileData.getConvertedFileName()    
+        fname = fileData.getConvertedFileName()
         with patch.object(conn,'check_duplicate_file', return_value=(False,None)), patch.object(conn,'compareImageAcquisitionTime', return_value=False):
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
             assert(not isDup)
@@ -105,7 +107,12 @@ class TestFileImporter:
 
             
         with patch.object(conn,'check_duplicate_file', return_value=(True,66)), patch.object(conn,'compareImageAcquisitionTime', return_value=False):
+            acquisition_date_time = parser.parse(metadict['Acquisition date'])
+            acq_time = acquisition_date_time.strftime("%H-%M-%S")
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
             assert(not isDup)
-            assert(fname != fileData.getConvertedFileName())
+            new_file_name = ''.join(fname.split('.')[:-1]+['_', acq_time,'.',fname.split('.')[-1]])
+            assert(new_file_name == fileData.getConvertedFileName())
+            assert(fileData.getBasePath() + "/" + new_file_name == fileData.getConvertedFilePath())
+            assert( os.path.isfile(fileData.getConvertedFilePath()))
             
