@@ -84,6 +84,6 @@ class ServerEventManager:
         
     @classmethod
     def putEvent(cls,event):
-        logger.debug(f"ServerEventManager: Putting event {event} to queue")
+        logger.debug(f"Putting event {event} to queue")
         cls._msg_q.put(event)  
     
