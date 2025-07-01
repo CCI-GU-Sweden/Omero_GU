@@ -1,7 +1,7 @@
 import sys
 import logging
 from pathlib import Path 
-from . import conf
+from omerofrontend import conf
 
 class CustomFormatter(logging.Formatter):
 
