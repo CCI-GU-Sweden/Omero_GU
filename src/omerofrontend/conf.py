@@ -1,4 +1,5 @@
 import pathlib
+import logging
 
 ALLOWED_FOLDER_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml", ".emd"]
 ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
@@ -25,6 +26,7 @@ SECRET_KEY = "s3cr3t"
 
 APP_NAME = "gu_omero_frontend"
 LOGGER_NAME = "omero_logger"
+LOG_LEVEL = logging.DEBUG
 
 FILE_IMPORT_THREADS = 4
 
@@ -40,6 +42,7 @@ try:
     DB_HOST = config.DB_HOST if hasattr(config,"DB_HOST") else DB_HOST
     DB_PORT = config.DB_PORT if hasattr(config,"DB_PORT") else DB_PORT# pyright: ignore[reportAttributeAccessIssue]
     DB_HANDLER = config.DB_HANDLER if hasattr(config,"DB_HANDLER") else DB_HANDLER
+    LOG_LEVEL = config.LOG_LEVEL if hasattr(config,"LOG_LEVEL") else LOG_LEVEL
 except ImportError:
     pass    
     
