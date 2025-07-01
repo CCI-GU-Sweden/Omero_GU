@@ -75,7 +75,7 @@ class FileUploader:
             if isinstance(objs, omero.model.ImageI): # type: ignore
                 image = objs
                 image_ids.append(image.getId().getValue())
-                logger.info(f"Image {image.getName()} with ID {image.getId()} imported successfully.")
+                logger.info(f"Image {image.getName().getValue()} with ID {image.getId().getValue()} imported successfully.")
             elif isinstance(objs, omero.model.DatasetI): # type: ignore
                 dataset = objs
                 logger.info(f"Dataset {dataset.getName()} with ID {dataset.getId()} imported successfully.")
