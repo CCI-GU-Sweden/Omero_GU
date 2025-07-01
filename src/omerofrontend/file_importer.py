@@ -8,19 +8,11 @@ from omerofrontend.omero_connection import OmeroConnection
 from omerofrontend.file_data import FileData
 from omerofrontend.exceptions import DuplicateFileExists
 from omerofrontend.file_uploader import RetryCallback, ProgressCallback, FileUploader
-
-# class ImportStatus(Enum):
-#     IDLE = 0,
-#     RUNNING = 1
-#     EXIT_OK = 2,
-#     EXIT_FAILED = 3
     
 class FileImporter:
     
     def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
         filename = fileData.getMainFileName()
-        #img_ids = []
-        #all_tags = {}
         file_path, metadict = image_funcs.file_format_splitter(fileData)
         scopes = self._get_scopes_metadata(metadict)
         self._set_folder_and_converted_name(fileData,metadict,file_path)
@@ -45,8 +37,6 @@ class FileImporter:
         logger.debug(f"Check ProjectID: {projID}, DatasetID: {dataID}")
 
         return dataID, projID
-        # dataset = conn.get_dataset(dataID)
-        # return dataset
         
     def _get_scopes_metadata(self, metadict) -> list:
         scopes = []
@@ -62,7 +52,6 @@ class FileImporter:
             metadict['Folder'] = folder
 
     def _check_duplicate_file_rename_if_needed(self, fileData: FileData, dataset_id: int, meta_dict: dict[str,str], conn: OmeroConnection):
-        #acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
         dup, childId = conn.check_duplicate_file(fileData.getConvertedFileName(),dataset_id)
         if dup:
             acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
