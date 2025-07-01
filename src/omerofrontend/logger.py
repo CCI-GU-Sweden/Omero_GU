@@ -1,5 +1,7 @@
 import sys
 import logging
+import inspect
+import os
 from pathlib import Path 
 from omerofrontend import conf
 
@@ -14,9 +16,10 @@ class CustomFormatter(logging.Formatter):
     reset = "\x1b[0m"
     #format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
     form = '%(process)d: %(asctime)s -%(levelname)s-: %(message)s'
+    dbg_form = '%(process)d:[%(module)s]-%(asctime)s -%(levelname)s-: %(message)s'
 
     FORMATS = {
-        logging.DEBUG: magenta + form + reset,
+        logging.DEBUG: magenta + dbg_form + reset,
         logging.INFO: green + form + reset,
         logging.WARNING: yellow + form + reset,
         logging.ERROR: red + form + reset,
@@ -25,8 +28,26 @@ class CustomFormatter(logging.Formatter):
 
     def format(self, record):
         log_fmt = self.FORMATS.get(record.levelno)
+        if record.levelno == logging.DEBUG:
+            record.module = self.get_calling_module(record)
         formatter = logging.Formatter(log_fmt,datefmt='%Y%m%d %H:%M:%S')
         return formatter.format(record)
+
+    def get_calling_module(self,record):
+        
+        frame = inspect.currentframe()
+        while frame:
+            co = frame.f_code
+            filename = os.path.basename(co.co_filename)
+            if filename not in ('logging/__init__.py', 'logger.py') and "logging/__init__.py" not in co.co_filename:  # skip logging infra and your logger module
+                break
+            frame = frame.f_back
+        if frame:
+            module = os.path.splitext(os.path.basename(frame.f_code.co_filename))[0]
+        else:
+            module = record.module
+
+        return module
 
 def setup_logger(level=logging.DEBUG):
 
