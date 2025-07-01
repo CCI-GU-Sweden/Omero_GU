@@ -14,7 +14,7 @@ The bette way to really test it is to run the docker image. Here is how:
 
 ## Running tests, lint and typechecking
 
-### Ruff
+### linting (Ruff)
 Make sure ruff is installed and run
 
 ruff check --target-version=py39 src/omerofrontend/*.py
@@ -28,7 +28,7 @@ pyright src/omerofrontend/*.py
 
 to check all files in the omerofrontend module
 
-### running the tests
+### running the tests (pytest)
 
 There are two types of tests implemented. Manual and automatic.
 The manual tests need to be given a connection token for the omeroconnection to pass.
