@@ -3,6 +3,7 @@ import mistune
 import os
 import queue
 import json
+import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
 from werkzeug.datastructures import FileStorage
 from omerofrontend import database
@@ -18,7 +19,7 @@ def create_app(test_config=None):
     app = Flask(conf.APP_NAME)
     app.secret_key = conf.SECRET_KEY
 
-    logger.setup_logger()
+    logger.setup_logger(conf.LOG_LEVEL)
 
     try:
         os.makedirs(conf.IMPORT_PROGRESS_DIR, exist_ok=True)
@@ -26,7 +27,7 @@ def create_app(test_config=None):
         logger.error("Error in creating dir...exiting")
         return
     
-    logger.info("***** Starting CCI Omero Frontend ******")
+    logger.info(f"***** Starting CCI Omero Frontend at {datetime.datetime.now() }******")
     #importer = file_importer.FileImporter()
     
     
