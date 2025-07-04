@@ -2,9 +2,11 @@ from multiprocessing import Queue
 from omerofrontend import logger
 #make sure these match javascript versions of same "structs"
 PENDING = "pending"
+STAGING = "staging"
 STARTED = "started"
-UPLOADING = "uploading"
+#UPLOADING = "uploading"
 PROGRESS = "progress"
+IMPORTING = "importing"
 SUCCESS = "success"
 
 UNSUPPORTED_FORMAT = "unsupported_format"
@@ -18,7 +20,7 @@ class ServerEventManager:
     
     @classmethod
     def send_started_event(cls,fileName):
-        event = cls._generateEvent(fileName,STARTED,"preparing file...")
+        event = cls._generateEvent(fileName,STARTED,"Starting upload to omero...")
         cls.putEvent(event)   
        
     @classmethod
@@ -26,15 +28,26 @@ class ServerEventManager:
         event = cls._generateEvent(fileName,UNSUPPORTED_FORMAT,f" {msg}")
         cls.putEvent(event)   
         
+    # @classmethod
+    # def send_uploading_event(cls,fileName):
+    #     event = cls._generateEvent(fileName,UPLOADING,"Uploading file")
+    #     cls.putEvent(event)   
+
     @classmethod
-    def send_uploading_event(cls,fileName):
-        event = cls._generateEvent(fileName,UPLOADING,"Uploading file")
+    def send_staging_event(cls,fileName, msg=""):
+        event = cls._generateEvent(fileName,STAGING,msg)
         cls.putEvent(event)   
 
     @classmethod
     def send_progress_event(cls,fileName,progress):
-        event = cls._generateEvent(fileName,PROGRESS,str(progress))
+        event = cls._generateEvent(fileName,PROGRESS,"Uploading to Omero: " + str(progress) + "%")
         cls.putEvent(event)   
+
+    @classmethod
+    def send_importing_event(cls,fileName):
+        event = cls._generateEvent(fileName,IMPORTING,"")
+        cls.putEvent(event)   
+
 
     @classmethod
     def send_success_event(cls,fileName, path, imageId):
@@ -84,6 +97,6 @@ class ServerEventManager:
         
     @classmethod
     def putEvent(cls,event):
-        logger.debug(f"Putting event {event} to queue")
+        #logger.debug(f"Putting event {event} to queue")
         cls._msg_q.put(event)  
     
