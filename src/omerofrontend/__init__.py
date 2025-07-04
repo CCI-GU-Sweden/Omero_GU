@@ -4,7 +4,6 @@ import os
 import queue
 import json
 import datetime
-from typing import Optional
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
 from flask_cors import CORS
 from werkzeug import Request
@@ -148,15 +147,8 @@ def create_app(test_config=None):
             batch_tag[key] = value.strip()
 
         logger.debug("receiving files")
-        num_file_sets: Optional[str] = request.form.get('num_file_sets')
-        if not num_file_sets:
-            return jsonify({"status":"Ok"})
-        
-        res = True
-        for nf in range(int(num_file_sets)):
-            file_set_name = f"files_{nf}"
-            files = request.files.getlist(file_set_name)
-            res = middle_ware.import_files(files,batch_tag,conn)
+        files = request.files.getlist('files')
+        res = middle_ware.import_files(files,batch_tag,conn)
 
         if res:
             return jsonify({"status":"Ok"})

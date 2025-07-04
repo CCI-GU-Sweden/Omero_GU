@@ -232,110 +232,36 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadFiles(importedFiles);
     });
 
+    async function uploadFiles(files) 
+    {
+        const keyValuePairs = JSON.parse(localStorage.getItem('keyValuePairs') || '[]');
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append('keyValuePairs', JSON.stringify(keyValuePairs));
+            const fileNames = file.map(fi => fi.name);
+            try 
+            {
+                file.forEach(f => {
+                    formData.append('files', f);
+                    updateFileStatus(f.name, FileStatus.QUEUED, "");
+                });
+                // Only this function "waits" here, not the whole UI
+                const response = await fetch(importImagesUrl, {
+                    method: 'POST',
+                    body: formData,
+                });
 
-    async function uploadFiles(allFiles) {
-    const keyValuePairs = JSON.parse(localStorage.getItem('keyValuePairs') || '[]');
-    const uploadPromises = [];
-
-    
-
-    const formData = new FormData();
-    formData.append('keyValuePairs', JSON.stringify(keyValuePairs));
-    formData.append('num_file_sets', allFiles.length);
-    allFiles.forEach((fileGroup, i) => {
-        const groupName = `files_${i}`;
-        fileGroup.forEach(file => {
-            formData.append(groupName, file);
-            updateFileStatus(file.name, FileStatus.QUEUED, "");
-        });
-    });
-
-    // for (const files of allFiles) {
-    //     console.log("keyvalye pairs: " + JSON.stringify(keyValuePairs));
-    //     formData.append('keyValuePairs', JSON.stringify(keyValuePairs));
-    //     for (const file of files) {
-    //         formData.append('files', files);
-    //         updateFileStatus(files[0].name, FileStatus.QUEUED, "");
-    //     }
-    //     //console.log(`form data length ${formData.entries()}`);
-    //     var count = 0;
-    //     for (const [key, value] of formData.entries()) {
-    //         console.log('Key:', key);
-    //         if (value instanceof File) {
-    //         console.log('Value is a File:', value.name);
-    //         } else {
-    //             console.log('Value:', value);
-    //         }
-    //         count++;
-    //     }
-    //     console.log(`count: ${count}`);
-        // Start the upload, but don't await yet
-    //}
-    const uploadPromise = fetch(importImagesUrl, {
-        method: "POST",
-        body: formData,
-    })
-    .then(response => {
-        const fileNames = files.map(file => file.name);
-        if(!response.ok){
-            console.log(`response was not ok: ${response.status}`);
-            updateFileStatus(fileNames[0],FileStatus.ERROR, response.status);
+                if(!response.ok){
+                    console.log(`response was not ok: ${response.status}`);
+                    updateFileStatus(fileNames[0],FileStatus.ERROR, response.status);
+                }
+                else
+                    console.log(`Files ${fileNames} sent to server. Response status: ${response.status}`);
+            } catch(error) {
+                updateFileStatus(fileNames[0],FileStatus.ERROR, response.status);    
+            }
         }
-        else
-            console.log(`Files ${fileNames} sent to server. Response status: ${response.status}`);
-    })
-    .catch(error => {
-        console.error(`Error uploading:`);
-        // for (const file of files) {
-        //     updateFileStatus(file.name,FileStatus.ERROR, error.message);
-        //     console.error(`Here was an error!!! ${file}`);
-        // }
-        // console.error(`Error:`, error);
-    });
-    uploadPromises.push(uploadPromise);
-    
-
-    // Wait for all uploads to finish
-    try {
-        await Promise.all(uploadPromises);
-    } catch (error) {
-        console.log(error);
     }
-}
-
-
-    // async function uploadFiles(allFiles) {
-    //     const keyValuePairs = JSON.parse(localStorage.getItem('keyValuePairs') || '[]');
-    //     try{
-    //         for (const files of allFiles) {
-    //             const formData = new FormData();
-    //             formData.append('keyValuePairs', JSON.stringify(keyValuePairs));
-    //             for(const file of files){
-    //                 formData.append('files', file);
-    //                 updateFileStatus(file.name,FileStatus.QUEUED, "");
-    //             }
-    //             console.log("sending files");
-    //             //fetch("/import_images", {
-    //             try {
-    //                 const response = await fetch(importImagesUrl, {
-    //                    method: "POST",
-    //                     body: formData,
-    //                 });
-    //                 const fileNames = files.map(file => file.name);
-    //                 console.log(`Files ${fileNames} sent to server. Response status: ${response.status}`);
-    //             } catch (error){
-    //                 console.error(`Error uploading:`);
-    //                 for(const file of files){
-    //                     console.error(`${file}`);
-    //                 }
-    //                 console.error(`Error:`, error);
-    //             }
-    //         }
-    //     }catch(error){
-    //         console.log(error);
-    //     }
-    //}
-    
 
     function setupEventSource() {
         let retryTime = 1000; // Default retry time (3 seconds)

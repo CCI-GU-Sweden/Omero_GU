@@ -82,7 +82,8 @@ class MiddleWare:
                 raise GeneralError(message="No filedata found")
             image_ids, omero_path = future.result()
             result = True
-            logger.info("Image import completed successfull!")
+            logger.info(f"*** Image import of {filedata.getMainFileName()} completed successfully! ***")
+            logger.info(f"*** Stored at {omero_path} with id {image_ids[0]}                        ***")
             ServerEventManager.send_success_event(filedata.getMainFileName(), omero_path, image_ids[0])
         #catch all kinds of exceptions here!!!
         except FileNotFoundError as fnf:
