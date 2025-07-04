@@ -37,9 +37,11 @@
 }
 
 .pending { background-color: #cfcfcf; }
-.queued { background-color: #f2f550; }
-.started { background-color: #cfcfcf; color: #004085;}
-.uploading { background-color: #cce5ff; color: #004085; }
+.queued { background-color: #73d0d6; }
+.staging { background-color: #cce5ff; color: #004085; }
+.started { background-color: #cce5ff; color: #004085;}
+/* .uploading { background-color: #cce5ff; color: #004085; } */
+.importing { background-color: #cce5ff; color: #004085; }
 .progress { background-color: #cce5ff; color: #004085; }
 .converting { background-color: #feffcc; color: #fbff00; }
 .success { background-color: #d4edda; }

@@ -1,12 +1,15 @@
 export const FileStatus = Object.freeze({
 
-    PENDING: "pending",
-    QUEUED: "queued",
-    STARTED: "started",
-    UPLOADING: "uploading",
+    PENDING: "pending", //added to lists to upload
+    QUEUED: "queued", //waiting for transfer to the "flask server"
+    STAGING: "staging", //transfering file to "flask server"
+    STARTED: "started", //starting upload to omero from "flask server"
+//    UPLOADING: "uploading",
+    PROGRESS: "progress", //progress of upload to omero
+    IMPORTING: "importing", //omero server is importing and finalizing
+
+    SUCCESS: "success", //transer and import to omero complete and successfull
     CONVERTING: "converting",
-    PROGRESS: "progress",
-    SUCCESS: "success",
 
     UNSUPPORTED_FORMAT: "unsupported_format",
     DUPLICATE: "duplicate",
@@ -85,15 +88,19 @@ export class FileListComponent {
     createStatusString(status, message){
         switch(status){
             case FileStatus.PROGRESS:
-                return message + "%";
+                return message;
             case FileStatus.SUCCESS:
                 return message;
             case FileStatus.STARTED:
                 return message;
             case FileStatus.ERROR:
                 return FileStatus.ERROR + " " + message;
-                case FileStatus.ERROR:
-                    return "Queued for transfer" + message;
+            case FileStatus.QUEUED:
+                return "Queued for transfer " + message;
+            case FileStatus.STAGING:
+                return "Staging file... " + message;
+            case FileStatus.IMPORTING:
+                return "Importing and finalizing..."
             case FileStatus.UNSUPPORTED_FORMAT:
                 return "Unsupported format: " + message
             default:
