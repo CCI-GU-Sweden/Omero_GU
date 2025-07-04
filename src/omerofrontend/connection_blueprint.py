@@ -33,8 +33,15 @@ def dissconnect_from_omero(response):
 
     return response
 
+@conn_bp.errorhandler(413)
+def handle_connection_413_e(e):
+    logger.error(str(e))
+    return jsonify(error=str(e)), 413
+
+
 @conn_bp.errorhandler(500)
 def handle_connection_error_e(e):
+    logger.error(str(e))
     return jsonify(error=str(e)), 500
 
 
