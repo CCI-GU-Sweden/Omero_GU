@@ -19,6 +19,7 @@ from omerofrontend import conf
 
 ProgressCallback = Optional[Callable[[int], None]]  # Define a type for the progress callback
 RetryCallback = Optional[Callable[[str, int], None]]  # Define a type for the retry callback
+ImportStartedCallback = Optional[Callable[[], None]]  # Define a type for the importing started callback
 
 class FileUploader:
     
@@ -26,7 +27,7 @@ class FileUploader:
         self._oConn = conn
         pass
     
-    def upload_files(self, filedata: FileData, meta_dict: dict[str, str], tags: dict[str, str], dataset_id: int,  project_id : int, progress_cb: ProgressCallback = None, retry_cb: RetryCallback = None) -> tuple[list[int],str]:
+    def upload_files(self, filedata: FileData, meta_dict: dict[str, str], tags: dict[str, str], dataset_id: int,  project_id : int, progress_cb: ProgressCallback = None, retry_cb: RetryCallback = None, import_cb: ImportStartedCallback = None) -> tuple[list[int],str]:
         """Upload files to OMERO from local filesystem."""
         
         #TODO: errorhandling in this function is not very good, should be improved
@@ -51,6 +52,8 @@ class FileUploader:
         while not done:
             try:
                 hashes = self._upload_and_calculate_hash(proc,filedata, progress_cb)
+                if import_cb:
+                    import_cb()
                 response = self._assert_import(proc, hashes)
                 done = True
             except AssertImportError as aie:
