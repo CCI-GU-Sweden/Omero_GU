@@ -1,5 +1,4 @@
 from multiprocessing import Queue
-from omerofrontend import logger
 #make sure these match javascript versions of same "structs"
 PENDING = "pending"
 STAGING = "staging"
