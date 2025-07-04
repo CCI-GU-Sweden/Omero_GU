@@ -28,23 +28,31 @@ class MiddleWare:
         self._server_event_manager = ServerEventManager()
         self._executor = ThreadPoolExecutor(max_workers=conf.FILE_IMPORT_THREADS)
         self._future_filedata_context = {}
+        self._store_tmp_file_mutex = Lock()
         self._future_filedata_mutex = Lock()
         self._db = database_handler
         self._done_cb = None
 
     def import_files(self, files: list[FileStorage], tags, connection: OmeroConnection, done_callback: DoneCallback = None):
     
-        username: str = connection.get_logged_in_user_full_name()
-        groupname: str = connection.getDefaultOmeroGroup()
-        fileData = self._store_and_handle_temp_files(files, username)
-        
+        #TODO: error handling in this function
+
+        with self._store_tmp_file_mutex:
+            for f in files:
+                ServerEventManager.send_staging_event(f.name)
+            logger.debug("in import files...")
+            username: str = connection.get_logged_in_user_full_name()
+            groupname: str = connection.getDefaultOmeroGroup()
+            logger.debug("storing tempfile...")
+            fileData = self._store_and_handle_temp_files(files, username)
+            logger.debug("done")
+            
         self._done_cb = done_callback
-        
         future = self._executor.submit(self._handle_image_imports, fileData, tags, username, groupname, connection)
         self._safe_add_future_filedata_context(future, fileData)
         future.add_done_callback(self._future_complete_callback)
         logger.debug("Future added to executor")
-        #return True
+        return True
         
     def _safe_add_future_filedata_context(self, future: Future, fileData: FileData):
         with self._future_filedata_mutex:
@@ -54,8 +62,8 @@ class MiddleWare:
     def _safe_get_future_filedata_context(self, future: Future) -> Optional[FileData]:
         with self._future_filedata_mutex:
             return self._future_filedata_context.get(future, None)
-    
             
+
     def _future_complete_callback(self, future):
     
         if future.cancelled(): 
@@ -115,7 +123,6 @@ class MiddleWare:
                 filename = filedata.getMainFileName() if filedata else None
                 ServerEventManager.send_error_event(filename, err_msg)
 
-            #filedata = self._safe_get_future_filedata_context(id)
             logger.debug(f"Cleaning up file data context for file {filedata.getMainFileName()}") if filedata else None
             self._remove_temp_files(filedata) if filedata else None
     
@@ -130,8 +137,9 @@ class MiddleWare:
 
     
     def _store_and_handle_temp_files(self, files: list[FileStorage], username: str) -> FileData:
-        fileData = self._temp_file_handler.check_and_store_tempfiles(files, username)
-        #self._safe_add_uuid_filedata_context(uid, fileData)
+        def temp_cb(filename: str, prg:int):
+            ServerEventManager.send_staging_event(filename,str(int(prg)) + "%")
+        fileData = self._temp_file_handler.check_and_store_tempfiles(files, username, temp_cb)
         return fileData
     
     def _import_files_to_omero(self, file: FileData, tags, conn: OmeroConnection):
@@ -139,7 +147,9 @@ class MiddleWare:
         logger.info(f"Processing of {file.getTempFilePaths()}")
         prog_fun = functools.partial(ServerEventManager.send_progress_event,filename)
         rt_fun = functools.partial(ServerEventManager.send_retry_event,filename)
-        return self._file_importer.import_image_data(file, tags, prog_fun, rt_fun, conn)
+        import_fun = functools.partial(ServerEventManager.send_importing_event,filename)
+        
+        return self._file_importer.import_image_data(file, tags, prog_fun, rt_fun, import_fun, conn)
     
     def _remove_temp_files(self, file: FileData):
         self._temp_file_handler._remove_temp_files(file)

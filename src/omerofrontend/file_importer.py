@@ -7,11 +7,11 @@ from omerofrontend import logger
 from omerofrontend.omero_connection import OmeroConnection
 from omerofrontend.file_data import FileData
 from omerofrontend.exceptions import DuplicateFileExists
-from omerofrontend.file_uploader import RetryCallback, ProgressCallback, FileUploader
+from omerofrontend.file_uploader import RetryCallback, ProgressCallback, ImportStartedCallback, FileUploader
     
 class FileImporter:
     
-    def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
+    def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
         filename = fileData.getMainFileName()
         file_path, metadict = image_funcs.file_format_splitter(fileData)
         scopes = self._get_scopes_metadata(metadict)
@@ -22,7 +22,7 @@ class FileImporter:
             raise DuplicateFileExists(filename)
 
         fu = FileUploader(conn)
-        image_ids, omero_path = fu.upload_files(fileData, metadict, batchtags, dataset_id, proj_id, progress_cb, retry_cb)
+        image_ids, omero_path = fu.upload_files(fileData, metadict, batchtags, dataset_id, proj_id, progress_cb, retry_cb, import_cb)
         return scopes, image_ids, omero_path
 
     def _check_create_project_and_dataset_(self,proj_name: str, date_str: str, conn: OmeroConnection) -> Tuple[int,int]:
