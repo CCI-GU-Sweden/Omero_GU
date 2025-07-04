@@ -50,8 +50,11 @@ class TestFileImporter:
             filename=czi_path,           # You can set this to whatever name you want
             content_type='application/octet-stream')  # Generic binary; adjust if you know the specific MIME type
 
+            def temp_cb(filename: str, prg:int):
+                pass
+
             tfh = TempFileHandler()
-            fileData = tfh.check_and_store_tempfiles([emd_filestorage], username)
+            fileData = tfh.check_and_store_tempfiles([emd_filestorage], username, temp_cb)
             path, metadict = image_funcs.file_format_splitter(fileData)
             scopes = self.fi._get_scopes_metadata(metadict)
             assert path != fileData.getMainFileTempPath()
@@ -72,8 +75,11 @@ class TestFileImporter:
             filename=czi_path,           # You can set this to whatever name you want
             content_type='application/octet-stream')  # Generic binary; adjust if you know the specific MIME type
 
+            def temp_cb(filename: str, prg:int):
+               pass
+
             tfh = TempFileHandler()
-            fileData = tfh.check_and_store_tempfiles([czi_filestorage], username)
+            fileData = tfh.check_and_store_tempfiles([czi_filestorage], username, temp_cb)
             path, metadict = image_funcs.file_format_splitter(fileData)
             scopes = self.fi._get_scopes_metadata(metadict)
             assert path == fileData.getMainFileTempPath()  #should be no conversion for .czi files

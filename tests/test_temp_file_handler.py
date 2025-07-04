@@ -29,7 +29,7 @@ class TestTempFileHandler:
             filename=czi_path,           # You can set this to whatever name you want
             content_type='application/octet-stream')  # Generic binary; adjust if you know the specific MIME type
 
-            fd: FileData = self.tfh.check_and_store_tempfiles([czi_filestorage], username)
+            fd: FileData = self.tfh.check_and_store_tempfiles([czi_filestorage], username, None)
 
             assert(fd.getUserName() == username)
             fsize = os.path.getsize(czi_path)
@@ -51,7 +51,7 @@ class TestTempFileHandler:
             content_type='application/octet-stream')  # Generic binary; adjust if you know the specific MIME type
 
             with pytest.raises(ImageNotSupported) as excinfo:  
-                self.tfh.check_and_store_tempfiles([czi_filestorage], username)
+                self.tfh.check_and_store_tempfiles([czi_filestorage], username, None)
             assert str(excinfo.value) == f"File type is not supported: {czi_path}"
 
 
@@ -67,7 +67,7 @@ class TestTempFileHandler:
 
             czi_filestorage.filename = None
             with pytest.raises(GeneralError) as excinfo:  
-                self.tfh.check_and_store_tempfiles([czi_filestorage], username)
+                self.tfh.check_and_store_tempfiles([czi_filestorage], username, None)
             assert str(excinfo.value) == f"Got file without filename! {czi_filestorage}"
     
             
@@ -94,7 +94,7 @@ class TestTempFileHandler:
             stream=f,
             filename=czi_path,           # You can set this to whatever name you want
             content_type='application/octet-stream')
-            fd: FileData = self.tfh.check_and_store_tempfiles([czi_filestorage], username)
+            fd: FileData = self.tfh.check_and_store_tempfiles([czi_filestorage], username, None)
         
             self.tfh._remove_temp_files(fd)
      
