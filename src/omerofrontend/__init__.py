@@ -4,20 +4,24 @@ import os
 import queue
 import json
 import datetime
+from typing import Optional
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
-from werkzeug.datastructures import FileStorage
+from flask_cors import CORS
+from werkzeug import Request
 from omerofrontend import database
 from omerofrontend import conf
 from omerofrontend import logger
 from omerofrontend.middle_ware import MiddleWare
 from omerofrontend.connection_blueprint import conn_bp, connect_to_omero
 
-processed_files = {} # In-memory storage for processed files (for the session)
+#processed_files = {} # In-memory storage for processed files (for the session)
 
 def create_app(test_config=None):
-
+    
+    Request.max_form_parts = 5000
     app = Flask(conf.APP_NAME)
     app.secret_key = conf.SECRET_KEY
+    CORS(app)
 
     logger.setup_logger(conf.LOG_LEVEL)
 
@@ -114,44 +118,46 @@ def create_app(test_config=None):
             "message": str(e),
             "status": 500
             }), 500
-    
+
     @conn_bp.route('/import_images', methods=['POST'])
     def import_images():
-        logger.info("Enter import_images")
+
+        logger.debug("Enter import_images")
         if not hasLoggedIn(session):
             return jsonify({"error": "Not logged in"}), 401
-               
+                
         conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
-            
-        try:
-            # Retrieve the key-value pairs from the form data
-            key_value_pairs = request.form.get('keyValuePairs')
-            
-            # Parse the JSON string into a Python dictionary or list
-            if key_value_pairs:
-                key_value_pairs = json.loads(key_value_pairs)
-            else:
-                return jsonify({"error": "No keyValuePairs found in the request"}), 400
-    
-            # Example: Print key-value pairs or process them further
-            logger.info(f"Received key-value pairs: {key_value_pairs}")
-    
-            # Assuming you want to handle key-value pairs (this is a placeholder logic)
-            batch_tag = {}
-            for pair in key_value_pairs:
-                key = pair.get("key")
-                value = pair.get("value", "None")  # Default to "None" if no value is provided
-                batch_tag[key] = value.strip()
 
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500 #may want to just continue?
-    
-        files: list[FileStorage] = request.files.getlist('files')
-        logger.info(f"Received file: {files}")
+        logger.debug(f"Files: {len(request.files)}, Fields: {len(request.form)}")
+        # Retrieve the key-value pairs from the form data
+        key_value_pairs = request.form.get('keyValuePairs')
+        # Parse the JSON string into a Python dictionary or list
+        if key_value_pairs:
+            key_value_pairs = json.loads(key_value_pairs)
+        else:
+            return jsonify({"error": "No keyValuePairs found in the request"}), 400
+
+        logger.debug(f"Received key-value pairs: {key_value_pairs}")
+
+        # Assuming you want to handle key-value pairs (this is a placeholder logic)
+        batch_tag = {}
+        for pair in key_value_pairs:
+            key = pair.get("key")
+            value = pair.get("value", "None")  # Default to "None" if no value is provided
+            logger.debug(f"adding key-value {key} {value}")
+            batch_tag[key] = value.strip()
+
+        logger.debug("receiving files")
+        num_file_sets: Optional[str] = request.form.get('num_file_sets')
+        if not num_file_sets:
+            return jsonify({"status":"Ok"})
         
-        res = middle_ware.import_files(files,batch_tag,conn)
-        #res = importer.startImport(files,batch_tag,conn)
-        
+        res = True
+        for nf in range(int(num_file_sets)):
+            file_set_name = f"files_{nf}"
+            files = request.files.getlist(file_set_name)
+            res = middle_ware.import_files(files,batch_tag,conn)
+
         if res:
             return jsonify({"status":"Ok"})
         else:
