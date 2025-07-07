@@ -160,6 +160,8 @@ class MiddleWare:
     def _remove_temp_files(self, file: FileData):
         self._temp_file_handler._remove_temp_files(file)
     
+    def remove_user_upload_dir(self, username):
+        self._temp_file_handler._delete_user_upload_dir(username)
         
     def _register_in_database(self, scope, username, groupname, import_time, fileData):
         scope = None

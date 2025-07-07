@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Callable, Optional
 from werkzeug.datastructures import FileStorage
 from omerofrontend import logger
@@ -100,3 +101,8 @@ class TempFileHandler:
         file_path = os.path.join(user_ul_folder, *os.path.split(filename))
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         return file_path
+    
+    def _delete_user_upload_dir(self, username: str):
+        user_ul_folder = conf.UPLOAD_FOLDER + "/" + username
+        if os.path.exists(user_ul_folder):
+            shutil.rmtree(user_ul_folder)
