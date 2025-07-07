@@ -11,6 +11,7 @@ from omerofrontend import database
 from omerofrontend import conf
 from omerofrontend import logger
 from omerofrontend.middle_ware import MiddleWare
+from omerofrontend import omero_connection
 from omerofrontend.connection_blueprint import conn_bp, connect_to_omero
 
 #processed_files = {} # In-memory storage for processed files (for the session)
@@ -207,7 +208,9 @@ def create_app(test_config=None):
 
         connect_to_omero()
         session.clear()  # Clear the session
-        conn = getattr(g,conf.OMERO_G_CONNECTION_KEY)
+        conn: omero_connection.OmeroConnection = getattr(g,conf.OMERO_G_CONNECTION_KEY)
+        username = conn.get_logged_in_user_full_name()
+        middle_ware.remove_user_upload_dir(username)
         conn.kill_session()
         return my_render_template("logged_out.html")
    
