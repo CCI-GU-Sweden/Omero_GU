@@ -158,6 +158,17 @@ export function updateRetryStatus(fileName, retry, maxRetries)
         fileData.setRetryText(retry,maxRetries);
 }
 
+
+export function setAllPendingToError(message)
+{
+    fileComponents.forEach(fc => {
+        console.log("fc status: " , fc.getStatus());
+        if(fc.getStatus() == FileStatus.PENDING)
+            fc.setStatus(FileStatus.ERROR,message)
+    });
+}
+
+
 function fileAlreadyInList(fileName){
 
     var fileData = Array.from(fileComponents).find((element) => element.getName() == fileName);
