@@ -43,3 +43,8 @@ class ImportError(OmeroFrontendException):
     """Exception raised when the import fails"""
     def __init__(self, filename=None, message="Import failed"):
         super().__init__(filename, message)
+        
+class OutOfDiskError(OmeroFrontendException):
+    """Exception raised when temporary storage fails"""
+    def __init__(self, filename=None, message="No space left on disk!"):
+        super().__init__(filename, message)
