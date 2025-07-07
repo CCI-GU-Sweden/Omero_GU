@@ -13,7 +13,7 @@ from omerofrontend.temp_file_handler import TempFileHandler
 from omerofrontend.file_importer import FileImporter
 from omerofrontend.file_data import FileData
 from omerofrontend.server_event_manager import ServerEventManager
-from omerofrontend.exceptions import ImageNotSupported, DuplicateFileExists, GeneralError, OmeroConnectionError
+from omerofrontend.exceptions import ImageNotSupported, DuplicateFileExists, GeneralError, OmeroConnectionError, OutOfDiskError
 from omerofrontend.omero_connection import OmeroConnection
 from omerofrontend.database import DatabaseHandler
 
@@ -38,14 +38,19 @@ class MiddleWare:
         #TODO: error handling in this function
 
         with self._store_tmp_file_mutex:
-            for f in files:
-                ServerEventManager.send_staging_event(f.name)
-            logger.debug("in import files...")
-            username: str = connection.get_logged_in_user_full_name()
-            groupname: str = connection.getDefaultOmeroGroup()
-            logger.debug("storing tempfile...")
-            fileData = self._store_and_handle_temp_files(files, username)
-            logger.debug("done")
+            try:
+                for f in files:
+                    ServerEventManager.send_staging_event(f.name)
+                logger.debug("in import files...")
+                username: str = connection.get_logged_in_user_full_name()
+                groupname: str = connection.getDefaultOmeroGroup()
+                logger.debug("storing tempfile...")
+                fileData = self._store_and_handle_temp_files(files, username)
+                logger.debug("done")
+            except OutOfDiskError as ode:
+                logger.error(f"Out of disk error: {str(ode)}")
+                ServerEventManager.send_error_event(files[0].name,"Out of disk error!")
+                return False
             
         self._done_cb = done_callback
         future = self._executor.submit(self._handle_image_imports, fileData, tags, username, groupname, connection)
