@@ -1,5 +1,5 @@
 import { fetchWrapper, showErrorPage } from "./utils.js";
-import { updateFileStatus, addFilesToList, getFileListForImport, nrFilesForUpload, clearFileList, setFileListChangeCB, updateRetryStatus } from "./file_list.js";
+import { updateFileStatus, addFilesToList, getFileListForImport, nrFilesForUpload, clearFileList, setFileListChangeCB, updateRetryStatus, setAllPendingToError } from "./file_list.js";
 import { FileStatus } from "./file_list_component.js";
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -234,33 +234,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function uploadFiles(files) 
     {
-        const keyValuePairs = JSON.parse(localStorage.getItem('keyValuePairs') || '[]');
-        for (const file of files) {
-            const formData = new FormData();
-            formData.append('keyValuePairs', JSON.stringify(keyValuePairs));
-            const fileNames = file.map(fi => fi.name);
-            try 
-            {
-                file.forEach(f => {
-                    formData.append('files', f);
-                    updateFileStatus(f.name, FileStatus.QUEUED, "");
-                });
-                // Only this function "waits" here, not the whole UI
-                const response = await fetch(importImagesUrl, {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if(!response.ok){
-                    console.log(`response was not ok: ${response.status}`);
-                    updateFileStatus(fileNames[0],FileStatus.ERROR, response.status);
-                }
-                else
-                    console.log(`Files ${fileNames} sent to server. Response status: ${response.status}`);
-            } catch(error) {
-                updateFileStatus(fileNames[0],FileStatus.ERROR, response.status);    
+        try 
+        {
+            const keyValuePairs = JSON.parse(localStorage.getItem('keyValuePairs') || '[]');
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('keyValuePairs', JSON.stringify(keyValuePairs));
+                const fileNames = file.map(fi => fi.name);
+                    file.forEach(f => {
+                        formData.append('files', f);
+                        updateFileStatus(f.name, FileStatus.QUEUED, "");
+                    });
+                    // Only this function "waits" here, not the whole UI
+                    const response = await fetch(importImagesUrl, {
+                        method: 'POST',
+                        body: formData,
+                    });
+                    if(!response.ok){
+                        console.log(`response was not ok: ${response.status}`);
+                        updateFileStatus(fileNames[0],FileStatus.ERROR, response.status);
+                    }
+                    else
+                        console.log(`Files ${fileNames} sent to server. Response status: ${response.status}`);
             }
+        } catch(error) {
+            console.log(error)
+            setAllPendingToError("Cancelled")
+            var alertMsg = "Error occred:\n" + error
+            alert(alertMsg);
+            //updateFileStatus(fileNames[0],FileStatus.ERROR, response.status);
         }
+
     }
 
     function setupEventSource() {
