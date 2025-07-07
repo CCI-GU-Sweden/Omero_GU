@@ -5,7 +5,7 @@ from omerofrontend import logger
 from omerofrontend import conf
 from omerofrontend.file_data import FileData
 from omerofrontend.image_funcs import is_supported_format
-from omerofrontend.exceptions import GeneralError, ImageNotSupported
+from omerofrontend.exceptions import GeneralError, ImageNotSupported, OutOfDiskError
 
 TempProgressCallback = Optional[Callable[[str, int], None]]  # Define a type for the progress callback
 
@@ -50,22 +50,26 @@ class TempFileHandler:
         file_size = len(file.read())
         file.seek(0)
     
-        call_if_not_none(temp_cb,filename,0)
-        # Save file to temporary directory
-        if file_size <= conf.MAX_SIZE_FULL_UPLOAD and conf.USE_CHUNK_READ_ON_LARGE_FILES:
-            logger.debug(f"File {filename} is smaller than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
-            file.save(file_path) #one go save
-            call_if_not_none(temp_cb, filename, 100)
+        try:
+            call_if_not_none(temp_cb,filename,0)
+            # Save file to temporary directory
+            if file_size <= conf.MAX_SIZE_FULL_UPLOAD and conf.USE_CHUNK_READ_ON_LARGE_FILES:
+                logger.debug(f"File {filename} is smaller than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
+                file.save(file_path) #one go save
+                call_if_not_none(temp_cb, filename, 100)
 
-        else:        
-            logger.debug(f"File {filename} is larger than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
-            tot = 0
-            with open(file_path, 'wb') as f:
-                while chunk := file.stream.read(conf.CHUNK_SIZE):
-                    tot += len(chunk)
-                    f.write(chunk)
-                    call_if_not_none(temp_cb, filename, (tot / file_size) * 100)
-                    #logger.debug(f"storing {tot} of {file_size} ")
+            else:        
+                logger.debug(f"File {filename} is larger than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Chunked upload will be used.")
+                tot = 0
+                with open(file_path, 'wb') as f:
+                    while chunk := file.stream.read(conf.CHUNK_SIZE):
+                        tot += len(chunk)
+                        f.write(chunk)
+                        call_if_not_none(temp_cb, filename, (tot / file_size) * 100)
+                        #logger.debug(f"storing {tot} of {file_size} ")
+        except Exception as e:
+            logger.error(f"Error in _store_temp_file:  {str(e)}")
+            raise OutOfDiskError(filename, "Out Of Disk on temp storage!")
     
         return True, file_path, file_size
 
