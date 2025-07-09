@@ -104,7 +104,7 @@ class MiddleWare:
             logger.error(f"General during import of {ge.filename}: {str(ge)}, line: {traceback.format_exc()}")
 
         except DuplicateFileExists as dfe:
-            logger.info(f"Duplicate {dfe.filename}: {str(dfe)}, line: {traceback.format_exc()}")
+            logger.info(f"Duplicate {dfe.filename}: {str(dfe)}")
             ServerEventManager.send_duplicate_event(dfe.filename)
             duplicate = True
 
