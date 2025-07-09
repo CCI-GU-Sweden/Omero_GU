@@ -146,7 +146,8 @@ export function clearFileList()
 
 export function updateFileStatus(fileName, fileStatus, message)
 {
-    var fileData = Array.from(fileComponents).find((element) => element.getName() == fileName);
+    var fName = fileName.split(/[/\\]/).pop();
+    var fileData = Array.from(fileComponents).find((element) => element.getName() == fName);
     if(fileData)
         fileData.setStatus(fileStatus,message);
 }
