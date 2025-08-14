@@ -28,7 +28,7 @@ APP_NAME = "gu_omero_frontend"
 LOGGER_NAME = "omero_logger"
 LOG_LEVEL = logging.DEBUG
 
-FILE_IMPORT_THREADS = 4
+FILE_IMPORT_THREADS = 8
 
 #configs for local running
 USE_TEST_URL = True
