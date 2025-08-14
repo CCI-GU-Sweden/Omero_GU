@@ -46,5 +46,6 @@ class ImportError(OmeroFrontendException):
         
 class OutOfDiskError(OmeroFrontendException):
     """Exception raised when temporary storage fails"""
-    def __init__(self, filename=None, message="No space left on disk!"):
+    def __init__(self, filename=None, filepath : str = "", message="No space left on disk!"):
         super().__init__(filename, message)
+        self.filepath : str = filepath

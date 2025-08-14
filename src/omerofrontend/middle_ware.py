@@ -48,8 +48,10 @@ class MiddleWare:
                 fileData = self._store_and_handle_temp_files(files, username)
                 logger.debug("done")
             except OutOfDiskError as ode:
-                logger.error(f"Out of disk error: {str(ode)}")
-                ServerEventManager.send_error_event(files[0].name,"Out of disk error!")
+                logger.error(f"Out of disk error while storing temp file {files[0].filename}: {str(ode)}")
+                self._temp_file_handler.remove_temp_file_by_path(ode.filepath)
+                ServerEventManager.send_error_event(files[0].filename,"Out of disk error while storing temp file")
+                
                 return False
             
         self._done_cb = done_callback
