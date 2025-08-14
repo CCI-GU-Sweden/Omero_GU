@@ -70,17 +70,18 @@ class TempFileHandler:
                         #logger.debug(f"storing {tot} of {file_size} ")
         except Exception as e:
             logger.error(f"Error in _store_temp_file:  {str(e)}")
-            raise OutOfDiskError(filename, "Out Of Disk on temp storage!")
+            raise OutOfDiskError(filename, file_path, "Out Of Disk on temp storage!")
     
         return True, file_path, file_size
 
     def _remove_temp_files(self,fileData : FileData):
         for f in fileData.getTempFilePaths():
-            if os.path.exists(f):
-                logger.info(f"Deleting temporary file: {f}")
-                os.remove(f)
-            else:
-                logger.info(f"Temporary file {f} does not exist, unable to remove")
+            self.remove_temp_file_by_path(f)
+        #     if os.path.exists(f):
+        #         logger.info(f"Deleting temporary file: {f}")
+        #         os.remove(f)
+        #     else:
+        #         logger.info(f"Temporary file {f} does not exist, unable to remove")
 
         if not fileData.hasConvertedFileName():
             return
@@ -94,7 +95,14 @@ class TempFileHandler:
         else:
             logger.info(f"Unable to remove converted temp file: {cfile} since it did not exist (perhaps not converted at all?)")
             
-        
+    def remove_temp_file_by_path(self, filepath: str):
+        if os.path.exists(filepath):
+            logger.info(f"Deleting temporary file: {filepath}")
+            os.remove(filepath)
+        else:
+            logger.info(f"Temporary file {filepath} does not exist, unable to remove")
+
+       
     def _create_user_temp_dir(self, filename: str, username: str) -> str:
           # Create subdirectories if needed
         user_ul_folder = conf.UPLOAD_FOLDER + "/" + username
