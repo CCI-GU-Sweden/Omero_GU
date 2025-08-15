@@ -1,4 +1,4 @@
-from multiprocessing import Queue
+from queue import Queue
 #make sure these match javascript versions of same "structs"
 PENDING = "pending"
 STAGING = "staging"
