@@ -253,6 +253,7 @@ class FileUploader:
         hashes = []
         totSize: int = filedata.getTotalFileSize()
         totRead: int = 0
+        tot_percentage: int = -1
         fobj = filedata.getUploadFilePath()
 #        for i, fobj in enumerate([filedata.getMainFileName()]):
         #for i, fobj in enumerate(filedata.getTempFilePaths()):
@@ -270,7 +271,10 @@ class FileUploader:
                     totRead += read_size
                     offset += len(block)
                     if progress_cb:
-                        progress_cb(int((totRead / totSize) * 100))
+                        prog_percentage = int((totRead / totSize) * 100)
+                        if prog_percentage > tot_percentage:
+                            tot_percentage = prog_percentage
+                            progress_cb(tot_percentage)
         except FileNotFoundError as fnf:
             error_msg = f"File not found during upload: {fnf.filename}"
             logger.error(error_msg)
