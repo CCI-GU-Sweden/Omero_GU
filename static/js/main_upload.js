@@ -282,6 +282,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             });
 
+            eventSource.addEventListener("keep_alive", (event) => {
+                console.log("Got keep alive event from server");
+            });
+
             eventSource.onmessage = function(event) {
                 if (event.data === 'done') {
                     console.log("Import done");
@@ -290,8 +294,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 } 
     
                 var jsondata = event.data;
-                //console.log(event);
                 var fileInfo = JSON.parse(jsondata);
+
                 updateFileStatus(fileInfo.name, fileInfo.status, fileInfo.message);
             };
     
