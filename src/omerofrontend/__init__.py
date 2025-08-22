@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
+import time
 import mistune
 import os
 import queue
 import json
 import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory, stream_with_context
 from flask_cors import CORS
 from werkzeug import Request
 from omerofrontend import database
@@ -46,8 +47,7 @@ def create_app(test_config=None):
     db.initialize_database()
     #middle_ware.setDatabaseHandler(db)
     middle_ware = MiddleWare(db)
-    
-    
+
     def my_render_template(*args, **kwargs):
         
         kwargs['is_test_instance'] = conf.USE_TEST_URL
@@ -233,16 +233,28 @@ def create_app(test_config=None):
 
     @app.route('/import_updates')
     def import_updates_stream():
+        @stream_with_context
         def generate():
-            yield "retry: 1000\n"
+            yield "retry: 1000\n\n"
             try:
                 while True:
                     try:
-                        event = middle_ware.get_ssevent(2)
-                        yield f"event: {event['type']}\n"
-                        yield f"data: {json.dumps(event['data'])}\n\n"
+                        event = middle_ware.get_ssevent(5)
+                        event_id: int = event['id']
+                        event_str = (
+                            f"event: {event['type']}\n"
+                            f"id: {str(event_id)}\n"
+                            f"data: {json.dumps(event['data'])}\n\n"
+                        )
+                        #logger.debug(f"Sending event {event_str} to client")
+                        yield event_str
                     except queue.Empty:
-                        yield "keep alive\n"
+                        ka_string = (
+                            f"event: keep_alive\n"
+                            f"data: {json.dumps('keep_alive')}\n\n"
+                        )
+                        yield ka_string
+                        logger.debug("Sending keep alive")
                     except ConnectionError as e:
                         logger.warning(f"Connection error in import_updates {str(e)}")
                         yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -251,8 +263,12 @@ def create_app(test_config=None):
                 logger.warning("client disconnected in import_updates")
         
         #should check for ConnectinError exception!!!
-        return Response(generate(), mimetype='text/event-stream')
-
+        headers = {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache'
+        }
+        return Response(generate(), headers=headers) # pyright: ignore[reportCallIssue]
+        
     app.register_blueprint(conn_bp)
     return app
 
