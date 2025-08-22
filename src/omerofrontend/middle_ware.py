@@ -25,7 +25,6 @@ class MiddleWare:
     def __init__(self, database_handler: DatabaseHandler):
         self._temp_file_handler = TempFileHandler()
         self._file_importer = FileImporter()
-        self._server_event_manager = ServerEventManager()
         self._executor = ThreadPoolExecutor(max_workers=conf.FILE_IMPORT_THREADS)
         self._future_filedata_context = {}
         self._store_tmp_file_mutex = Lock()
@@ -137,7 +136,7 @@ class MiddleWare:
     
     def _handle_image_imports(self, fileData: FileData, tags: dict, username: str, groupname: str, conn: OmeroConnection):
         import_time_start = time.time()
-        self._server_event_manager.send_started_event(fileData.getMainFileName())
+        ServerEventManager.send_started_event(fileData.getMainFileName())
         scopes, image_ids, omero_path = self._import_files_to_omero(fileData,tags,conn)
         import_time = time.time() - import_time_start
         self._register_in_database(scopes[0],username,groupname,import_time,fileData)
@@ -202,4 +201,4 @@ class MiddleWare:
         """
         Get the next server-sent event from the queue.
         """
-        return self._server_event_manager.getEvent(timeout=timeout)
+        return ServerEventManager.getEvent(timeout=timeout)
