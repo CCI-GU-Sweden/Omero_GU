@@ -19,9 +19,11 @@ class FakeDataset:
 
 class OmeroConnection_(OmeroConnection):
     def __init__(self, host, port, session_token):
-        self._conn = None  # Simulate a connection object
-        self._c = None  # Simulate a client connection object
-
+        self.host = host
+        self.port = port
+        self.omero_token = session_token
+        self.conn = None
+      
     def get_or_create_project(self, project_name):
         return 55  # Simulated project ID
 
@@ -92,7 +94,7 @@ class TestFileImporter:
 
     def do_file_imports(self, fileData: FileData, metadict, scopes):
 
-        conn = OmeroConnection_("","","")
+        conn = OmeroConnection_("localhost","5000","")
         dataset = None
         with patch.object(conn,'get_dataset', side_effect=FakeDataset):
             now = datetime.now() # current date and time
