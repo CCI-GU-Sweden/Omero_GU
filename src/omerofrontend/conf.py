@@ -37,7 +37,7 @@ DB_PORT = 5432
 DB_HANDLER = "postgres"
 
 try:
-    from omerofrontend import config #pyright: ignore[reportGeneralTypeIssues]
+    from omerofrontend import config #pyright: ignore[reportAttributeAccessIssue]
     USE_TEST_URL = config.USE_TEST_URL if hasattr(config,"USE_TEST_URL") else USE_TEST_URL
     DB_HOST = config.DB_HOST if hasattr(config,"DB_HOST") else DB_HOST
     DB_PORT = config.DB_PORT if hasattr(config,"DB_PORT") else DB_PORT# pyright: ignore[reportAttributeAccessIssue]
