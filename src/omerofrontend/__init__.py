@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import time
 import mistune
 import os
 import queue
@@ -267,7 +266,7 @@ def create_app(test_config=None):
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache'
         }
-        return Response(generate(), headers=headers) # pyright: ignore[reportCallIssue]
+        return Response(generate(), headers=headers) # pyright: ignore[reportCallIssue], ignore[reportGeneralTypeIssue] 
         
     app.register_blueprint(conn_bp)
     return app
