@@ -17,7 +17,7 @@ class OmeroConnection:
     
     def __init__(self, hostname: str, port: str, token: str):
         self.omero_token = token
-        self._connect_to_omero(hostname,port,token)
+        self._connect_to_omero(hostname,port)
         
     def __del__(self):
         self._close_omero_connection()
@@ -28,19 +28,19 @@ class OmeroConnection:
     def get_omero_connection(self):
         return self.conn
     
-    def _connect_to_omero(self, hostname, port, token):
-        logger.info(f"Opening connection to OMERO with token: {token}, hostname: {hostname}")    
-        self.omero_token = token
+    def _connect_to_omero(self, hostname, port):
+        logger.info(f"Opening connection to OMERO with token: {self.omero_token}, hostname: {hostname}")    
+        #self.omero_token = token
 
         self.conn = BlitzGateway(host=hostname, port=port)
-        is_connected = self.conn.connect(token)
+        is_connected = self.conn.connect(self.omero_token)
     
         if not is_connected:
-            logger.warning(f"Failed to connect to OMERO with token: {token}")
+            logger.warning(f"Failed to connect to OMERO with token: {self.omero_token}")
             raise ConnectionError("Failed to connect to OMERO")
 
     def _close_omero_connection(self,hardClose=False):
-        logger.info(f"Closing connection to OMERO with token: {self.omero_token}") if self.omero_token is not None else logger.info("Closing connection to OMERO without token")
+        logger.info(f"Closing connection to OMERO with token: {self.omero_token}") #if self.omero_token is not None else logger.info("Closing connection to OMERO without token")
         if self.conn:
             self.conn.close(hard=hardClose)
 
@@ -65,9 +65,10 @@ class OmeroConnection:
                 p = omero.model.ProjectI() #type: ignore
                 p.setName(omero.rtypes.rstring(project_name))
                 project = self.conn.getUpdateService().saveAndReturnObject(p)
-                logger.info(f"Created new project - ID: {project.getId()}, Name: {project_name}")
-
-            return project.getId()
+                
+            proj_id = project.getId().getValue()
+            logger.info(f"Using project - ID: {proj_id}, Name: {project_name}")
+            return proj_id
             
 
     def get_user(self):
@@ -153,14 +154,14 @@ class OmeroConnection:
             data = [d for d in project.listChildren() if d.getName() == dataset_name]
 
             if len(data) > 0:
-                dataset_id = data[0].getId()
+                dataset_id = data[0].getId().getValue()
                 logger.debug(f"Dataset '{dataset_name}' already exists in project. Using existing dataset.")
             else:
                 # Dataset doesn't exist, create it
                 dataset = omero.model.DatasetI()
                 dataset.setName(omero.rtypes.rstring(dataset_name))
                 dataset = self.conn.getUpdateService().saveAndReturnObject(dataset)
-                dataset_id = dataset.getId()
+                dataset_id = dataset.getId().getValue()
 
                 # Link dataset to project
                 link = omero.model.ProjectDatasetLinkI()
@@ -168,7 +169,7 @@ class OmeroConnection:
                 link.setChild(dataset)
                 self.conn.getUpdateService().saveObject(link)
                 
-                logger.info(f"Created new dataset '{dataset_name}' with ID {dataset_id.getValue()} and linked to project.")
+                logger.info(f"Created new dataset '{dataset_name}' with ID {dataset_id} and linked to project.")
             
         return dataset_id
 
