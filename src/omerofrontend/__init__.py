@@ -148,12 +148,12 @@ def create_app(test_config=None):
 
         logger.debug("receiving files")
         files = request.files.getlist('files')
-        res = middle_ware.import_files(files,batch_tag,conn)
+        res, status = middle_ware.import_files(files,batch_tag,conn)
 
         if res:
             return jsonify({"status":"Ok"})
         else:
-            return jsonify({"status":"Failed"})
+            return jsonify({"status":status}), 400
             
     @app.route('/get_projects', methods=['POST'])
     def get_projects():
