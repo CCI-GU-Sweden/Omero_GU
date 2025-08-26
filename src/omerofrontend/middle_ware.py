@@ -32,7 +32,7 @@ class MiddleWare:
         self._db = database_handler
         self._done_cb = None
 
-    def import_files(self, files: list[FileStorage], tags, connection: OmeroConnection, done_callback: DoneCallback = None):
+    def import_files(self, files: list[FileStorage], tags, connection: OmeroConnection, done_callback: DoneCallback = None) -> tuple[bool, str]:
     
         #TODO: error handling in this function
 
@@ -51,14 +51,14 @@ class MiddleWare:
                 self._temp_file_handler.remove_temp_file_by_path(ode.filepath)
                 ServerEventManager.send_error_event(files[0].filename,"Out of disk error while storing temp file")
                 
-                return False
+                return (False, "Out of disk error while storing temp file")
             
         self._done_cb = done_callback
         future = self._executor.submit(self._handle_image_imports, fileData, tags, username, groupname, connection)
         self._safe_add_future_filedata_context(future, fileData)
         future.add_done_callback(self._future_complete_callback)
         logger.debug("Future added to executor")
-        return True
+        return (True, "")
         
     def _safe_add_future_filedata_context(self, future: Future, fileData: FileData):
         with self._future_filedata_mutex:
