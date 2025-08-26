@@ -251,11 +251,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: formData,
                     });
                     if(!response.ok){
-                        console.log(`response was not ok: ${response.status}`);
-                        updateFileStatus(fileNames[0],FileStatus.ERROR, response.status);
+                        const errorData = await response.json();
+                        console.log(`response was not ok: ${errorData.status}`);
+                        updateFileStatus(fileNames[0],FileStatus.ERROR, errorData.status);
                     }
-                    else
-                        console.log(`Files ${fileNames} sent to server. Response status: ${response.status}`);
+                    else{
+                        const data = await response.json();
+                        console.log(`Files ${fileNames} sent to server. Response status: ${data.status}`);
+                    }
             }
         } catch(error) {
             console.log(error)
