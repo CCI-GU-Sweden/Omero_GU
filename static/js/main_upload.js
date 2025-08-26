@@ -250,10 +250,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         method: 'POST',
                         body: formData,
                     });
-                    if(!response.ok){
+                    if(response.status === 504){
+                        console.log("Gateway timeout from server, but we dont care...");
+                    }
+                    if(response.status === 507){
                         const errorData = await response.json();
-                        console.log(`response was not ok: ${errorData.status}`);
+                        console.log(`${errorData.status}`);
                         updateFileStatus(fileNames[0],FileStatus.ERROR, errorData.status);
+                    }
+                    else if(!response.ok){
+                        console.log("Server returned error status: " + response.status);
                     }
                     else{
                         const data = await response.json();

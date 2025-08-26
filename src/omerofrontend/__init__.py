@@ -153,7 +153,7 @@ def create_app(test_config=None):
         if res:
             return jsonify({"status":"Ok"})
         else:
-            return jsonify({"status":status}), 400
+            return jsonify({"status":status}), 507
             
     @app.route('/get_projects', methods=['POST'])
     def get_projects():
