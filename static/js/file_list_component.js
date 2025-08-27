@@ -22,9 +22,10 @@ export class FileListComponent {
 
     constructor(parentElement, fileObj, isChild, status)
     {
+
         this.fileObj = fileObj;
         this.container = document.createElement("div");
-        this.container.textContent = fileObj.name;
+        this.container.textContent = fileObj.name + " (" + (fileObj.size/1048576).toFixed(2) + " MB)";
         this.container.dataset.name = fileObj.name;
 
         this.status = status;
@@ -126,6 +127,10 @@ export class FileListComponent {
     
     getStatus(){
         return this.status;
+    }
+
+    getFileSize(){
+        return this.fileObj.size;
     }
 
     setChildComponent(child){
