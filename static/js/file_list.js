@@ -190,8 +190,16 @@ function createComponent(fileObj, status, isChild=false){
     return comp;
 }
 
-function addToFileList(filComponent){
-    fileComponents.push(filComponent);
+function addToFileList(fileComponent){
+    const insertIndex = fileComponents.findIndex(file => fileComponent.getFileSize() < file.getFileSize());
+    // If no such file, insertIndex will be -1 => append to end
+    console.log("inserting at index: " + insertIndex);
+    if (insertIndex === -1) {
+        fileComponents.push(fileComponent);
+    } else {
+        fileComponents.splice(insertIndex, 0, fileComponent);
+    }
+
     callCCB();
 }
 
