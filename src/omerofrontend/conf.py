@@ -36,6 +36,10 @@ DB_HOST = "localhost"
 DB_PORT = 5432
 DB_HANDLER = "postgres"
 
+MAX_SIZE_FULL_UPLOAD = 1024 * 1024 * 30 # 30 MB in bytes
+CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
+USE_CHUNK_READ_ON_LARGE_FILES = True
+
 try:
     import config #pyright: ignore[reportAttributeAccessIssue]
     USE_TEST_URL = config.USE_TEST_URL if hasattr(config,"USE_TEST_URL") else USE_TEST_URL
@@ -43,6 +47,8 @@ try:
     DB_PORT = config.DB_PORT if hasattr(config,"DB_PORT") else DB_PORT# pyright: ignore[reportAttributeAccessIssue]
     DB_HANDLER = config.DB_HANDLER if hasattr(config,"DB_HANDLER") else DB_HANDLER
     LOG_LEVEL = config.LOG_LEVEL if hasattr(config,"LOG_LEVEL") else LOG_LEVEL
+    USE_CHUNK_READ_ON_LARGE_FILES = config.USE_CHUNK_READ_ON_LARGE_FILES if hasattr(config,"USE_CHUNK_READ_ON_LARGE_FILES") else USE_CHUNK_READ_ON_LARGE_FILES
+    
 except ImportError:
     pass    
     
@@ -64,9 +70,6 @@ OMERO_PORT = '4064'
 OMERO_LOGIN_URL = f'{OMERO_BASE_URL}/oauth/?url=%2Fwebclient%2F'
 OMERO_SESSION_TOKEN_URL = f'{OMERO_BASE_URL}/oauth/sessiontoken'
 
-USE_CHUNK_READ_ON_LARGE_FILES = True
-MAX_SIZE_FULL_UPLOAD = 1024 * 1024 * 30 # 30 MB in bytes
-CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
 
 UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
