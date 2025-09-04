@@ -253,7 +253,7 @@ def create_app(test_config=None):
                             f"data: {json.dumps('keep_alive')}\n\n"
                         )
                         yield ka_string
-                        logger.debug("Sending keep alive")
+                        #logger.debug("Sending keep alive")
                     except ConnectionError as e:
                         logger.warning(f"Connection error in import_updates {str(e)}")
                         yield f"data: {json.dumps({'error': str(e)})}\n\n"
