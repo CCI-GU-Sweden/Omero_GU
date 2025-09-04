@@ -54,7 +54,7 @@ class TempFileHandler:
         try:
             call_if_not_none(temp_cb,filename,0)
             # Save file to temporary directory
-            if file_size <= conf.MAX_SIZE_FULL_UPLOAD and conf.USE_CHUNK_READ_ON_LARGE_FILES:
+            if file_size <= conf.MAX_SIZE_FULL_UPLOAD or not conf.USE_CHUNK_READ_ON_LARGE_FILES:
                 logger.debug(f"File {filename} is smaller than {conf.MAX_SIZE_FULL_UPLOAD / (1024 * 1024)} MB. Full upload will be used.")
                 file.save(file_path) #one go save
                 call_if_not_none(temp_cb, filename, 100)
