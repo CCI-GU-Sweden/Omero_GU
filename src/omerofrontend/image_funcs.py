@@ -251,6 +251,7 @@ def mapping(microscope):
                      'LSM 710, Axio Examiner': 'LSM 710',
                      'LSM 700, AxioObserver': 'LSM 700',
                      'Celldiscoverer 7':'CD7',
+                     '4652000027-1': 'CD7',
                      'Elyra 7 DUOLINK':'Elyra 7',
                      'Axio Imager.Z2':'Imager',
                      'Axio Observer.Z1 / 7':'Observer',

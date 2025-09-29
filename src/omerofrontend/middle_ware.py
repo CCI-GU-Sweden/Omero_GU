@@ -165,7 +165,6 @@ class MiddleWare:
         self._temp_file_handler._delete_user_upload_dir(username)
         
     def _register_in_database(self, scope, username, groupname, import_time, fileData):
-        scope = None
         time_stamp = datetime.datetime.today().strftime(conf.DATE_TIME_FMT)
 
         groupname = str(groupname) if groupname else "Unknown Group"
