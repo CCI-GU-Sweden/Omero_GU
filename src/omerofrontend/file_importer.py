@@ -13,9 +13,9 @@ class FileImporter:
     
     def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
         filename = fileData.getMainFileName()
-        file_path, metadict = image_funcs.file_format_splitter(fileData)
+        file_path, metadict = image_funcs.file_format_splitter(fileData) #file_path will be a list of str, not just a string!
         scopes = self._get_scopes_metadata(metadict)
-        self._set_folder_and_converted_name(fileData,metadict,file_path)
+        self._set_folder_and_converted_name(fileData, metadict, file_path)
         date_str = metadict['Acquisition date'] 
         dataset_id, proj_id = self._check_create_project_and_dataset_(scopes[0], date_str, conn)
         if self._check_duplicate_file_rename_if_needed(fileData, dataset_id, metadict, conn):
@@ -43,13 +43,13 @@ class FileImporter:
         scopes.append(metadict['Microscope'])
         return scopes
         
-    #TODO: check with Simon if folder data is needed in metadata
-    def _set_folder_and_converted_name(self, fileData: FileData, metadict: dict[str,str], file_path: str):
-        folder = os.path.basename(os.path.dirname(file_path))
-        converted_filename = os.path.basename(file_path)
+    def _set_folder_and_converted_name(self, fileData: FileData, metadict: dict[str,str], file_path: list[str]):
+        first_path = file_path[0]
+        folder = os.path.basename(os.path.dirname(first_path)) or ''
+        converted_filename = os.path.basename(first_path)
         fileData.setConvertedFileName(converted_filename)
-        if folder != '': 
-            metadict['Folder'] = folder
+        if folder != '':
+            metadict['UploadFolder'] = folder
 
     def _check_duplicate_file_rename_if_needed(self, fileData: FileData, dataset_id: int, meta_dict: dict[str,str], conn: OmeroConnection):
         dup, childId = conn.check_duplicate_file(fileData.getConvertedFileName(),dataset_id)
