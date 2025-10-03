@@ -13,17 +13,33 @@ class FileImporter:
     
     def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
         filename = fileData.getMainFileName()
-        file_path, metadict = image_funcs.file_format_splitter(fileData) #file_path will be a list of str, not just a string!
+        file_path, metadict = image_funcs.file_format_splitter(fileData) #file_path is a list of str
+
+        fileData.addTempFilePaths(file_path)
+
         scopes = self._get_scopes_metadata(metadict)
         self._set_folder_and_converted_name(fileData, metadict, file_path)
         date_str = metadict['Acquisition date'] 
         dataset_id, proj_id = self._check_create_project_and_dataset_(scopes[0], date_str, conn)
-        if self._check_duplicate_file_rename_if_needed(fileData, dataset_id, metadict, conn):
-            raise DuplicateFileExists(filename)
 
         fu = FileUploader(conn)
-        image_ids, omero_path = fu.upload_files(fileData, metadict, batchtags, dataset_id, proj_id, progress_cb, retry_cb, import_cb)
-        return scopes, image_ids, omero_path
+        omero_path_last = ""
+        image_ids_all: list[int] = []
+        for path in file_path:
+            fileData.setUploadFilePaths([path])
+            fileData.setConvertedFileName(os.path.basename(path))
+            if self._check_duplicate_file_rename_if_needed(fileData, dataset_id, metadict, conn):
+                continue
+            
+            image_ids, omero_path = fu.upload_files(fileData, metadict, batchtags, dataset_id, proj_id, progress_cb, retry_cb, import_cb)
+
+            image_ids_all.extend(image_ids)
+            omero_path_last = omero_path
+
+        if not image_ids_all:
+            raise DuplicateFileExists(filename)
+
+        return scopes, image_ids_all, omero_path_last
 
     def _check_create_project_and_dataset_(self,proj_name: str, date_str: str, conn: OmeroConnection) -> Tuple[int,int]:
 

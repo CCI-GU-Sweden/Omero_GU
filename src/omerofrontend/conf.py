@@ -60,10 +60,14 @@ SQL_DB_NAME = 'omero_imports.db'
 if USE_TEST_URL:
     OMERO_HOST = 'omero-cli.test.gu.se'
     OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
+    FORCE_CZI_CONVERSION = True
 
 else: #production mode
     OMERO_HOST = 'omero-cci-cli.gu.se'
     OMERO_BASE_URL = 'https://omero-cci-users.gu.se'
+    FORCE_CZI_CONVERSION: bool = False
+
+CZI_CONVERT_MIN_BYTES: int = int(1024 ** 3)
 
 OMERO_PORT = '4064'
 

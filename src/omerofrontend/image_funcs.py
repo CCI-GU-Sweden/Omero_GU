@@ -633,8 +633,10 @@ def ome_extraction(full_metadata, output_name, scene_idx) -> model.OME:
             
             #light source settings
             lss = ch.get("LightSourcesSettings", {}).get("LightSourceSettings", None)
-            if ext_w: ext_w = int(float(ext_w))
-            if isinstance(lss, dict):lss = [lss]
+            if ext_w:
+                ext_w = int(float(ext_w))
+            if isinstance(lss, dict):
+                lss = [lss]
             if lss:
                 for idx, ls in enumerate(lss):
                     wavelenght = ls.get("Wavelength")
@@ -786,7 +788,7 @@ def convert_czi_to_ometiff(filename: str, output:str="") -> list[str]:
             #TODO maybe build the whole ome with multi level? just need to duplicate the image part and update the pixel size in it
             pxlx_size = float(ome.images[0].pixels.physical_size_x)
             pxly_size = float(ome.images[0].pixels.physical_size_y)
-            print(ome_xml)
+
             # return full_metadata
             if array is not None:
                 array = array[0] #first scene - should have only one
@@ -1287,9 +1289,12 @@ def convert_tif_to_ometiff(img_path: str):
     elif "FibicsXML" in tif_tags:
         return convert_fibics_to_ometiff(img_path, tif_tags)
     else:
-        #TODO return nake tiff + mini metadata (microscope name + import date)
-        #log a warning
-        raise ImageNotSupported(img_path, "TIFF image is not a supported SEM-TIF or Fibics format.")
+        logger.warning("Unsupported tif, simple import triggered")
+        metadata = {'Microscope':'Undefined',
+                    'Acquisition Date':datetime.datetime.now().strftime(conf.DATE_TIME_FMT),
+                    }
+        return img_path, metadata
+
 
 def convert_semtif_to_ometiff(img_path: str, tif_tags: dict) -> tuple[str, dict]:
     """
@@ -1591,28 +1596,26 @@ def is_supported_format(fileName):
     ext = fileName.split('.')[-1]
     return ('.'+ext) in conf.ALLOWED_FOLDER_FILE_EXT or ('.'+ext) in conf.ALLOWED_SINGLE_FILE_EXT
 
-
-
 def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]:
     ext = fileData.getMainFileExtension().lower()
     img_path = fileData.getMainFileTempPath()
     logger.info(f"Received file is of format {ext}")
     if ext == "czi": #Light microscope format - CarlZeissImage
         key_pair = get_info_metadata_from_czi(Path(img_path))
-        #TODO check if the data is coming from the LSM700 or 710, then convert to ome-tiff if bigger than 1 GB
         to_convert_mic = ["LSM 700", "LSM 710"]
-        ONE_GIB = 1024 ** 3  # 1,073,741,824 bytes
-        if key_pair.get("Microscope", "") in to_convert_mic and fileData.getTotalFileSize() > ONE_GIB:
-            #do converstion to ome-tiff for large size image coming from 700 or 710
+        if conf.FORCE_CZI_CONVERSION or (key_pair.get("Microscope", "") in to_convert_mic and fileData.getTotalFileSize() > conf.CZI_CONVERT_MIN_BYTES):
             try:
                 converted_path = convert_czi_to_ometiff(img_path) #issue in case of multiposition, converted_path will be a list!
             except Exception as e:  # catch-all is fine; not a bare except
-                    logger.warning("CZI→OME-TIFF conversion failed for "+str(img_path)+"; falling back to Bio-Formats.", )
+                    logger.warning(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
+                    logger.warning(f"Error is: {str(e)}")
                     converted_path = img_path
         else: #no conversion needed
             converted_path = img_path
+    
     elif ext == "tif": #Tif, but only SEM-TIF or Fibics-TIF are supported
         converted_path, key_pair = convert_tif_to_ometiff(img_path)
+    
     elif ext == "mrc":
         atlasPair = {}
         atlasPair[fileData.getDictFileExtension()] = fileData.getDictFileTempPath()

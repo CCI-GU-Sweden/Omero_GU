@@ -33,12 +33,18 @@ class FileData:
     def getDictFileName(self) -> str:
         return self.dictFileName
         
-    def setTempFilePaths(self,paths: list[str]):
+    def setTempFilePaths(self, paths: list[str]):
         self.tempPaths = paths
         self.basePath = os.path.dirname(paths[0])
         
     def getTempFilePaths(self) -> list[str]:
         return self.tempPaths
+    
+    def addTempFilePaths(self, paths: list[str]) -> None:
+        import os
+        cur = {os.path.normpath(p) for p in self.getTempFilePaths()}
+        new = {os.path.normpath(p) for p in paths}
+        self.setTempFilePaths(list(cur | new))
 
     def getBasePath(self) -> str:
         return self.basePath
