@@ -84,7 +84,7 @@ class TestFileImporter:
             fileData = tfh.check_and_store_tempfiles([czi_filestorage], username, temp_cb)
             path, metadict = image_funcs.file_format_splitter(fileData)
             scopes = self.fi._get_scopes_metadata(metadict)
-            assert path == fileData.getMainFileTempPath()  #should be no conversion for .czi files
+            assert path == [fileData.getMainFileTempPath()]  #should be no conversion for .czi files
             assert(len(scopes) == 1)
             assert(scopes[0] == "LSM 980")  
             self.fi._set_folder_and_converted_name(fileData,metadict, path)

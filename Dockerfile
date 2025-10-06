@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y \
     libbz2-dev \
     default-jre-headless \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*git im
+    && rm -rf /var/lib/apt/lists/*
 
 RUN python -m pip install --upgrade pip setuptools wheel
 

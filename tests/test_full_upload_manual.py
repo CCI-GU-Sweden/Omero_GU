@@ -8,7 +8,7 @@ from omerofrontend.database import SqliteDatabaseHandler
 from omerofrontend import conf
 from omerofrontend import logger
 
-session_token = "d2122204-5754-463e-9291-ba22ae64f75a" # Example session token, replace with valid token
+session_token = "6ea89cc4-bc86-4dba-b9ed-55c1fe509dcd" # Example session token, replace with valid token
 
 t1 = 'Tag1'
 v1 = 'Value1'
@@ -56,10 +56,10 @@ class TestFullUploadManual:
         #start tests
         assert result, "Upload did not complete successfully."
         assert len(image_ids) >= 1, "No image IDs were returned from the upload."
-        tags = self._conn.get_image_tags(image_ids[0])  # Check if we can retrieve tags for the uploaded image
-        assert f"{t1} {v1}" in tags, f"Tag {t1} with value {v1} not found in image tags."
-        assert f"{t2} {v2}" in tags, f"Tag {t2} with value {v2} not found in image tags."
-        assert scope in tags, f"Scope {scope} not found in image scopes."
+        img_tags = self._conn.get_image_tags(image_ids[0])  # Check if we can retrieve tags for the uploaded image
+        assert f"{t1} {v1}" in img_tags, f"Tag {t1} with value {v1} not found in image tags."
+        assert f"{t2} {v2}" in img_tags, f"Tag {t2} with value {v2} not found in image tags."
+        assert scope in img_tags, f"Scope {scope} not found in image scopes."
         
         kv_pairs = self._conn.get_image_map_annotations(image_ids[0])
         assert kv_pairs is not None, "Key-value pairs should not be None."
@@ -71,9 +71,11 @@ class TestFullUploadManual:
     @pytest.mark.manual
     def test_full_upload_manual(self): 
         
-        file_paths = ['tests/data/test_image.czi','tests/data/sample6_001.tif']
-        mags = ['63', '22370.0']
-        scopes = ['LSM 980', 'GeminiSEM 450']
+        file_paths = ['tests/data/test_image.czi','tests/data/sample6_001.tif','tests/data/test_700-conversion.czi',
+                      'tests/data/multiP_multiC_multiZ-test_image.czi',
+                      ]
+        mags = ['63', '22370.0', '20', '20', ]
+        scopes = ['LSM 980', 'GeminiSEM 450', 'LSM 700', 'Undefined',]
         
         for i, file in enumerate(file_paths):
         # Open the file in binary mode
@@ -94,7 +96,6 @@ class TestFullUploadManual:
 
         #file_paths = [('tests/data/49944_A1_0001_1.ser','tests/data/49944_A1_0001.emi'),('tests/data/Atlas_1.mrc','tests/data/Atlas_1.xml')]
         file_paths = [('tests/data/Atlas_1.mrc','tests/data/Atlas_1.xml'),('tests/data/49944_A1_0001_1.ser','tests/data/49944_A1_0001.emi')]
-        #mags = ['63', '22370.0']
         electron_sources = ['Thermionic', 'LaB6']
         scopes = ['Talos L120C', 'Talos L120C']
         
@@ -121,3 +122,23 @@ class TestFullUploadManual:
                 self.wait_and_assert(scopes[i], 'Electron source', electron_sources[i])
 
         
+        file_paths = ['tests/data/test.ome.tif', 'tests/data/file_example_TIF_5MB.tif']
+        mags = ['63', 'None']
+        scopes = ['Undefined', 'Undefined']
+        
+        for i, file in enumerate(file_paths):
+        # Open the file in binary mode
+            with open(file, 'rb') as f:
+                filestorage = FileStorage(
+                stream=f,
+                filename=file,           # You can set this to whatever name you want
+                content_type='application/octet-stream')  # Generic binary; adjust if you know the specific MIME type
+
+                # Perform the upload using the middle ware
+                try:
+                    self._mw.import_files([filestorage], tags, self._conn, self.upload_done)
+                    logger.info("File upload initiated successfully.")
+                except Exception as e:
+                    logger.error(f"Error during file upload: {str(e)}")
+                    
+                self.wait_and_assert(scopes[i], 'Lens Magnification', mags[i])

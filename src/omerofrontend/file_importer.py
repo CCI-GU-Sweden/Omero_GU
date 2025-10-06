@@ -2,28 +2,46 @@ import os
 import datetime
 from typing import Tuple
 from dateutil import parser
+from omerofrontend import conf
 from omerofrontend import image_funcs
 from omerofrontend import logger
 from omerofrontend.omero_connection import OmeroConnection
 from omerofrontend.file_data import FileData
 from omerofrontend.exceptions import DuplicateFileExists
 from omerofrontend.file_uploader import RetryCallback, ProgressCallback, ImportStartedCallback, FileUploader
-    
+
+
 class FileImporter:
     
     def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
         filename = fileData.getMainFileName()
-        file_path, metadict = image_funcs.file_format_splitter(fileData)
+        file_path, metadict = image_funcs.file_format_splitter(fileData) #file_path is a list of str
+
+        fileData.addTempFilePaths(file_path)
+
         scopes = self._get_scopes_metadata(metadict)
-        self._set_folder_and_converted_name(fileData,metadict,file_path)
-        date_str = metadict['Acquisition date'] 
+        self._set_folder_and_converted_name(fileData, metadict, file_path)
+        date_str = metadict.get('Acquisition date', datetime.datetime.now().strftime(conf.DATE_TIME_FMT)) 
         dataset_id, proj_id = self._check_create_project_and_dataset_(scopes[0], date_str, conn)
-        if self._check_duplicate_file_rename_if_needed(fileData, dataset_id, metadict, conn):
-            raise DuplicateFileExists(filename)
 
         fu = FileUploader(conn)
-        image_ids, omero_path = fu.upload_files(fileData, metadict, batchtags, dataset_id, proj_id, progress_cb, retry_cb, import_cb)
-        return scopes, image_ids, omero_path
+        omero_path_last = ""
+        image_ids_all: list[int] = []
+        for path in file_path:
+            fileData.setUploadFilePaths([path])
+            fileData.setConvertedFileName(os.path.basename(path))
+            if self._check_duplicate_file_rename_if_needed(fileData, dataset_id, metadict, conn):
+                continue
+            
+            image_ids, omero_path = fu.upload_files(fileData, metadict, batchtags, dataset_id, proj_id, progress_cb, retry_cb, import_cb)
+
+            image_ids_all.extend(image_ids)
+            omero_path_last = omero_path
+
+        if not image_ids_all:
+            raise DuplicateFileExists(filename)
+
+        return scopes, image_ids_all, omero_path_last
 
     def _check_create_project_and_dataset_(self,proj_name: str, date_str: str, conn: OmeroConnection) -> Tuple[int,int]:
 
@@ -40,24 +58,28 @@ class FileImporter:
         
     def _get_scopes_metadata(self, metadict) -> list:
         scopes = []
-        scopes.append(metadict['Microscope'])
+        scopes.append(metadict.get('Microscope', 'Undefined'))
         return scopes
         
-    #TODO: check with Simon if folder data is needed in metadata
-    def _set_folder_and_converted_name(self, fileData: FileData, metadict: dict[str,str], file_path: str):
-        folder = os.path.basename(os.path.dirname(file_path))
-        converted_filename = os.path.basename(file_path)
+    def _set_folder_and_converted_name(self, fileData: FileData, metadict: dict[str,str], file_path: list[str]):
+        first_path = file_path[0]
+        folder = os.path.basename(os.path.dirname(first_path)) or ''
+        converted_filename = os.path.basename(first_path)
         fileData.setConvertedFileName(converted_filename)
-        if folder != '': 
-            metadict['Folder'] = folder
+        if folder != '':
+            metadict['UploadFolder'] = folder
 
     def _check_duplicate_file_rename_if_needed(self, fileData: FileData, dataset_id: int, meta_dict: dict[str,str], conn: OmeroConnection):
         dup, childId = conn.check_duplicate_file(fileData.getConvertedFileName(),dataset_id)
         if dup:
-            acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
-            sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
-            if sameTime:
-                return True
+            acquisition_date_time = meta_dict.get('Acquisition date')
+            if acquisition_date_time: #no value for date time. Should NOT happen though
+                acquisition_date_time = parser.parse(acquisition_date_time)
+                sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
+                if sameTime:
+                    return True
+            else: #security
+                acquisition_date_time = datetime.datetime.now()
         
             file = fileData.getConvertedFileName() #?????????
             acq_time = acquisition_date_time.strftime("%H-%M-%S")
