@@ -1655,7 +1655,7 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
         if conf.FORCE_CZI_CONVERSION or (key_pair.get("Microscope", "") in to_convert_mic and fileData.getTotalFileSize() > conf.CZI_CONVERT_MIN_BYTES):
             try:
                 converted_path = convert_czi_to_ometiff(img_path) #issue in case of multiposition, converted_path will be a list!
-            except Exception as e:  # catch-all is fine; not a bare except
+            except Exception:  # catch-all is fine; not a bare except
                     logger.exception(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
                     converted_path = img_path
         else: #no conversion needed
