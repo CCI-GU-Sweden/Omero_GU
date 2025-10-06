@@ -8,7 +8,7 @@ from omerofrontend.database import SqliteDatabaseHandler
 from omerofrontend import conf
 from omerofrontend import logger
 
-session_token = "27fcfb0d-9580-474e-ade5-a30aea6e93ef" # Example session token, replace with valid token
+session_token = "6ea89cc4-bc86-4dba-b9ed-55c1fe509dcd" # Example session token, replace with valid token
 
 t1 = 'Tag1'
 v1 = 'Value1'
@@ -72,9 +72,10 @@ class TestFullUploadManual:
     def test_full_upload_manual(self): 
         
         file_paths = ['tests/data/test_image.czi','tests/data/sample6_001.tif','tests/data/test_700-conversion.czi',
-                      'tests/data/multiP_multiC_multiZ-test_image.czi', 'tests/data/test.ome.tiff']
-        mags = ['63', '22370.0', '20', '20', None]
-        scopes = ['LSM 980', 'GeminiSEM 450', 'LSM 700', 'Undefined', 'Undefined']
+                      'tests/data/multiP_multiC_multiZ-test_image.czi',
+                      ]
+        mags = ['63', '22370.0', '20', '20', ]
+        scopes = ['LSM 980', 'GeminiSEM 450', 'LSM 700', 'Undefined',]
         
         for i, file in enumerate(file_paths):
         # Open the file in binary mode
@@ -121,3 +122,23 @@ class TestFullUploadManual:
                 self.wait_and_assert(scopes[i], 'Electron source', electron_sources[i])
 
         
+        file_paths = ['tests/data/test.ome.tif', 'tests/data/file_example_TIF_5MB.tif']
+        mags = ['63', 'None']
+        scopes = ['Undefined', 'Undefined']
+        
+        for i, file in enumerate(file_paths):
+        # Open the file in binary mode
+            with open(file, 'rb') as f:
+                filestorage = FileStorage(
+                stream=f,
+                filename=file,           # You can set this to whatever name you want
+                content_type='application/octet-stream')  # Generic binary; adjust if you know the specific MIME type
+
+                # Perform the upload using the middle ware
+                try:
+                    self._mw.import_files([filestorage], tags, self._conn, self.upload_done)
+                    logger.info("File upload initiated successfully.")
+                except Exception as e:
+                    logger.error(f"Error during file upload: {str(e)}")
+                    
+                self.wait_and_assert(scopes[i], 'Lens Magnification', mags[i])

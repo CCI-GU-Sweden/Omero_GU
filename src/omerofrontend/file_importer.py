@@ -2,13 +2,15 @@ import os
 import datetime
 from typing import Tuple
 from dateutil import parser
+from omerofrontend import conf
 from omerofrontend import image_funcs
 from omerofrontend import logger
 from omerofrontend.omero_connection import OmeroConnection
 from omerofrontend.file_data import FileData
 from omerofrontend.exceptions import DuplicateFileExists
 from omerofrontend.file_uploader import RetryCallback, ProgressCallback, ImportStartedCallback, FileUploader
-    
+
+
 class FileImporter:
     
     def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
@@ -19,7 +21,7 @@ class FileImporter:
 
         scopes = self._get_scopes_metadata(metadict)
         self._set_folder_and_converted_name(fileData, metadict, file_path)
-        date_str = metadict['Acquisition date'] 
+        date_str = metadict.get('Acquisition date', datetime.datetime.now().strftime(conf.DATE_TIME_FMT)) 
         dataset_id, proj_id = self._check_create_project_and_dataset_(scopes[0], date_str, conn)
 
         fu = FileUploader(conn)
@@ -56,7 +58,7 @@ class FileImporter:
         
     def _get_scopes_metadata(self, metadict) -> list:
         scopes = []
-        scopes.append(metadict['Microscope'])
+        scopes.append(metadict.get('Microscope', 'Undefined'))
         return scopes
         
     def _set_folder_and_converted_name(self, fileData: FileData, metadict: dict[str,str], file_path: list[str]):
@@ -70,10 +72,14 @@ class FileImporter:
     def _check_duplicate_file_rename_if_needed(self, fileData: FileData, dataset_id: int, meta_dict: dict[str,str], conn: OmeroConnection):
         dup, childId = conn.check_duplicate_file(fileData.getConvertedFileName(),dataset_id)
         if dup:
-            acquisition_date_time = parser.parse(meta_dict['Acquisition date'])
-            sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
-            if sameTime:
-                return True
+            acquisition_date_time = meta_dict.get('Acquisition date')
+            if acquisition_date_time: #no value for date time. Should NOT happen though
+                acquisition_date_time = parser.parse(acquisition_date_time)
+                sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
+                if sameTime:
+                    return True
+            else: #security
+                acquisition_date_time = datetime.datetime.now()
         
             file = fileData.getConvertedFileName() #?????????
             acq_time = acquisition_date_time.strftime("%H-%M-%S")

@@ -199,7 +199,7 @@ class OmeroConnection:
             return False
         acq_time_obj = image.getAcquisitionDate()
         if not acq_time_obj:
-            acq_time_str = self.getMapAnnotationValue(imageId,"Acquisition date")
+            acq_time_str = self.getMapAnnotationValue(imageId, "Acquisition date")
             if acq_time_str:
                 acq_time_obj = datetime.strptime(acq_time_str,conf.DATE_TIME_FMT)
             else:

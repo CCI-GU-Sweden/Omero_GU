@@ -95,6 +95,9 @@ def error(msg: str):
 
 def debug(msg: str):
     logger().debug(msg)
-    
+
+def exception(msg: str):
+    logger().exception(msg)
+
 def logger():
     return logging.getLogger(conf.APP_NAME)

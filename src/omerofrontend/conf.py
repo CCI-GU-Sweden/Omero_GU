@@ -4,6 +4,8 @@ import logging
 ALLOWED_FOLDER_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml", ".emd"]
 ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
 
+VENDOR_TAG_IDS = {34118, 34119}          # Zeiss SEM variants
+VENDOR_TAG_NAMES = {"CZ_SEM", "FibicsXML"}
 
 LOG_DIR = "logs/"
 LOG_FILE = LOG_DIR + "omero_app.log"

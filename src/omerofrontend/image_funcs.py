@@ -26,12 +26,13 @@ import tifffile
 import xml.etree.ElementTree as ET
 from ome_types import model
 from ome_types.model import Microscope_Type, Pixels_DimensionOrder
+
 from ome_types.model import Map
 from ome_types.model.simple_types import PixelType, UnitsLength
 from omerofrontend import conf
 from omerofrontend import logger
 from omerofrontend.file_data import FileData
-from omerofrontend.exceptions import ImageNotSupported, MetaDataError
+from omerofrontend.exceptions import MetaDataError
 from typing import Dict, Any
 
 #Let's use the czi tools to extract the metadata
@@ -197,6 +198,16 @@ def pair_emi_ser(files: list):
 
 
 def pair_mrc_xml(files: list): #list of filename
+    """
+    This function pairs the .mrc and .xml files. The pairing is done by matching
+    the name of the .xml file with the corresponding .mrc file.
+    
+    Args:
+        files (list): List of filenames, including both .mrc and .xml files.
+
+    Returns:
+        list: A list of paired files and unpaired files.
+    """
     paired_files = {}
     unpaired_files = []
     pairs = 0
@@ -267,7 +278,6 @@ def mapping(microscope):
         microscope = micro_mapping[microscope]
     
     return microscope
-
 
 def get_info_metadata_from_czi(img_path : Path) -> dict:
     """
@@ -463,8 +473,8 @@ def ome_extraction(full_metadata, output_name, scene_idx) -> model.OME:
     objectives_list = []
     for idx in range(len(czi_objectives.name)):
         ome_objective = model.Objective(id=czi_objectives.Id[idx])
-        ome_objective.lens_na = float(czi_objectives.NA[idx])
-        ome_objective.nominal_magnification = float(czi_objectives.objmag[idx]) #or totalmag
+        ome_objective.lens_na = float(czi_objectives.NA[idx]) if czi_objectives.NA[idx] is not None else np.nan
+        ome_objective.nominal_magnification = float(czi_objectives.objmag[idx]) if czi_objectives.objmag[idx] is not None else np.nan #or totalmag
         immersion_value = czi_objectives.immersion[idx]
         ome_objective.immersion = model.Objective_Immersion(immersion_value) if immersion_value in model.Objective_Immersion._value2member_map_ else None
         ome_objective.model = str(czi_objectives.name[idx])
@@ -505,10 +515,16 @@ def ome_extraction(full_metadata, output_name, scene_idx) -> model.OME:
     ome_detectors = []
     for idx in range(len(czi_detectors.Id)):
         detector = model.Detector(id=czi_detectors.Id[idx])
-        detector.gain = float(czi_detectors.gain[idx])
-        detector.amplification_gain = float(czi_detectors.amplificationgain[idx])
-        detector.model = str(czi_detectors.model[idx]) if str(czi_detectors.model[idx]) else ""
-        detector.zoom = float(czi_detectors.zoom[idx])
+        gain = czi_detectors.gain[idx]
+        if gain:
+            detector.gain = float(gain)
+        amp_gain = czi_detectors.amplificationgain[idx]
+        if amp_gain:
+            detector.amplification_gain = amp_gain
+        detector.model = str(czi_detectors.model[idx]) if czi_detectors.model[idx] is not None else ""
+        zoom = czi_detectors.zoom[idx]
+        if zoom:
+            detector.zoom = float(zoom)
         detector_type = str(czi_detectors.modeltype[idx])
         detector.type = model.Detector_Type(detector_type) if detector_type in model.Detector_Type._value2member_map_ else None
 
@@ -539,7 +555,9 @@ def ome_extraction(full_metadata, output_name, scene_idx) -> model.OME:
     ome_filtersets = []
     if isinstance(filtersets, dict):
         filtersets= filtersets.get("FilterSet", [])
-        for idx, f in enumerate(filtersets):  
+        #logger.debug(str(filtersets))
+        for idx, f in enumerate(filtersets): 
+            
             ome_filterset = model.FilterSet(id=f.get("@Id", "FilterSet:"+str(idx+1))) 
             
             em_filter = f.get("EmissionFilters", {}).get("EmissionFilterRef", {}).get("@Id", None)
@@ -1254,9 +1272,6 @@ def convert_atlas_to_ometiff(img_path: dict):
     return output_fpath, key_pair
 
 
-VENDOR_TAG_IDS = {34118, 34119}          # Zeiss SEM variants
-VENDOR_TAG_NAMES = {"CZ_SEM", "FibicsXML"}
-
 def extract_tags_from_tif(img_path: str) -> dict[str, Any]:
     with tifffile.TiffFile(img_path) as tf:
         tags: dict[str, Any] = {}
@@ -1267,7 +1282,7 @@ def extract_tags_from_tif(img_path: str) -> dict[str, Any]:
                 name = getattr(tag, "name", None) or f"TAG_{tag.code}"
                 key = name if name not in tags else f"{name}[{i}]"
 
-                if tag.code in VENDOR_TAG_IDS or name in VENDOR_TAG_NAMES:
+                if tag.code in conf.VENDOR_TAG_IDS or name in conf.VENDOR_TAG_NAMES:
                     tags[key] = tag.value       # <-- keep raw, no decode
                     continue
 
@@ -1289,10 +1304,44 @@ def convert_tif_to_ometiff(img_path: str):
     elif "FibicsXML" in tif_tags:
         return convert_fibics_to_ometiff(img_path, tif_tags)
     else:
-        logger.warning("Unsupported tif, simple import triggered")
-        metadata = {'Microscope':'Undefined',
-                    'Acquisition Date':datetime.datetime.now().strftime(conf.DATE_TIME_FMT),
+        logger.info("Unsupported tif, checking if ome")
+
+        nominal_magnification_value = 'None'
+        pxl_size = '1'
+        scope_name = "Undefined"
+        #TODO should be able to get the model from my own ome converter
+
+        try:
+            ome_metadata = tif_tags.get('ImageDescription')
+            if ome_metadata:
+                nominal_magnification_value = re.search(r'NominalMagnification="([^"]*)"', ome_metadata)
+                if nominal_magnification_value:
+                    nominal_magnification_value = nominal_magnification_value.group(1)
+                else:
+                    nominal_magnification_value = 'None'
+
+                pxl_size = re.search(r'PhysicalSizeX="([^"]*)"', ome_metadata)
+                if pxl_size:
+                    pxl_size = pxl_size.group(1)
+                else:
+                    pxl_size = '1'
+            else:
+                logger.warning("Basic tif, simple import with prefilled key-value pairs triggered")
+        except KeyError:
+            logger.warning("Basic tif, simple import with prefilled key-value pairs triggered")
+
+        metadata = {'Microscope':scope_name,
+                    'Acquisition date':datetime.datetime.now().strftime(conf.DATE_TIME_FMT),
+                    'Image Size X':tif_tags.get('ImageWidth', "None"),
+                    'Image Size Y':tif_tags.get('ImageLength', "None"),
+                    'Lens Magnification': nominal_magnification_value,
+                    'Physical pixel size X': pxl_size,
+                    'Physical pixel size Y': pxl_size,
                     }
+        
+        for key, value in metadata.items():
+            logger.info(f"{key}: {value}")
+
         return img_path, metadata
 
 
@@ -1607,8 +1656,7 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
             try:
                 converted_path = convert_czi_to_ometiff(img_path) #issue in case of multiposition, converted_path will be a list!
             except Exception as e:  # catch-all is fine; not a bare except
-                    logger.warning(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
-                    logger.warning(f"Error is: {str(e)}")
+                    logger.exception(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
                     converted_path = img_path
         else: #no conversion needed
             converted_path = img_path
