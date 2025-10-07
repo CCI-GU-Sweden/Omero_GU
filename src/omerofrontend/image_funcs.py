@@ -32,7 +32,7 @@ from ome_types.model.simple_types import PixelType, UnitsLength
 from omerofrontend import conf
 from omerofrontend import logger
 from omerofrontend.file_data import FileData
-from omerofrontend.exceptions import MetaDataError
+from omerofrontend.exceptions import MetaDataError, ImageNotSupported
 from typing import Dict, Any
 
 #Let's use the czi tools to extract the metadata
@@ -270,6 +270,7 @@ def mapping(microscope):
                      'Microscope TalosL120C 120 kV D5838 CryoTwin':'Talos L120C',
                      'i':'Talos L120C',
                      'Gemini':'Gemini SEM 450',
+                     'GeminiSEM 450':'Gemini SEM 450',
                      #Other
                      None:'Undefined',
                      }
@@ -535,6 +536,9 @@ def ome_extraction(full_metadata, output_name, scene_idx) -> model.OME:
     ome_filters = []
     if isinstance(filters, dict):
         filters = filters.get("Filter", [])
+        if isinstance(filters, dict):
+            filters = [filters]
+
         for idx, f in enumerate(filters):
             ome_filter = model.Filter(id=f.get("@Id", "Filter:"+str(idx+1)))
             
@@ -555,7 +559,9 @@ def ome_extraction(full_metadata, output_name, scene_idx) -> model.OME:
     ome_filtersets = []
     if isinstance(filtersets, dict):
         filtersets= filtersets.get("FilterSet", [])
-        #logger.debug(str(filtersets))
+        if isinstance(filtersets, dict):
+            filtersets = [filtersets]       
+
         for idx, f in enumerate(filtersets): 
             
             ome_filterset = model.FilterSet(id=f.get("@Id", "FilterSet:"+str(idx+1))) 
@@ -1562,16 +1568,16 @@ def convert_fibics_to_ometiff(img_path: str, tif_tags: dict):
             )
 
     #generate a small key-value pair for Omero!
-    mini_metadata = {'Microscope':'Gemini',
-                     'Lens Magnification': math.nan,
-                     'Lens NA': math.nan,
-                     'Image type':'Gemini',
+    mini_metadata = {'Microscope': mapping('Gemini'),
+                     'Lens Magnification': "N/A",
+                     'Lens NA': "N/A",
+                     'Image type':'SEM',
                      'Physical pixel size X':px_um,
                      'Physical pixel size Y':py_um,
                      'Image Size X':image_width,
                      'Image Size Y':image_length,
-                     'Comment':None,
-                     'Description':None,
+                     'Comment':"N/A",
+                     'Description':"N/A",
                      'Acquisition date': datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
                      }
 
@@ -1651,15 +1657,20 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
     logger.info(f"Received file is of format {ext}")
     if ext == "czi": #Light microscope format - CarlZeissImage
         key_pair = get_info_metadata_from_czi(Path(img_path))
-        to_convert_mic = ["LSM 700", "LSM 710"]
-        if conf.FORCE_CZI_CONVERSION or (key_pair.get("Microscope", "") in to_convert_mic and fileData.getTotalFileSize() > conf.CZI_CONVERT_MIN_BYTES):
+        mic = (key_pair.get("Microscope") or "").strip()
+
+        mic_ok  = mic in conf.TO_CONVERT_SCOPE
+        size_ok = fileData.getTotalFileSize() > conf.CZI_CONVERT_MIN_BYTES
+        do_convert = mic_ok and (conf.FORCE_CZI_CONVERSION or size_ok)
+
+        if do_convert:
             try:
                 converted_path = convert_czi_to_ometiff(img_path) #issue in case of multiposition, converted_path will be a list!
             except Exception:  # catch-all is fine; not a bare except
                     logger.exception(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
-                    converted_path = img_path
+                    converted_path = [img_path]
         else: #no conversion needed
-            converted_path = img_path
+            converted_path = [img_path]
     
     elif ext == "tif": #Tif, but only SEM-TIF or Fibics-TIF are supported
         converted_path, key_pair = convert_tif_to_ometiff(img_path)
@@ -1677,11 +1688,21 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
         converted_path, key_pair = convert_emd_to_ometiff(img_path)
 
 
-    else: #TODO naked import - undefined microscope + date.now
-        converted_path = ""
-        key_pair: dict[str,str] = {}
+    else:
+        raise ImageNotSupported(f"Image format not supported: {ext}")
     
+    #security
     if isinstance(converted_path, str):
         converted_path = [converted_path]
+    converted_path = [p for p in (converted_path or []) if p]
+    
+    if not converted_path:
+        # Fallback to staged originals (what TempFileHandler saved)
+        staged = fileData.getUploadFilePaths() or fileData.getTempFilePaths()
+        if staged:
+            logger.warning(f"format_splitter returned no paths; falling back to staged uploads: {str(staged)}")
+            converted_path = staged
+        else:
+            raise ValueError(f"No files to import after format split for {img_path}")
 
     return converted_path, key_pair
