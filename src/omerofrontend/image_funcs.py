@@ -1229,10 +1229,11 @@ def convert_emd_to_ometiff(img_path: str):
     
     output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emd", ".ome.tiff"))
     
+    #print(key_pair['Physical pixel size'])
     # Write OME-TIFF file
     sr = choose_levels(img_array.shape[0], img_array.shape[1])
     write_tiff_pyramid(output_fpath, img_array, ome_xml, metadata=None,
-                       pxl_size=(key_pair['Physical pixel size'], key_pair['Physical pixel size']), subresolutions=sr)
+                       pxl_size=(float(key_pair['Physical pixel size']), float(key_pair['Physical pixel size'])), subresolutions=sr)
 
     #old, simple tif writer
     #with tifffile.TiffWriter(output_fpath) as tif:
