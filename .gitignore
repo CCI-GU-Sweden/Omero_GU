@@ -7,3 +7,4 @@ git_hash.txt
 __pycache__/
 config.py
 .continue
+*.sock
