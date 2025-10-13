@@ -27,7 +27,7 @@ export function showErrorPage(type,msg) {
 
 };
 
-export function pairFiles(fileList, ext1, ext2)
+export function pairFiles(fileList, ext1, ext2) //not used anymore, replaced by buildPairs in file_list.js
 {
     var ext1List = Array.from(fileList).filter((file) => file.name.split('.').pop() === ext1)
     var ext2List = Array.from(fileList).filter((file) => file.name.split('.').pop() === ext2)
