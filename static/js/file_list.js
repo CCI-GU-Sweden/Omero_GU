@@ -145,53 +145,115 @@ function splitRelPath(file) {
   return { dir, stem, ext };
 }
 
+// normalize stem for EMI/SER pairing: strip trailing index/suffixes
+function normEmiSerStem(stem) {
+  let s = stem.toLowerCase();
+  // remove trailing " (123)" or "_123" or "-123"
+  s = s.replace(/(?:[\s_\-]?\(?\d+\)?)$/,'');
+  // common vendor suffixes that often differ between emi/ser
+  s = s.replace(/(?:_data|_frame|_frames|_sum)$/,'');
+  return s;
+}
+
 function buildPairs(files) {
-  // group by directory, then by stem
-  const groups = new Map(); // dir -> stem -> ext -> [File]
+  // group all files by directory
+  const filesByDir = new Map();
   for (const f of files) {
-    const { dir, stem, ext } = splitRelPath(f);
-    if (!groups.has(dir)) groups.set(dir, new Map());
-    const stems = groups.get(dir);
-    if (!stems.has(stem)) stems.set(stem, {});
-    (stems.get(stem)[ext] ||= []).push(f);
+    const { dir } = splitRelPath(f);
+    if (!filesByDir.has(dir)) filesByDir.set(dir, []);
+    filesByDir.get(dir).push(f);
   }
 
-  const pairs = [];     // { ext1: File, ext2: File, kind: 'emiSer'|'primaryXml' }
-  const singles = [];   // unmatched non-XML
-  const droppedXml = []; // XML singletons are removed from UI
+  const pairs = [];
+  const singles = [];
+  const droppedXml = [];
 
-  for (const [, stems] of groups) {
-    for (const [, exts] of stems) {
-      const emis = exts["emi"] || [];
-      const sers = exts["ser"] || [];
-      const xmls = exts["xml"] || [];
+  for (const [dir, dirFiles] of filesByDir) {
+    // group by exact stem within the dir
+    const byStem = new Map(); // stem -> ext -> [File]
+    for (const f of dirFiles) {
+      const { stem, ext } = splitRelPath(f);
+      if (!byStem.has(stem)) byStem.set(stem, {});
+      (byStem.get(stem)[ext] ||= []).push(f);
+    }
 
-      // 1) Prefer explicit EMI+SER pairing
+    const used = new Set(); // mark paired files
+
+    // --- A) EMI+SER exact stem ---
+    for (const [stem, exts] of byStem) {
+      const emis = (exts["emi"] || []).filter(f => !used.has(f));
+      const sers = (exts["ser"] || []).filter(f => !used.has(f));
+      const xmls = (exts["xml"] || []).filter(f => !used.has(f));
+
       if (emis.length && sers.length) {
         pairs.push({ ext1: emis[0], ext2: sers[0], kind: "emiSer" });
-        singles.push(...emis.slice(1), ...sers.slice(1));  // extras unmatched
-        droppedXml.push(...xmls);                          // ignore sidecar XML in UI
-        continue;
+        used.add(emis[0]); used.add(sers[0]);
+        // ignore any XML of same stem in UI (backend can still auto-attach)
+        for (const x of xmls) used.add(x), droppedXml.push(x);
       }
+    }
 
-      // 2) Generic PRIMARY + XML (any non-xml in the SAME directory)
+    // --- B) EMI+SER fuzzy stem (handle _1.ser etc.) ---
+    const remEmiByKey = new Map();
+    const remSerByKey = new Map();
+
+    for (const [stem, exts] of byStem) {
+    const key  = normEmiSerStem(stem);
+    const emis = (exts["emi"] || []).filter(f => !used.has(f));
+    const sers = (exts["ser"] || []).filter(f => !used.has(f));
+
+    if (emis.length) {
+        if (!remEmiByKey.has(key)) remEmiByKey.set(key, []);
+        remEmiByKey.get(key).push(...emis);
+    }
+    if (sers.length) {
+        if (!remSerByKey.has(key)) remSerByKey.set(key, []);
+        remSerByKey.get(key).push(...sers);
+    }
+    }
+
+    // Pair by normalized key
+    for (const [key, emiList] of remEmiByKey) {
+    const serList = remSerByKey.get(key) || [];
+    const e = emiList.find(f => !used.has(f));
+    const s = serList.find(f => !used.has(f));
+    if (e && s) {
+        pairs.push({ ext1: e, ext2: s, kind: "emiSer" });
+        used.add(e); used.add(s);
+    }
+    }
+
+    // --- C) ANY primary + XML (same dir) for remaining files ---
+    for (const [stem, exts] of byStem) {
+      const xmls = (exts["xml"] || []).filter(f => !used.has(f));
+      if (!xmls.length) continue;
+
+      // collect remaining non-XML primaries of this exact stem
       const nonXmlExts = Object.keys(exts).filter(e => e !== "xml");
-      const nonXmlFiles = nonXmlExts.flatMap(e => exts[e]);
+      const primaries = nonXmlExts.flatMap(e => (exts[e] || [])).filter(f => !used.has(f));
 
-      if (xmls.length && nonXmlFiles.length) {
-        const n = Math.min(xmls.length, nonXmlFiles.length);
+      if (primaries.length) {
+        const n = Math.min(primaries.length, xmls.length);
         for (let i = 0; i < n; i++) {
-          pairs.push({ ext1: nonXmlFiles[i], ext2: xmls[i], kind: "primaryXml" });
+          pairs.push({ ext1: primaries[i], ext2: xmls[i], kind: "primaryXml" });
+          used.add(primaries[i]); used.add(xmls[i]);
         }
-        singles.push(...nonXmlFiles.slice(n)); // leftover primaries
-        droppedXml.push(...xmls.slice(n));     // leftover XMLs dropped
-        continue;
+        // any extra XML for this stem is dropped from UI
+        for (const x of xmls.slice(n)) used.add(x), droppedXml.push(x);
+      } else {
+        // XML-only stem -> drop from UI
+        for (const x of xmls) used.add(x), droppedXml.push(x);
       }
+    }
 
-      // 3) No pair: keep non-XML as singles, drop XML-only
-      for (const ext of Object.keys(exts)) {
-        if (ext === "xml") droppedXml.push(...exts[ext]);
-        else singles.push(...exts[ext]);
+    // --- D) produce singles for remaining non-XML; drop leftover XMLs ---
+    for (const [, exts] of byStem) {
+      for (const [ext, arr] of Object.entries(exts)) {
+        if (ext === "xml") {
+          for (const f of arr) if (!used.has(f)) { used.add(f); droppedXml.push(f); }
+        } else {
+          for (const f of arr) if (!used.has(f)) { used.add(f); singles.push(f); }
+        }
       }
     }
   }
