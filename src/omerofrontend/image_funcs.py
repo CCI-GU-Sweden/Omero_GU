@@ -1096,7 +1096,7 @@ def convert_emi_to_ometiff(img_path: str):
     logger.debug(f"Ome-tiff written at {output_fpath}.")
 
     key_pair = _sanitize_meta(key_pair)
-    
+
     return output_fpath, key_pair
 
 
@@ -1411,12 +1411,9 @@ def extract_tags_from_tif(img_path: str) -> dict[str, Any]:
                 tags[key] = val
         return tags
     
-def convert_tif_to_ometiff(fileData: FileData):
-    img_path = fileData.getMainFileTempPath()
-
-
-    # if hasattr(fileData, 'dictFileName'): #less pythonic than try?
-    try:
+def convert_tif_to_ometiff(fileData):
+    if isinstance(fileData, FileData):
+        img_path = fileData.getMainFileTempPath()
         try:
             atlasPair = {}
             atlasPair[fileData.getDictFileExtension()] = fileData.getDictFileTempPath()
@@ -1424,8 +1421,12 @@ def convert_tif_to_ometiff(fileData: FileData):
             return convert_atlas_to_ometiff(atlasPair)
         except ValueError:
             pass
-    except AttributeError:
-        pass #no dict, assume xml is embedded in the tif, as a tag
+
+    elif isinstance(fileData, str): #mainly for test
+        img_path = fileData
+    
+    else:
+        raise ValueError(f"Type of {fileData} neither a FileData or str object.")
 
     #extract the tags form the tiff
     tif_tags = extract_tags_from_tif(img_path)
