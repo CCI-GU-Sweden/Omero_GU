@@ -18,6 +18,7 @@ import os
 import math
 import datetime
 import re
+import json
 from dateutil import parser
 from pathlib import Path
 from rsciio import tia, emd, mrc
@@ -61,6 +62,21 @@ def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, p
         result.append("")
     return result
 
+def _sanitize_meta(d: dict) -> dict:
+    out = {}
+    for k, v in d.items():
+        # drop null-ish
+        if v is None or (isinstance(v, float) and math.isnan(v)):
+            continue
+        # stringify complex types
+        if isinstance(v, (dict, list, set, tuple)):
+            try:
+                out[k] = json.dumps(v, ensure_ascii=False, separators=(",", ":"))
+            except Exception:
+                out[k] = str(v)
+        else:
+            out[k] = str(v) if not isinstance(v, (str, int, float, bool)) else v
+    return out
 
 def safe_get(data, keys, default=None):
     if not isinstance(keys, (list, tuple)):
@@ -160,7 +176,7 @@ def write_tiff_pyramid(out_file:str,
                 description=ome_xml,
                 resolution=(pxlx_size, pxly_size),
                 photometric="minisblack",
-                extratags=extra_tags,
+                extratags=extra_tags if len(extra_tags[0])>0 else None,
                 tile=tile,
                 maxworkers=worker_n,
             )
@@ -1070,14 +1086,16 @@ def convert_emi_to_ometiff(img_path: str):
     output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tiff"))   
     
     # Write OME-TIFF file
-    sr = choose_levels(img_array.shape[0], img_array.shape[1])
+    sr = choose_levels(img_array.shape[0], img_array.shape[1], target_min=4096)
     write_tiff_pyramid(output_fpath, img_array, ome_xml, metadata=None,
-                       pxl_size=(key_pair['Physical pixel size'], key_pair['Physical pixel size']), subresolutions=sr)
+                       pxl_size=(key_pair['Pixel size'], key_pair['Pixel size']), subresolutions=sr)
 
     #with tifffile.TiffWriter(output_fpath) as tif:
     #    tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
     
     logger.debug(f"Ome-tiff written at {output_fpath}.")
+
+    key_pair = _sanitize_meta(key_pair)
     
     return output_fpath, key_pair
 
@@ -1773,7 +1791,12 @@ def is_supported_format(fileName):
 
 def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]:
     ext = fileData.getMainFileExtension().lower()
-    img_path = fileData.getMainFileTempPath()
+    try:
+        img_path = fileData.getMainFileTempPath()
+    except AttributeError:
+        logger.info(f"File {fileData.originalFileNames} is not supported")
+        img_path = ""
+
     logger.info(f"Received file is of format {ext}")
 
     if ext == "czi": #Light microscope format - CarlZeissImage
