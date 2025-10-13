@@ -1,4 +1,4 @@
-import { pairFiles } from "./utils.js";
+//import { pairFiles } from "./utils.js";
 import { FileListComponent } from "./file_list_component.js"
 
 const FileStatus = Object.freeze({
@@ -37,6 +37,14 @@ function callCCB()
 {
     if(listChangeCb)
         listChangeCb();
+}
+
+function splitName(name) {
+  // pair by *basename* only; ignore path - can lead to issue with folder upload
+  const base = name.split(/[\\/]/).pop();
+  const i = base.lastIndexOf('.');
+  if (i < 0) return { stem: base.toLowerCase(), ext: "" };
+  return { stem: base.slice(0, i).toLowerCase(), ext: base.slice(i + 1).toLowerCase() };
 }
 
 function removeFileFromList(index){
@@ -117,23 +125,109 @@ function checkExtMatch(fileObj, listOfExts)
     return listOfExts.includes(ext)
 }
 
-export function addFilesToList(listOfFileObjs){
-    var emi = "emi";
-    var ser = "ser";
-    var mrc = "mrc";
-    var xml = "xml"
-    var emiSerPairs = pairFiles(listOfFileObjs, "emi","ser");
-    var mrcXmlPairs = pairFiles(listOfFileObjs, "mrc","xml");
-    var singleFiles = Array.from(listOfFileObjs).filter((file) => !checkExtMatch(file,[emi,ser,mrc,xml]));
 
-    Array.from(singleFiles).forEach((file, index) => {
-        addFileToList(file);
-    });
+function splitRelPath(file) {
+  // Prefer folder-aware relative path, fall back to name
+  const rel = (file.webkitRelativePath && file.webkitRelativePath.length)
+    ? file.webkitRelativePath
+    : file.name;
 
-    Array.from([...emiSerPairs,...mrcXmlPairs]).forEach((file, index) => {
-        checkAndAddFilePairToList(file);
-    });
+  // Normalize separators and case (Windows-safe)
+  const norm = rel.replace(/\\/g, '/');
+  const parts = norm.split('/');
+  const base = parts.pop();                    // "Img.tif"
+  const dir  = parts.join('/').toLowerCase();  // "run_42/pos_001" (or "")
+
+  const dot = base.lastIndexOf('.');
+  const stem = (dot < 0 ? base : base.slice(0, dot)).toLowerCase(); // "img"
+  const ext  = (dot < 0 ? ""   : base.slice(dot + 1)).toLowerCase(); // "tif"
+
+  return { dir, stem, ext };
 }
+
+function buildPairs(files) {
+  // group by directory, then by stem
+  const groups = new Map(); // dir -> stem -> ext -> [File]
+  for (const f of files) {
+    const { dir, stem, ext } = splitRelPath(f);
+    if (!groups.has(dir)) groups.set(dir, new Map());
+    const stems = groups.get(dir);
+    if (!stems.has(stem)) stems.set(stem, {});
+    (stems.get(stem)[ext] ||= []).push(f);
+  }
+
+  const pairs = [];     // { ext1: File, ext2: File, kind: 'emiSer'|'primaryXml' }
+  const singles = [];   // unmatched non-XML
+  const droppedXml = []; // XML singletons are removed from UI
+
+  for (const [, stems] of groups) {
+    for (const [, exts] of stems) {
+      const emis = exts["emi"] || [];
+      const sers = exts["ser"] || [];
+      const xmls = exts["xml"] || [];
+
+      // 1) Prefer explicit EMI+SER pairing
+      if (emis.length && sers.length) {
+        pairs.push({ ext1: emis[0], ext2: sers[0], kind: "emiSer" });
+        singles.push(...emis.slice(1), ...sers.slice(1));  // extras unmatched
+        droppedXml.push(...xmls);                          // ignore sidecar XML in UI
+        continue;
+      }
+
+      // 2) Generic PRIMARY + XML (any non-xml in the SAME directory)
+      const nonXmlExts = Object.keys(exts).filter(e => e !== "xml");
+      const nonXmlFiles = nonXmlExts.flatMap(e => exts[e]);
+
+      if (xmls.length && nonXmlFiles.length) {
+        const n = Math.min(xmls.length, nonXmlFiles.length);
+        for (let i = 0; i < n; i++) {
+          pairs.push({ ext1: nonXmlFiles[i], ext2: xmls[i], kind: "primaryXml" });
+        }
+        singles.push(...nonXmlFiles.slice(n)); // leftover primaries
+        droppedXml.push(...xmls.slice(n));     // leftover XMLs dropped
+        continue;
+      }
+
+      // 3) No pair: keep non-XML as singles, drop XML-only
+      for (const ext of Object.keys(exts)) {
+        if (ext === "xml") droppedXml.push(...exts[ext]);
+        else singles.push(...exts[ext]);
+      }
+    }
+  }
+
+  return { pairs, singles, droppedXml };
+}
+
+
+export function addFilesToList(listOfFileObjs) {
+  const { pairs, singles, _ } = buildPairs(Array.from(listOfFileObjs));
+
+  // Add unmatched primaries
+  singles.forEach(f => addFileToList(f));
+
+  // Add pairs
+  pairs.forEach(p => checkAndAddFilePairToList(p));
+}
+
+
+// export function addFilesToList(listOfFileObjs){
+//     var emi = "emi";
+//     var ser = "ser";
+//     var mrc = "mrc";
+//     var xml = "xml"
+//     var emiSerPairs = pairFiles(listOfFileObjs, "emi","ser");
+//     var mrcXmlPairs = pairFiles(listOfFileObjs, "mrc","xml");
+//     var singleFiles = Array.from(listOfFileObjs).filter((file) => !checkExtMatch(file,[emi,ser,mrc,xml]));
+
+//     Array.from(singleFiles).forEach((file, index) => {
+//         addFileToList(file);
+//     });
+
+//     Array.from([...emiSerPairs,...mrcXmlPairs]).forEach((file, index) => {
+//         checkAndAddFilePairToList(file);
+//     });
+// }
 
 export function clearFileList()
 {

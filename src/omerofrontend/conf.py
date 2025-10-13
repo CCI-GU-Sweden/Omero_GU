@@ -1,8 +1,8 @@
 import pathlib
 import logging
 
-ALLOWED_FOLDER_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml", ".emd"]
-ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
+ALLOWED_FOLDER_FILE_EXT = [".czi", ".tif", ".tiff", ".emi", ".ser", ".mrc", ".xml", ".emd"]
+ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".tiff", ".emi", ".ser", ".mrc", ".xml"]
 
 VENDOR_TAG_IDS = {34118, 34119}          # Zeiss SEM variants
 VENDOR_TAG_NAMES = {"CZ_SEM", "FibicsXML"}
@@ -30,7 +30,7 @@ APP_NAME = "gu_omero_frontend"
 LOGGER_NAME = "omero_logger"
 LOG_LEVEL = logging.DEBUG
 
-FILE_IMPORT_THREADS = 1
+FILE_IMPORT_THREADS = 2
 
 #configs for local running
 USE_TEST_URL = True

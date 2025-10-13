@@ -117,6 +117,102 @@ def choose_levels(y, x, target_min=1024):
     L = 1 + max(0, math.ceil(math.log2(max(y, x) / target_min)))
     return max(int(L), 1)
 
+def write_tiff_pyramid(out_file:str,
+                       array, 
+                       ome_xml,
+                       metadata,
+                       pxl_size:tuple,
+                       subresolutions:int,
+                       extra_tags: list = [()],
+                       tile: tuple = (512, 512),
+                       worker_n:int = 2
+                       ):
+    """
+    Write a tif pyramid on disk.
+
+    Args:
+        - out_file: str
+            output file path. str.
+        - array: np.array
+            input image data
+        - ome_xml: str or None
+            input OME-XML
+        - metadata: dict or None
+            input metadata
+        - pxl_size: tuple
+            pixel size (x,y)
+        - subresolutions: int
+            number of pyramid levels to create
+        :param extra_tags: list of tuples. Default is [()]. follow convention: tagid (int), type ("s"), start(0), xml_text, False
+        :param tile: size of tiles to generate. Default is (512, 512)
+        :param worker_n: number of workers to use when writing the file. Default is 2.
+
+    Returns:
+        None
+    """
+    pxlx_size, pxly_size = pxl_size[0], pxl_size[1]
+ 
+    if ome_xml:
+        with tifffile.TiffWriter(out_file, bigtiff=True) as tif:
+            tif.write(
+                array,
+                subifds=subresolutions-1,
+                description=ome_xml,
+                resolution=(pxlx_size, pxly_size),
+                photometric="minisblack",
+                extratags=extra_tags,
+                tile=tile,
+                maxworkers=worker_n,
+            )
+            
+            for level in range(1, subresolutions):
+                mag = 2 ** level
+                tif.write(
+                    array[..., ::mag, ::mag],
+                    resolution=(pxlx_size*(2**level), pxly_size*(2**level)),
+                    subfiletype=1,
+                    photometric="minisblack",
+                    compression="zlib",
+                    predictor=True,
+                    tile=tile,
+                    maxworkers=worker_n,
+                )
+    
+    elif metadata:
+        # Convert µm/px -> pixels per centimeter
+        px_cm = pxlx_size * 1e-4
+        py_cm = pxly_size * 1e-4
+        xres0 = 1.0 / px_cm
+        yres0 = 1.0 / py_cm
+
+        with tifffile.TiffWriter(out_file, bigtiff=True) as tif:
+            tif.write(
+                array,
+                subifds=subresolutions-1,
+                metadata=metadata,
+                resolution=(xres0, yres0),
+                resolutionunit="CENTIMETER",
+                extratags=extra_tags,
+                photometric="minisblack",
+                tile=tile,
+                maxworkers=worker_n,
+            )
+            
+            for level in range(1, subresolutions):
+                mag = 2 ** level
+                tif.write(
+                    array[..., ::mag, ::mag],
+                    subfiletype=1,
+                    resolution=(xres0/mag, yres0/mag),
+                    resolutionunit="CENTIMETER",
+                    photometric="minisblack",
+                    compression="zlib",
+                    predictor=True,
+                    tile=tile,
+                    maxworkers=worker_n,
+                )
+    
+
 def parse_xml_to_dict(element, namespaces):
     """Recursively parse XML element into a dictionary."""
     result = {}
@@ -820,30 +916,9 @@ def convert_czi_to_ometiff(filename: str, output:str="") -> list[str]:
             else:
                 raise ValueError("Array returned from read_tools.read_6darray is None.")
             
-            subresolutions = choose_levels(len(array["Y"]), len(array["X"]))
-            with tifffile.TiffWriter(out_file, bigtiff=True) as tif:
-                tif.write(
-                    array,
-                    subifds=subresolutions-1,
-                    description=ome_xml,
-                    resolution=(pxlx_size, pxly_size),
-                    photometric="minisblack",
-                    tile=(512, 512),
-                    maxworkers=2,
-                )
-                
-                for level in range(1, subresolutions):
-                    mag = 2 ** level
-                    tif.write(
-                        array[..., ::mag, ::mag],
-                        resolution=(pxlx_size*(2**level), pxly_size*(2**level)),
-                        subfiletype=1,
-                        photometric="minisblack",
-                        compression="zlib",
-                        predictor=True,
-                        tile=(512, 512),
-                        maxworkers=2,
-                    )
+            sr = choose_levels(len(array["Y"]), len(array["X"]))
+            write_tiff_pyramid(out_file, array, ome_xml, metadata=None,
+                               pxl_size=(pxlx_size, pxly_size), subresolutions=sr)
             
     return [str(p) for p in out_files]
 
@@ -880,7 +955,7 @@ def convert_emi_to_ometiff(img_path: str):
     logger.debug(f"{img_path} successfully readen!")
         # Check if this is possible to reduce its bit size
     dimension_order = Pixels_DimensionOrder.XYCZT
-    img_array, bit = optimize_bit_depth(img_array)
+    img_array, _ = optimize_bit_depth(img_array)
       
     key_pair = {
         'Microscope':mapping(dict_crawler(data, 'Microscope')[0][1]),
@@ -995,8 +1070,12 @@ def convert_emi_to_ometiff(img_path: str):
     output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tiff"))   
     
     # Write OME-TIFF file
-    with tifffile.TiffWriter(output_fpath) as tif:
-        tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+    sr = choose_levels(img_array.shape[0], img_array.shape[1])
+    write_tiff_pyramid(output_fpath, img_array, ome_xml, metadata=None,
+                       pxl_size=(key_pair['Physical pixel size'], key_pair['Physical pixel size']), subresolutions=sr)
+
+    #with tifffile.TiffWriter(output_fpath) as tif:
+    #    tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
     
     logger.debug(f"Ome-tiff written at {output_fpath}.")
     
@@ -1133,8 +1212,13 @@ def convert_emd_to_ometiff(img_path: str):
     output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emd", ".ome.tiff"))
     
     # Write OME-TIFF file
-    with tifffile.TiffWriter(output_fpath) as tif:
-        tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+    sr = choose_levels(img_array.shape[0], img_array.shape[1])
+    write_tiff_pyramid(output_fpath, img_array, ome_xml, metadata=None,
+                       pxl_size=(key_pair['Physical pixel size'], key_pair['Physical pixel size']), subresolutions=sr)
+
+    #old, simple tif writer
+    #with tifffile.TiffWriter(output_fpath) as tif:
+    #    tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
         
     logger.debug(f"Ome-tiff written at {output_fpath}.")
     return output_fpath, key_pair
@@ -1153,8 +1237,16 @@ def convert_atlas_to_ometiff(img_path: dict):
     """
     logger.debug(f"Conversion to ometiff from mrc required for {img_path}")
 
-    full_data = mrc.file_reader(img_path['mrc'])[0]
-    img_array, bit = optimize_bit_depth(full_data['data'])
+    if 'mrc' in img_path:
+        full_data = mrc.file_reader(img_path['mrc'])[0]
+        img_array, _ = optimize_bit_depth(full_data['data'])
+        output_fpath = img_path['mrc']
+    elif 'tiff' in img_path:
+        full_data = tifffile.imread(img_path['tiff'])
+        img_array, _ = optimize_bit_depth(full_data)
+        output_fpath = img_path['tiff']
+    else:
+        raise ValueError(f"Extension of the file {img_path} is not supported")
     
     data = parse_xml_with_namespaces(img_path.get('xml', None))
     if data is None:
@@ -1184,8 +1276,6 @@ def convert_atlas_to_ometiff(img_path: dict):
     mode += dict_crawler(data, 'ProjectorMode')[0]+' '
     key_pair['Image type'] = mode
 
-    output_fpath = img_path['mrc']
-    
     #extra pair for the general metadata        
     # extra_pair = {
     #     'Mode': mode,
@@ -1303,8 +1393,25 @@ def extract_tags_from_tif(img_path: str) -> dict[str, Any]:
                 tags[key] = val
         return tags
     
-def convert_tif_to_ometiff(img_path: str):
+def convert_tif_to_ometiff(fileData: FileData):
+    img_path = fileData.getMainFileTempPath()
+
+
+    # if hasattr(fileData, 'dictFileName'): #less pythonic than try?
+    try:
+        try:
+            atlasPair = {}
+            atlasPair[fileData.getDictFileExtension()] = fileData.getDictFileTempPath()
+            atlasPair[fileData.getMainFileExtension()] = img_path
+            return convert_atlas_to_ometiff(atlasPair)
+        except ValueError:
+            pass
+    except AttributeError:
+        pass #no dict, assume xml is embedded in the tif, as a tag
+
+    #extract the tags form the tiff
     tif_tags = extract_tags_from_tif(img_path)
+    
     if "CZ_SEM" in tif_tags:
         return convert_semtif_to_ometiff(img_path, tif_tags)
     elif "FibicsXML" in tif_tags:
@@ -1349,6 +1456,8 @@ def convert_tif_to_ometiff(img_path: str):
             logger.info(f"{key}: {value}")
 
         return img_path, metadata
+    
+       
 
 
 def convert_semtif_to_ometiff(img_path: str, tif_tags: dict) -> tuple[str, dict]:
@@ -1526,46 +1635,57 @@ def convert_fibics_to_ometiff(img_path: str, tif_tags: dict):
         px_um = math.hypot(Ux, Uy)
         py_um = math.hypot(Vx, Vy)
 
-    # Convert µm/px -> pixels per centimeter
-    px_cm = px_um * 1e-4
-    py_cm = py_um * 1e-4
-    xres0 = 1.0 / px_cm
-    yres0 = 1.0 / py_cm
-
     #Save the data as ome-tiff
     subresolutions = choose_levels(float(image_width), float(image_length))
-    with tifffile.TiffWriter(out_file, bigtiff=True) as tif:
-        tif.write(
-            array,
-            subifds=subresolutions-1,
-            metadata={
-                    "axes": "YX",
-                    "PhysicalSizeX": px_um,
-                    "PhysicalSizeXUnit": "µm",
-                    "PhysicalSizeY": py_um,
-                    "PhysicalSizeYUnit": "µm",
-            },
-            resolution=(xres0, yres0),
-            resolutionunit="CENTIMETER",
-            extratags=[(51023, "s", 0, xml_text, False)],
-            photometric="minisblack",
-            tile=(512, 512),
-            maxworkers=2,
-        )
+    metadata = {
+            "axes": "YX",
+            "PhysicalSizeX": px_um,
+            "PhysicalSizeXUnit": "µm",
+            "PhysicalSizeY": py_um,
+            "PhysicalSizeYUnit": "µm",
+    }
+    extratags = [(51023, "s", 0, xml_text, False)]
+    write_tiff_pyramid(out_file, array, ome_xml=None, metadata=metadata, pxl_size=(px_um, py_um),
+                       subresolutions=subresolutions,extra_tags=extratags)
+    
+    # Convert µm/px -> pixels per centimeter
+    # px_cm = px_um * 1e-4
+    # py_cm = py_um * 1e-4
+    # xres0 = 1.0 / px_cm
+    # yres0 = 1.0 / py_cm
+    # subresolutions = choose_levels(float(image_width), float(image_length))
+    # with tifffile.TiffWriter(out_file, bigtiff=True) as tif:
+    #     tif.write(
+    #         array,
+    #         subifds=subresolutions-1,
+    #         metadata={
+    #                 "axes": "YX",
+    #                 "PhysicalSizeX": px_um,
+    #                 "PhysicalSizeXUnit": "µm",
+    #                 "PhysicalSizeY": py_um,
+    #                 "PhysicalSizeYUnit": "µm",
+    #         },
+    #         resolution=(xres0, yres0),
+    #         resolutionunit="CENTIMETER",
+    #         extratags=[(51023, "s", 0, xml_text, False)],
+    #         photometric="minisblack",
+    #         tile=(512, 512),
+    #         maxworkers=2,
+    #     )
         
-        for level in range(1, subresolutions):
-            mag = 2 ** level
-            tif.write(
-                array[..., ::mag, ::mag],
-                subfiletype=1,
-                resolution=(xres0/mag, yres0/mag),
-                resolutionunit="CENTIMETER",
-                photometric="minisblack",
-                compression="zlib",
-                predictor=True,
-                tile=(512, 512),
-                maxworkers=2,
-            )
+    #     for level in range(1, subresolutions):
+    #         mag = 2 ** level
+    #         tif.write(
+    #             array[..., ::mag, ::mag],
+    #             subfiletype=1,
+    #             resolution=(xres0/mag, yres0/mag),
+    #             resolutionunit="CENTIMETER",
+    #             photometric="minisblack",
+    #             compression="zlib",
+    #             predictor=True,
+    #             tile=(512, 512),
+    #             maxworkers=2,
+    #         )
 
     #generate a small key-value pair for Omero!
     mini_metadata = {'Microscope': mapping('Gemini'),
@@ -1655,6 +1775,7 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
     ext = fileData.getMainFileExtension().lower()
     img_path = fileData.getMainFileTempPath()
     logger.info(f"Received file is of format {ext}")
+
     if ext == "czi": #Light microscope format - CarlZeissImage
         key_pair = get_info_metadata_from_czi(Path(img_path))
         mic = (key_pair.get("Microscope") or "").strip()
@@ -1665,15 +1786,15 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
 
         if do_convert:
             try:
-                converted_path = convert_czi_to_ometiff(img_path) #issue in case of multiposition, converted_path will be a list!
+                converted_path = convert_czi_to_ometiff(img_path)
             except Exception:  # catch-all is fine; not a bare except
                     logger.exception(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
                     converted_path = [img_path]
         else: #no conversion needed
             converted_path = [img_path]
     
-    elif ext == "tif": #Tif, but only SEM-TIF or Fibics-TIF are supported
-        converted_path, key_pair = convert_tif_to_ometiff(img_path)
+    elif ext == "tif" or ext == "tiff":
+        converted_path, key_pair = convert_tif_to_ometiff(fileData)
     
     elif ext == "mrc":
         atlasPair = {}
@@ -1686,7 +1807,6 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
         converted_path, key_pair = convert_emi_to_ometiff(img_path)
     elif ext == "emd": #Electron microscope format
         converted_path, key_pair = convert_emd_to_ometiff(img_path)
-
 
     else:
         raise ImageNotSupported(f"Image format not supported: {ext}")
