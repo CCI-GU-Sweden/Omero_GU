@@ -3,7 +3,7 @@ import logging
 import inspect
 import os
 from pathlib import Path 
-from omerofrontend import conf
+from common import conf
 
 class CustomFormatter(logging.Formatter):
 
@@ -95,9 +95,6 @@ def error(msg: str):
 
 def debug(msg: str):
     logger().debug(msg)
-
-def exception(msg: str):
-    logger().exception(msg)
-
+    
 def logger():
     return logging.getLogger(conf.APP_NAME)
