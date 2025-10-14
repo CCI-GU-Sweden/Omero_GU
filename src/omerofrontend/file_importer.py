@@ -2,23 +2,24 @@ import os
 import datetime
 from typing import Tuple
 from dateutil import parser
-from omerofrontend import conf
-from omerofrontend import image_funcs
-from omerofrontend import logger
-from omerofrontend.omero_connection import OmeroConnection
-from omerofrontend.file_data import FileData
+from common import conf
+from common import image_funcs
+from common import logger
+from common.omero_connection import OmeroConnection
+from common.file_data import FileData
 from omerofrontend.exceptions import DuplicateFileExists
 from omerofrontend.file_uploader import RetryCallback, ProgressCallback, ImportStartedCallback, FileUploader
 
 
 class FileImporter:
     
-    def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
+    def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, token: str) -> tuple[list[str], list[int], str]:
         filename = fileData.getMainFileName()
         file_path, metadict = image_funcs.file_format_splitter(fileData) #file_path is a list of str
 
         fileData.addTempFilePaths(file_path)
 
+        conn: OmeroConnection = OmeroConnection(hostname=conf.OMERO_HOST, port=conf.OMERO_PORT, token=token)
         scopes = self._get_scopes_metadata(metadict)
         self._set_folder_and_converted_name(fileData, metadict, file_path)
         date_str = metadict.get('Acquisition date', datetime.datetime.now().strftime(conf.DATE_TIME_FMT)) 
