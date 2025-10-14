@@ -29,9 +29,9 @@ from ome_types.model import Microscope_Type, Pixels_DimensionOrder
 
 from ome_types.model import Map
 from ome_types.model.simple_types import PixelType, UnitsLength
-from omerofrontend import conf
-from omerofrontend import logger
-from omerofrontend.file_data import FileData
+from common import conf
+from common import logger
+from common.file_data import FileData
 from omerofrontend.exceptions import MetaDataError, ImageNotSupported
 from typing import Dict, Any
 

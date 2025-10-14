@@ -30,7 +30,7 @@ APP_NAME = "gu_omero_frontend"
 LOGGER_NAME = "omero_logger"
 LOG_LEVEL = logging.DEBUG
 
-FILE_IMPORT_THREADS = 1
+FILE_IMPORT_THREADS = 8
 
 #configs for local running
 USE_TEST_URL = True
@@ -54,7 +54,7 @@ try:
 except ImportError:
     pass
 
-#Conversion to OME-TIFF
+ #Conversion to OME-TIFF
 TO_CONVERT_SCOPE: list = ["LSM 700", "LSM 710"]
 FORCE_CZI_CONVERSION: bool = True if USE_TEST_URL else False #will convert all the CZI files to ome-tiff if using test instance
 CZI_CONVERT_MIN_BYTES: int = int(1024 ** 3) #1GB
@@ -63,14 +63,13 @@ CZI_CONVERT_MIN_BYTES: int = int(1024 ** 3) #1GB
 SQL_DB_DIR = "database"
 SQL_DB_NAME = 'omero_imports.db'
 
-    
+REDIS_URL = "redis://:redis@localhost:6379/0"
+RQ_QUEUE_NAME = "sse:omero_imports"
+
 if USE_TEST_URL:
     OMERO_HOST = 'omero-cli.test.gu.se'
     OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
     FORCE_CZI_CONVERSION = True
-
-
-
 else: #production mode
     OMERO_HOST = 'omero-cci-cli.gu.se'
     OMERO_BASE_URL = 'https://omero-cci-users.gu.se'

@@ -9,14 +9,16 @@ from omerofrontend import conf
 from omerofrontend import logger
 
 
-
-
 class OmeroConnection:
     
     _mutex = Lock()
     
+    
+    
     def __init__(self, hostname: str, port: str, token: str):
         self.omero_token = token
+        self.hostname = hostname
+        self.port = port
         self._connect_to_omero(hostname,port,token)
         
     def __del__(self):
@@ -51,6 +53,13 @@ class OmeroConnection:
                 return p
         
         return None
+
+    def serialize(self):
+         return {
+            "hostname": self.hostname,
+            "port": self.port,
+            "token": self.omero_token,
+        }
 
     def get_or_create_project(self, project_name) -> int:
         
@@ -199,7 +208,7 @@ class OmeroConnection:
             return False
         acq_time_obj = image.getAcquisitionDate()
         if not acq_time_obj:
-            acq_time_str = self.getMapAnnotationValue(imageId, "Acquisition date")
+            acq_time_str = self.getMapAnnotationValue(imageId,"Acquisition date")
             if acq_time_str:
                 acq_time_obj = datetime.strptime(acq_time_str,conf.DATE_TIME_FMT)
             else:
