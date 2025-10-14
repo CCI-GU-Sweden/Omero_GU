@@ -2,7 +2,7 @@ import os
 import pytest
 from pathlib import Path
 
-from omerofrontend.image_funcs import (get_info_metadata_from_czi, convert_emi_to_ometiff, convert_emd_to_ometiff,
+from common.image_funcs import (get_info_metadata_from_czi, convert_emi_to_ometiff, convert_emd_to_ometiff,
                                        convert_tif_to_ometiff, convert_atlas_to_ometiff, convert_czi_to_ometiff)
 
 def test_get_info_metadata_from_czi_file_not_found():

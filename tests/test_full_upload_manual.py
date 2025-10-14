@@ -3,10 +3,10 @@ import pytest
 from queue import Queue, Empty
 from werkzeug.datastructures import FileStorage
 from omerofrontend.middle_ware import MiddleWare
-from omerofrontend.omero_connection import OmeroConnection
+from common.omero_connection import OmeroConnection
 from omerofrontend.database import SqliteDatabaseHandler
-from omerofrontend import conf
-from omerofrontend import logger
+from common import conf
+from common import logger
 
 session_token = "6ea89cc4-bc86-4dba-b9ed-55c1fe509dcd" # Example session token, replace with valid token
 
