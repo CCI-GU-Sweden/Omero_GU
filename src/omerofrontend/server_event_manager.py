@@ -20,8 +20,6 @@ ERROR = "error"
 
 class ServerEventManager:
     
-    #_msg_q = Queue()
-    #_lock = Lock()
     _id_lock = Lock()
     _id_cntr : int = -1
     
@@ -44,7 +42,7 @@ class ServerEventManager:
             host = cls.r.connection_pool.connection_kwargs.get("host")
             port = cls.r.connection_pool.connection_kwargs.get("port")
             raise RuntimeError(f"Redis unreachable at {host}:{port}.") from e
-        except ResponseError as e:
+        except ResponseError:
             # e.g., NOAUTH if password missing when server requires it
             raise
 
