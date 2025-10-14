@@ -32,11 +32,15 @@ class MiddleWare:
         self._db = database_handler
         self._done_cb = None
 
-    def import_files(self, files: list[FileStorage], tags, username: str, groupname: str, token: str, done_callback: DoneCallback = None) -> tuple[bool, str]:
+    def import_files(self, files: list[FileStorage], tags, username: str, groupname: str, token: Optional[str], done_callback: DoneCallback = None) -> tuple[bool, str]:
     #def import_files(self, files: list[FileStorage], tags, token: str, done_callback: DoneCallback = None) -> tuple[bool, str]:
     
+        if not token:
+            logger.error("No valid session token provided for import.")
+            return (False, "No valid session token provided for import.")
+        
+        
         #TODO: error handling in this function
-
         with self._store_tmp_file_mutex:
             try:
                 for f in files:

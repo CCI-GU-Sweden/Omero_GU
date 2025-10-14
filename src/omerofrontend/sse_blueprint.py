@@ -1,18 +1,13 @@
-#import traceback
-from flask import request, Blueprint
-#from .omero_connection import OmeroConnection
-#from common import conf
+from flask import Blueprint
 from common import logger
-# requirements: redis>=4
-#import json, time
 from omerofrontend.server_event_manager import ServerEventManager
 import redis
 from flask import Response, stream_with_context
-
+import time
+import json
 
 
 sse_bp = Blueprint('sse_bp',__name__,url_prefix='/sse')
-
 
 @sse_bp.route('/import_updates', methods=['GET'])
 def import_updates_stream():
@@ -24,14 +19,14 @@ def import_updates_stream():
         # Optional: disable uWSGI harakiri for this long-lived request
         try:
             import uwsgi  # type: ignore
-            uwsgi.set_harakiri(0)
+            uwsgi.set_harakiri(0) # pyright: ignore[reportAttributeAccessIssue]
         except Exception:
             pass
 
         # Resume from the client's last seen event
-        last = request.headers.get("Last-Event-ID")
+        #last = request.headers.get("Last-Event-ID")
         # "$" = only new items; if you want to replay history, start from "0-0"
-        next_id = last or "$"
+        #next_id = last or "$"
 
         last_heartbeat = time.time()
 
@@ -61,7 +56,7 @@ def import_updates_stream():
                                 f"id: {msg_id}\n"
                                 f"data: {data_str}\n\n"
                             )
-                            next_id = msg_id
+                            #next_id = msg_id
                         last_heartbeat = time.time()
                     else:
                         # No events within XREAD_BLOCK_MS → heartbeat if needed
@@ -84,4 +79,4 @@ def import_updates_stream():
         "Connection": "keep-alive",
         "X-Accel-Buffering": "no",  # prevents proxy buffering in Nginx
     }
-    return Response(generate(), headers=headers)
+    return Response(generate(), headers=headers)  # pyright: ignore[reportCallIssue]
