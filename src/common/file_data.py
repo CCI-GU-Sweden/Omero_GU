@@ -7,6 +7,7 @@ class FileData:
     
     def __init__(self,fileBaseNames):
         self.originalFileNames = []
+        self._upload_paths: list[str] = []
         self.annotations: Optional[dict[str,str]] = None
         self.username: Optional[str] = None
         for f in fileBaseNames:
@@ -32,12 +33,18 @@ class FileData:
     def getDictFileName(self) -> str:
         return self.dictFileName
         
-    def setTempFilePaths(self,paths: list[str]):
+    def setTempFilePaths(self, paths: list[str]):
         self.tempPaths = paths
         self.basePath = os.path.dirname(paths[0])
         
     def getTempFilePaths(self) -> list[str]:
         return self.tempPaths
+    
+    def addTempFilePaths(self, paths: list[str]) -> None:
+        import os
+        cur = {os.path.normpath(p) for p in self.getTempFilePaths()}
+        new = {os.path.normpath(p) for p in paths}
+        self.setTempFilePaths(list(cur | new))
 
     def getBasePath(self) -> str:
         return self.basePath
@@ -63,7 +70,21 @@ class FileData:
     
     def getUserName(self) -> Optional[str]:
         return self.username
-    
+
+    def setUploadFilePaths(self, paths: list[str]) -> None:
+        self._upload_paths = list(paths)
+
+    def getUploadFilePaths(self) -> list[str]:
+        # fallback to single path if legacy code set only one
+        try:
+            if self._upload_paths:
+                return self._upload_paths
+        except AttributeError:
+            pass
+        # keep backward compatibility
+        single = self.getUploadFilePath()
+        return [single] if single else []
+
     # def setFileAnnotations(self, annotations: dict[str,str]):
     #     self.annotations = annotations
         
