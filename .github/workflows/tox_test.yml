@@ -19,4 +19,6 @@ jobs:
         run: pip install tox
 
       - name: Run tox
+        env:
+          USE_FAKE_REDIS: "1"
         run: tox -e py -- -m "not manual"
