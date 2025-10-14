@@ -1,9 +1,8 @@
 import os
-#from multiprocessing import Queue
-#from omerofrontend import logger
 from threading import Lock
 import redis
 import json
+from redis.exceptions import ConnectionError, TimeoutError, AuthenticationError, ResponseError
 from common import conf
 
 #make sure these match javascript versions of same "structs"
@@ -33,6 +32,22 @@ class ServerEventManager:
         r = fakeredis.FakeRedis(decode_responses=False)
     else:
         r = redis.Redis.from_url(conf.REDIS_URL)
+    
+    
+    @classmethod
+    def assert_redis_up(cls):
+        try:
+            return cls.r.ping()  # -> True (PONG) on success
+        except AuthenticationError as e:
+            raise RuntimeError("Redis auth failed (bad password or ACL).") from e
+        except (ConnectionError, TimeoutError) as e:
+            host = cls.r.connection_pool.connection_kwargs.get("host")
+            port = cls.r.connection_pool.connection_kwargs.get("port")
+            raise RuntimeError(f"Redis unreachable at {host}:{port}.") from e
+        except ResponseError as e:
+            # e.g., NOAUTH if password missing when server requires it
+            raise
+
     
     @classmethod
     #def publish_import_update(cls, event_type: str, payload: dict, *, maxlen=10000):
