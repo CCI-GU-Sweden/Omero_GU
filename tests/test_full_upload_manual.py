@@ -8,7 +8,7 @@ from omerofrontend.database import SqliteDatabaseHandler
 from common import conf
 from common import logger
 
-session_token = "6ea89cc4-bc86-4dba-b9ed-55c1fe509dcd" # Example session token, replace with valid token
+session_token = "f12fb054-11d2-4a97-ace9-e0ff00f33ae8" # Example session token, replace with valid token
 
 t1 = 'Tag1'
 v1 = 'Value1'
@@ -75,7 +75,7 @@ class TestFullUploadManual:
                       'tests/data/multiP_multiC_multiZ-test_image.czi',
                       ]
         mags = ['63', '22370.0', '20', '20', ]
-        scopes = ['LSM 980', 'GeminiSEM 450', 'LSM 700', 'Undefined',]
+        scopes = ['LSM 980', 'Gemini SEM 450', 'LSM 700', 'Undefined',]
         
         for i, file in enumerate(file_paths):
         # Open the file in binary mode
@@ -87,7 +87,9 @@ class TestFullUploadManual:
 
                 # Perform the upload using the middle ware
                 try:
-                    self._mw.import_files([filestorage], tags, self._conn, self.upload_done)
+                    username = self._conn.get_logged_in_user_full_name()
+                    groupname = self._conn.getDefaultOmeroGroup()
+                    self._mw.import_files([filestorage], tags, username, groupname, session_token, self.upload_done)
                     logger.info("File upload initiated successfully.")
                 except Exception as e:
                     logger.error(f"Error during file upload: {str(e)}")
@@ -114,7 +116,9 @@ class TestFullUploadManual:
 
                 # Perform the upload using the middle ware
                 try:
-                    self._mw.import_files([f1_storage,f2_storage], tags, self._conn, self.upload_done)
+                    username = self._conn.get_logged_in_user_full_name()
+                    groupname = self._conn.getDefaultOmeroGroup()
+                    self._mw.import_files([f1_storage,f2_storage], tags, username, groupname, session_token, self.upload_done)
                     logger.info("File upload initiated successfully.")
                 except Exception as e:
                     logger.error(f"Error during file upload: {str(e)}")
@@ -136,7 +140,9 @@ class TestFullUploadManual:
 
                 # Perform the upload using the middle ware
                 try:
-                    self._mw.import_files([filestorage], tags, self._conn, self.upload_done)
+                    username = self._conn.get_logged_in_user_full_name()
+                    groupname = self._conn.getDefaultOmeroGroup()
+                    self._mw.import_files([filestorage], tags, username, groupname, session_token, self.upload_done)
                     logger.info("File upload initiated successfully.")
                 except Exception as e:
                     logger.error(f"Error during file upload: {str(e)}")
