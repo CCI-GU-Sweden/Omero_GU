@@ -9,13 +9,13 @@ import traceback
 from typing import Callable, Optional
 from omero.rtypes import rstring, rbool
 from omero.model.enums import ChecksumAlgorithmSHA1160 # type: ignore
-from omero_version import omero_version
+from omero_version import omero_version 
 from omero.callbacks import CmdCallbackI
-from omerofrontend.file_data import FileData
-from omerofrontend.omero_connection import OmeroConnection
+from common.file_data import FileData
+from common.omero_connection import OmeroConnection
 from omerofrontend.exceptions import OmeroConnectionError, AssertImportError, ImportError
-from omerofrontend import logger
-from omerofrontend import conf
+from common import logger
+from common import conf
 
 ProgressCallback = Optional[Callable[[int], None]]  # Define a type for the progress callback
 RetryCallback = Optional[Callable[[str, int], None]]  # Define a type for the retry callback

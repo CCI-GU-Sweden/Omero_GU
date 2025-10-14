@@ -2,10 +2,10 @@ import os
 import shutil
 from typing import Callable, Optional
 from werkzeug.datastructures import FileStorage
-from omerofrontend import logger
-from omerofrontend import conf
-from omerofrontend.file_data import FileData
-from omerofrontend.image_funcs import is_supported_format
+from common import logger
+from common import conf
+from common.file_data import FileData
+from common.image_funcs import is_supported_format
 from omerofrontend.exceptions import GeneralError, ImageNotSupported, OutOfDiskError
 
 TempProgressCallback = Optional[Callable[[str, int], None]]  # Define a type for the progress callback

@@ -7,22 +7,22 @@ from threading import Lock
 from concurrent.futures import Future, ThreadPoolExecutor
 from werkzeug.datastructures import FileStorage
 
-from omerofrontend import conf
-from omerofrontend import logger
+from common import conf
+from common import logger
 from omerofrontend.temp_file_handler import TempFileHandler
 from omerofrontend.file_importer import FileImporter
-from omerofrontend.file_data import FileData
+from common.file_data import FileData
 from omerofrontend.server_event_manager import ServerEventManager
 from omerofrontend.exceptions import ImageNotSupported, DuplicateFileExists, GeneralError, OmeroConnectionError, OutOfDiskError
-from omerofrontend.omero_connection import OmeroConnection
-from omerofrontend.database import DatabaseHandler
+#from common.omero_connection import OmeroConnection
+from omerofrontend import database
 
 DoneCallback = Optional[Callable[[List[int],bool], None]]
 
 class MiddleWare:
     """this class holds the connections between the api and the backend"""
     
-    def __init__(self, database_handler: DatabaseHandler):
+    def __init__(self, database_handler: database.DatabaseHandler):
         self._temp_file_handler = TempFileHandler()
         self._file_importer = FileImporter()
         self._executor = ThreadPoolExecutor(max_workers=conf.FILE_IMPORT_THREADS)
@@ -32,17 +32,16 @@ class MiddleWare:
         self._db = database_handler
         self._done_cb = None
 
-    def import_files(self, files: list[FileStorage], tags, connection: OmeroConnection, done_callback: DoneCallback = None) -> tuple[bool, str]:
+    def import_files(self, files: list[FileStorage], tags, username: str, groupname: str, token: str, done_callback: DoneCallback = None) -> tuple[bool, str]:
+    #def import_files(self, files: list[FileStorage], tags, token: str, done_callback: DoneCallback = None) -> tuple[bool, str]:
     
         #TODO: error handling in this function
 
         with self._store_tmp_file_mutex:
             try:
                 for f in files:
-                    ServerEventManager.send_staging_event(f.name)
+                    ServerEventManager.send_staging_event(f.filename)
                 logger.debug("in import files...")
-                username: str = connection.get_logged_in_user_full_name()
-                groupname: str = connection.getDefaultOmeroGroup()
                 logger.debug("storing tempfile...")
                 fileData = self._store_and_handle_temp_files(files, username)
                 logger.debug("done")
@@ -54,7 +53,7 @@ class MiddleWare:
                 return (False, "Out of disk error while storing temp file")
             
         self._done_cb = done_callback
-        future = self._executor.submit(self._handle_image_imports, fileData, tags, username, groupname, connection)
+        future = self._executor.submit(self._handle_image_imports, fileData, tags, username, groupname, token)
         self._safe_add_future_filedata_context(future, fileData)
         future.add_done_callback(self._future_complete_callback)
         logger.debug("Future added to executor")
@@ -134,10 +133,10 @@ class MiddleWare:
             self._remove_temp_files(filedata) if filedata else None
     
     
-    def _handle_image_imports(self, fileData: FileData, tags: dict, username: str, groupname: str, conn: OmeroConnection):
+    def _handle_image_imports(self, fileData: FileData, tags: dict, username: str, groupname: str, token: str):
         import_time_start = time.time()
         ServerEventManager.send_started_event(fileData.getMainFileName())
-        scopes, image_ids, omero_path = self._import_files_to_omero(fileData,tags,conn)
+        scopes, image_ids, omero_path = self._import_files_to_omero(fileData,tags,token)
         import_time = time.time() - import_time_start
         self._register_in_database(scopes[0],username,groupname,import_time,fileData)
         return image_ids, omero_path
@@ -149,14 +148,14 @@ class MiddleWare:
         fileData = self._temp_file_handler.check_and_store_tempfiles(files, username, temp_cb)
         return fileData
     
-    def _import_files_to_omero(self, file: FileData, tags, conn: OmeroConnection):
+    def _import_files_to_omero(self, file: FileData, tags, token: str):
         filename = file.getMainFileName()
         logger.info(f"Processing of {file.getTempFilePaths()}")
         prog_fun = functools.partial(ServerEventManager.send_progress_event,filename)
         rt_fun = functools.partial(ServerEventManager.send_retry_event,filename)
         import_fun = functools.partial(ServerEventManager.send_importing_event,filename)
         
-        return self._file_importer.import_image_data(file, tags, prog_fun, rt_fun, import_fun, conn)
+        return self._file_importer.import_image_data(file, tags, prog_fun, rt_fun, import_fun, token)
     
     def _remove_temp_files(self, file: FileData):
         self._temp_file_handler._remove_temp_files(file)

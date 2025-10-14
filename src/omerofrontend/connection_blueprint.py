@@ -1,8 +1,8 @@
 import traceback
 from flask import request, session, jsonify, Blueprint,g
-from .omero_connection import OmeroConnection
-from . import conf
-from . import logger
+from common.omero_connection import OmeroConnection
+from common import conf
+from common import logger
 
 conn_bp = Blueprint('conn_bp',__name__,url_prefix='/')
 
