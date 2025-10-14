@@ -2,11 +2,11 @@
     "reportMissingImports": "none",
     "include": [
         "src/omerofrontend/",
+        "src/common/",
         "tests/"
     ],
     "exclude": [
         ".venv",
         "src/omerofrontend/dashboard.py",
-        "src/omerofrontend/omero_connection.py",
     ]
 }
