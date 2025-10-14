@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import mistune
 import os
-#import queue
 import json
 import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g, send_from_directory
@@ -14,6 +13,7 @@ from omerofrontend.middle_ware import MiddleWare
 from common import omero_connection
 from omerofrontend.connection_blueprint import conn_bp, connect_to_omero
 from omerofrontend.sse_blueprint import sse_bp
+from omerofrontend.server_event_manager import ServerEventManager
 
 #processed_files = {} # In-memory storage for processed files (for the session)
 
@@ -33,8 +33,6 @@ def create_app(test_config=None):
         return
     
     logger.info(f"***** Starting CCI Omero Frontend at {datetime.datetime.now() }******")
-    #importer = file_importer.FileImporter()
-    
     
     if conf.DB_HANDLER == "sqlite":
         db = database.SqliteDatabaseHandler()
@@ -44,8 +42,8 @@ def create_app(test_config=None):
         db = database.PostgresDatabaseHandler()
         logger.info("Using postgres database")
     
+    ServerEventManager.assert_redis_up()
     db.initialize_database()
-    #middle_ware.setDatabaseHandler(db)
     middle_ware = MiddleWare(db)
 
     def my_render_template(*args, **kwargs):
