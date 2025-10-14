@@ -3,12 +3,12 @@ from dateutil import parser
 import os.path
 from unittest.mock import patch
 from werkzeug.datastructures import FileStorage
-from omerofrontend.file_data import FileData
-from omerofrontend.omero_connection import OmeroConnection
-from omerofrontend import image_funcs
+from common.file_data import FileData
+from common.omero_connection import OmeroConnection
+from common import image_funcs
 from omerofrontend.file_importer import FileImporter
 from omerofrontend.temp_file_handler import TempFileHandler
-from omerofrontend.logger import logging
+from common.logger import logging
 
 class FakeDataset:
     def __init__(self, value):

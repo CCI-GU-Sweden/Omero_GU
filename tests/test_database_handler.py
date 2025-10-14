@@ -1,7 +1,7 @@
 import os
 from omerofrontend.database import SqliteDatabaseHandler
-import omerofrontend.conf
-from omerofrontend.logger import logging
+from common import conf
+from common.logger import logging 
 
 class TestDatabaseHandler:
 
@@ -21,9 +21,9 @@ class TestDatabaseHandler:
         except FileNotFoundError:
             pass
         self.sqdbh.initialize_database()
-        assert self.sqdbh.SQL_DB_FILE == f"{omerofrontend.conf.SQL_DB_DIR}/{omerofrontend.conf.SQL_DB_NAME}"
-        assert omerofrontend.conf.SQL_DB_DIR is not None
-        assert omerofrontend.conf.SQL_DB_NAME is not None
+        assert self.sqdbh.SQL_DB_FILE == f"{conf.SQL_DB_DIR}/{conf.SQL_DB_NAME}"
+        assert conf.SQL_DB_DIR is not None
+        assert conf.SQL_DB_NAME is not None
         
     def test_insert_import_data(self):
         import_time = "2023-10-01 12:00:00"

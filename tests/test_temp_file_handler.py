@@ -1,11 +1,11 @@
 import os
 import pytest
 from omerofrontend.temp_file_handler import TempFileHandler
-from omerofrontend.logger import logging
-from omerofrontend import conf
+from common.logger import logging
+from common import conf
 from omerofrontend.exceptions import ImageNotSupported, GeneralError
 from werkzeug.datastructures import FileStorage
-from omerofrontend.file_data import FileData
+from common.file_data import FileData
 
 class TestTempFileHandler:
 
