@@ -168,14 +168,14 @@ class OmeroConnection:
                 logger.debug(f"Dataset '{dataset_name}' already exists in project. Using existing dataset.")
             else:
                 # Dataset doesn't exist, create it
-                dataset = omero.model.DatasetI()
+                dataset = omero.model.DatasetI() # pyright: ignore[reportAttributeAccessIssue]
                 dataset.setName(omero.rtypes.rstring(dataset_name))
                 dataset = self.conn.getUpdateService().saveAndReturnObject(dataset)
                 dataset_id = dataset.getId()
 
                 # Link dataset to project
-                link = omero.model.ProjectDatasetLinkI()
-                link.setParent(omero.model.ProjectI(project_id, False))
+                link = omero.model.ProjectDatasetLinkI() # pyright: ignore[reportAttributeAccessIssue]
+                link.setParent(omero.model.ProjectI(project_id, False)) # pyright: ignore[reportAttributeAccessIssue]
                 link.setChild(dataset)
                 self.conn.getUpdateService().saveObject(link)
                 dataset_id = dataset_id.getValue()
@@ -266,7 +266,7 @@ class OmeroConnection:
     def get_comment_annotation(self, value):
         for comment_ann in self.get_comment_annotations():
             try:
-                if not isinstance(comment_ann, omero.gateway.CommentAnnotationWrapper):
+                if not isinstance(comment_ann, omero.gateway.CommentAnnotationWrapper): # pyright: ignore[reportAttributeAccessIssue]
                     logger.warning(f"Annotation {comment_ann.getId()} is not a CommentAnnotationWrapper")
                     continue
                 value = comment_ann.getValue()
@@ -298,7 +298,7 @@ class OmeroConnection:
     #TODO: this is intrusive...need fix
     def get_map_annotation(self, name, value):
         for map_ann in self.get_map_annotations():
-            if not isinstance(map_ann._obj, omero.model.MapAnnotationI):
+            if not isinstance(map_ann._obj, omero.model.MapAnnotationI): # pyright: ignore[reportAttributeAccessIssue]
                 #logger.warning(f"Annotation {map_ann.getId()} is not a MapAnnotationWrapper")
                 continue
             n, v = map_ann.getValue()[0]
@@ -323,7 +323,7 @@ class OmeroConnection:
             return map_annotations
         
         for ann in image.listAnnotations():
-            if isinstance(ann, omero.gateway.MapAnnotationWrapper):
+            if isinstance(ann, omero.gateway.MapAnnotationWrapper): # pyright: ignore[reportAttributeAccessIssue]
                 map_annotations.extend(ann.getValue())
                 
         return map_annotations
@@ -345,7 +345,7 @@ class OmeroConnection:
             return tags
         
         for ann in image.listAnnotations():
-            if isinstance(ann, omero.gateway.TagAnnotationWrapper):
+            if isinstance(ann, omero.gateway.TagAnnotationWrapper): # pyright: ignore[reportAttributeAccessIssue]
                 tags.append(ann.getValue())
                 
         return tags
@@ -364,15 +364,15 @@ class OmeroConnection:
                 tag_ann = self.get_tag_annotation(tag_value)
                 if not tag_ann:
                     logger.info(f"tag {tag_value} does not exist. Creating it")
-                    tag_ann = omero.gateway.TagAnnotationWrapper(self.conn)
+                    tag_ann = omero.gateway.TagAnnotationWrapper(self.conn) # pyright: ignore[reportAttributeAccessIssue]
                     tag_ann.setValue(tag_value)
                     tag_ann.save()
 
                 logger.info(f"linking tag {tag_value} to image {image.getId()}")
                 image.linkAnnotation(tag_ann)
-            except omero.ValidationException as e:
+            except omero.ValidationException as e: # pyright: ignore[reportAttributeAccessIssue]
                 logger.warning(f"Failed to insert the tag {tag_value} to image {image}: {str(e)}")
-            except omero.ApiUsageException as e:
+            except omero.ApiUsageException as e: # pyright: ignore[reportAttributeAccessIssue]
                  logger.warning(f"Failed to insert the tag {tag_value} to image {image}: {str(e)}")
             except Exception as e:
                 logger.error(f"Failed to set/get tag annotations on image {image}: {str(e)}")
@@ -382,7 +382,7 @@ class OmeroConnection:
     def getMapAnnotationValue(self, imageId, key):
         value = None
         image = self.conn.getObject("Image", imageId)
-        map_annotations = [ann for ann in image.listAnnotations() if isinstance(ann, omero.gateway.MapAnnotationWrapper)]
+        map_annotations = [ann for ann in image.listAnnotations() if isinstance(ann, omero.gateway.MapAnnotationWrapper)] # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
         for map_ann in map_annotations:
             k_list = [x for x in map_ann.getValue() if x[0] == key]
             if len(k_list):
@@ -398,7 +398,7 @@ class OmeroConnection:
 
     def setCommentOnImage(self, image, comment):
         with self._mutex:
-            comment_ann = omero.gateway.CommentAnnotationWrapper(self.conn)
+            comment_ann = omero.gateway.CommentAnnotationWrapper(self.conn) # pyright: ignore[reportAttributeAccessIssue]
             comment_ann.setValue(comment)
             comment_ann.save()
             image.linkAnnotation(comment_ann)

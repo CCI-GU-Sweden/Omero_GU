@@ -1667,7 +1667,7 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
             try:
                 converted_path = convert_czi_to_ometiff(img_path) #issue in case of multiposition, converted_path will be a list!
             except Exception:  # catch-all is fine; not a bare except
-                    logger.exception(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
+                    logger.error(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
                     converted_path = [img_path]
         else: #no conversion needed
             converted_path = [img_path]
