@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 import mistune
 import os
-import queue
+#import queue
 import json
 import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g,Response, send_from_directory, stream_with_context
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify,g, send_from_directory
 from flask_cors import CORS
 from werkzeug import Request
 from omerofrontend import database
-from omerofrontend import conf
-from omerofrontend import logger
+from common import conf
+from common import logger
 from omerofrontend.middle_ware import MiddleWare
-from omerofrontend import omero_connection
+from common import omero_connection
 from omerofrontend.connection_blueprint import conn_bp, connect_to_omero
+from omerofrontend.sse_blueprint import sse_bp
 
 #processed_files = {} # In-memory storage for processed files (for the session)
 
@@ -148,7 +149,10 @@ def create_app(test_config=None):
 
         logger.debug("receiving files")
         files = request.files.getlist('files')
-        res, status = middle_ware.import_files(files,batch_tag,conn)
+        token = session.get(conf.OMERO_SESSION_TOKEN_KEY)
+        groupname = conn.getDefaultOmeroGroup()
+        username = conn.get_logged_in_user_full_name()
+        res, status = middle_ware.import_files(files,batch_tag,username,groupname,token)
 
         if res:
             return jsonify({"status":"Ok"})
@@ -230,45 +234,46 @@ def create_app(test_config=None):
         html += "</body></html>"
         return html
 
-    @app.route('/import_updates')
-    def import_updates_stream():
-        @stream_with_context
-        def generate():
-            yield "retry: 1000\n\n"
-            try:
-                while True:
-                    try:
-                        event = middle_ware.get_ssevent(5)
-                        event_id: int = event['id']
-                        event_str = (
-                            f"event: {event['type']}\n"
-                            f"id: {str(event_id)}\n"
-                            f"data: {json.dumps(event['data'])}\n\n"
-                        )
-                        #logger.debug(f"Sending event {event_str} to client")
-                        yield event_str
-                    except queue.Empty:
-                        ka_string = (
-                            f"event: keep_alive\n"
-                            f"data: {json.dumps('keep_alive')}\n\n"
-                        )
-                        yield ka_string
-                        #logger.debug("Sending keep alive")
-                    except ConnectionError as e:
-                        logger.warning(f"Connection error in import_updates {str(e)}")
-                        yield f"data: {json.dumps({'error': str(e)})}\n\n"
-                        break
-            except GeneratorExit:
-                logger.warning("client disconnected in import_updates")
+    # @app.route('/import_updates')
+    # def import_updates_stream():
+    #     @stream_with_context
+    #     def generate():
+    #         yield "retry: 1000\n\n"
+    #         try:
+    #             while True:
+    #                 try:
+    #                     event = middle_ware.get_ssevent(5)
+    #                     event_id: int = event['id']
+    #                     event_str = (
+    #                         f"event: {event['type']}\n"
+    #                         f"id: {str(event_id)}\n"
+    #                         f"data: {json.dumps(event['data'])}\n\n"
+    #                     )
+    #                     #logger.debug(f"Sending event {event_str} to client")
+    #                     yield event_str
+    #                 except queue.Empty:
+    #                     ka_string = (
+    #                         f"event: keep_alive\n"
+    #                         f"data: {json.dumps('keep_alive')}\n\n"
+    #                     )
+    #                     yield ka_string
+    #                     #logger.debug("Sending keep alive")
+    #                 except ConnectionError as e:
+    #                     logger.warning(f"Connection error in import_updates {str(e)}")
+    #                     yield f"data: {json.dumps({'error': str(e)})}\n\n"
+    #                     break
+    #         except GeneratorExit:
+    #             logger.warning("client disconnected in import_updates")
         
-        #should check for ConnectinError exception!!!
-        headers = {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache'
-        }
-        return Response(generate(), headers=headers)# pyright: ignore[reportCallIssue]
+    #     #should check for ConnectinError exception!!!
+    #     headers = {
+    #         'Content-Type': 'text/event-stream',
+    #         'Cache-Control': 'no-cache'
+    #     }
+    #     return Response(generate(), headers=headers)# pyright: ignore[reportCallIssue]
         
     app.register_blueprint(conn_bp)
+    app.register_blueprint(sse_bp)
     return app
 
 #%%main
