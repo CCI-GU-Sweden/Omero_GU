@@ -42,6 +42,9 @@ MAX_SIZE_FULL_UPLOAD = 1024 * 1024 * 30 # 30 MB in bytes
 CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
 USE_CHUNK_READ_ON_LARGE_FILES = True
 
+REDIS_URL = "redis://:redis@redis:6379/0"
+RQ_QUEUE_NAME = "sse:omero_imports"
+
 try:
     import config #pyright: ignore[reportAttributeAccessIssue]
     USE_TEST_URL = config.USE_TEST_URL if hasattr(config,"USE_TEST_URL") else USE_TEST_URL
@@ -50,6 +53,7 @@ try:
     DB_HANDLER = config.DB_HANDLER if hasattr(config,"DB_HANDLER") else DB_HANDLER
     LOG_LEVEL = config.LOG_LEVEL if hasattr(config,"LOG_LEVEL") else LOG_LEVEL
     USE_CHUNK_READ_ON_LARGE_FILES = config.USE_CHUNK_READ_ON_LARGE_FILES if hasattr(config,"USE_CHUNK_READ_ON_LARGE_FILES") else USE_CHUNK_READ_ON_LARGE_FILES
+    REDIS_URL = config.REDIS_URL if hasattr(config,"REDIS_URL") else REDIS_URL
     
 except ImportError:
     pass
@@ -62,9 +66,6 @@ CZI_CONVERT_MIN_BYTES: int = int(1024 ** 3) #1GB
 #if DB_HANDLER == "sqlite":
 SQL_DB_DIR = "database"
 SQL_DB_NAME = 'omero_imports.db'
-
-REDIS_URL = "redis://:redis@localhost:6379/0"
-RQ_QUEUE_NAME = "sse:omero_imports"
 
 if USE_TEST_URL:
     OMERO_HOST = 'omero-cli.test.gu.se'
