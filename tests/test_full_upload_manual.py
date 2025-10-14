@@ -1,4 +1,5 @@
 import pytest
+import os
 #import logging
 from queue import Queue, Empty
 from werkzeug.datastructures import FileStorage
@@ -23,7 +24,13 @@ tags = {
 class TestFullUploadManual:
 
     @classmethod
+    def _assert_fake_redis(cls):
+        fake_redis = os.getenv("USE_FAKE_REDIS") == "1"
+        assert fake_redis, "Hello! \n I see you are running manual tests without the USE_FAKE_REDIS environment variable set to '1' \n Tests must be run with USE_FAKE_REDIS=1 environment variable set."
+
+    @classmethod
     def setup_class(cls):
+        cls._assert_fake_redis()
         db = SqliteDatabaseHandler()
         cls._mw = MiddleWare(db)
         cls._conn = OmeroConnection(conf.OMERO_HOST,conf.OMERO_PORT,session_token)
@@ -67,6 +74,7 @@ class TestFullUploadManual:
         assert (extrak,extrav) in kv_pairs, f"Expected {extrak} to be {extrav}."
         assert (t1, v1) in kv_pairs, f"Expected {t1} to be {v1}"
         assert (t2, v2) in kv_pairs, f"Expected {t2} to be {v2}"
+        
         
     @pytest.mark.manual
     def test_full_upload_manual(self): 
