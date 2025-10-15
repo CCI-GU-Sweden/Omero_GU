@@ -5,15 +5,13 @@ import traceback
 import omero
 import omero.rtypes
 from omero.gateway import BlitzGateway, DatasetWrapper
-from omerofrontend import conf
-from omerofrontend import logger
+from common import conf
+from common import logger
 
 
 class OmeroConnection:
     
     _mutex = Lock()
-    
-    
     
     def __init__(self, hostname: str, port: str, token: str):
         self.omero_token = token
