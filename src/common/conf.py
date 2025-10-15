@@ -42,7 +42,7 @@ MAX_SIZE_FULL_UPLOAD = 1024 * 1024 * 30 # 30 MB in bytes
 CHUNK_SIZE = 1024 * 1024 * 10 #1024 * 1024 is 1MB
 USE_CHUNK_READ_ON_LARGE_FILES = True
 
-REDIS_URL = "redis://:redis@redis:6379/0"
+REDIS_URL = "redis://:redis@redis-omero-test:6379/0"
 RQ_QUEUE_NAME = "sse:omero_imports"
 
 try:
