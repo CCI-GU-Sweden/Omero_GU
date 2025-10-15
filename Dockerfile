@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=registry.k8s.gu.se/openshift/python:3.12-slim
+ARG BASE_IMAGE=docker.io/python:3.12-slim
 
 FROM  ${BASE_IMAGE}
 
@@ -27,6 +27,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python -m pip install --upgrade pip setuptools wheel
+
+
 
 # Set the working directory
 WORKDIR ${APP_HOME}
