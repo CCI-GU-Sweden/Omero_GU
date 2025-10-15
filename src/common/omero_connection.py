@@ -298,7 +298,7 @@ class OmeroConnection:
     #TODO: this is intrusive...need fix
     def get_map_annotation(self, name, value):
         for map_ann in self.get_map_annotations():
-            if not isinstance(map_ann._obj, omero.model.MapAnnotationI): # pyright: ignore[reportAttributeAccessIssue]
+            if not isinstance(map_ann, omero.gateway.MapAnnotationWrapper): # pyright: ignore[reportAttributeAccessIssue]
                 #logger.warning(f"Annotation {map_ann.getId()} is not a MapAnnotationWrapper")
                 continue
             n, v = map_ann.getValue()[0]
