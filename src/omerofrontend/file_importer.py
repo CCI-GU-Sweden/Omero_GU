@@ -9,7 +9,7 @@ from common.omero_connection import OmeroConnection
 from common.file_data import FileData
 from omerofrontend.exceptions import DuplicateFileExists
 from omerofrontend.file_uploader import RetryCallback, ProgressCallback, ImportStartedCallback, FileUploader
-
+from common.omero_getter_ctx import OmeroGetterCtx
 
 class FileImporter:
     
@@ -50,10 +50,12 @@ class FileImporter:
         acquisition_date_time: datetime.datetime = parser.parse(date_str)
         dataset_name = acquisition_date_time.strftime("%Y-%m-%d")
 
+        with OmeroGetterCtx(conn) as ogc:
         # Get or create project and dataset
-        projID = conn.get_or_create_project(project_name)
-        dataID = conn.get_or_create_dataset(projID, dataset_name)
-        logger.debug(f"Check ProjectID: {projID}, DatasetID: {dataID}")
+            user_id = conn.get_user_id()
+            projID = ogc.get_or_create_project(project_name,user_id)
+            dataID = ogc.get_or_create_dataset(projID, dataset_name)
+            logger.debug(f"Check ProjectID: {projID}, DatasetID: {dataID}")
 
         return dataID, projID
         
@@ -71,21 +73,24 @@ class FileImporter:
             metadict['UploadFolder'] = folder
 
     def _check_duplicate_file_rename_if_needed(self, fileData: FileData, dataset_id: int, meta_dict: dict[str,str], conn: OmeroConnection):
-        dup, childId = conn.check_duplicate_file(fileData.getConvertedFileName(),dataset_id)
-        if dup:
-            acquisition_date_time = meta_dict.get('Acquisition date')
-            if acquisition_date_time: #no value for date time. Should NOT happen though
-                acquisition_date_time = parser.parse(acquisition_date_time)
-                sameTime = conn.compareImageAcquisitionTime(childId,acquisition_date_time)
-                if sameTime:
-                    return True
-            else: #security
-                acquisition_date_time = datetime.datetime.now()
         
-            file = fileData.getConvertedFileName() #?????????
-            acq_time = acquisition_date_time.strftime("%H-%M-%S")
-            new_name = ''.join(file.split('.')[:-1]+['_', acq_time,'.',file.split('.')[-1]])   
-            fileData.renameFile(new_name)
+        with OmeroGetterCtx(conn) as ogc:
+            dup, childId = ogc.check_duplicate_file(fileData.getConvertedFileName(),dataset_id)
+
+            if dup:
+                acquisition_date_time = meta_dict.get('Acquisition date')
+                if acquisition_date_time: #no value for date time. Should NOT happen though
+                    acquisition_date_time = parser.parse(acquisition_date_time)
+                    sameTime = ogc.compare_image_acquisition_time(childId,acquisition_date_time)
+                    if sameTime:
+                        return True
+                else: #security
+                    acquisition_date_time = datetime.datetime.now()
+            
+                file = fileData.getConvertedFileName() #?????????
+                acq_time = acquisition_date_time.strftime("%H-%M-%S")
+                new_name = ''.join(file.split('.')[:-1]+['_', acq_time,'.',file.split('.')[-1]])   
+                fileData.renameFile(new_name)
 
         return False
         

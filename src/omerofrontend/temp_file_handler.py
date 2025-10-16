@@ -5,7 +5,7 @@ from werkzeug.datastructures import FileStorage
 from common import logger
 from common import conf
 from common.file_data import FileData
-from common.image_funcs import is_supported_format
+from common import image_funcs
 from omerofrontend.exceptions import GeneralError, ImageNotSupported, OutOfDiskError
 
 TempProgressCallback = Optional[Callable[[str, int], None]]  # Define a type for the progress callback
@@ -21,7 +21,7 @@ class TempFileHandler:
             if file.filename is None:
                 raise GeneralError(None,f"Got file without filename! {file}")
             
-            if not is_supported_format(file.filename):
+            if not image_funcs.is_supported_format(file.filename):
                 raise ImageNotSupported(file.filename) 
 
             result, filepath, filesize = self._store_temp_file(file, file.filename, username, temp_cb)
