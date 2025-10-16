@@ -26,7 +26,7 @@ class OmeroGetterCtx:
         
         return project.getName()
     
-    def get_dataset_name(self, dataset_id: int) -> str:
+    def get_dataset_name(self, dataset_id: int) -> str | None:
         dataset: DatasetWrapper| None = self.conn.get_dataset(dataset_id)
         if dataset is None:
             raise OmeroObjectNotFoundError(f"dataset with id {dataset_id} does not exist")
