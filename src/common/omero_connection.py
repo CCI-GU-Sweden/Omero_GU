@@ -7,16 +7,17 @@ import omero.rtypes
 from omero.gateway import BlitzGateway, DatasetWrapper
 from common import conf
 from common import logger
-
+from omerofrontend.server_event_manager import ServerEventManager
 
 class OmeroConnection:
-    
-    _mutex = Lock()
-    
+        
     def __init__(self, hostname: str, port: str, token: str):
         self.omero_token = token
         self.hostname = hostname
         self.port = port
+        
+        self._mutex = Lock()
+
         self._connect_to_omero(hostname,port,token)
         
     def __del__(self):
@@ -114,23 +115,31 @@ class OmeroConnection:
             
         return projects
         
+    def _get_objects(self, obj_type, filters=None):
+        with self._mutex:
+            return self.conn.getObjects(obj_type, attributes=filters)
+        
+    def _get_object(self, obj_type, filters=None):
+        with self._mutex:
+            return self.conn.getObject(obj_type, attributes=filters)
+        
     def get_project_name(self, proj_id: int) -> str:
-        project = self.conn.getObject("Project", proj_id)
+        #project = self.conn.getObject("Project", proj_id)
+        project = self._get_object("Project", proj_id)
         if not project:
             raise Exception(f"Project with ID {proj_id} not found")
         
         return project.getName()
 
     def get_dataset_name(self, dataset_id: int) -> str:
-        dataset = self.conn.getObject("Dataset", dataset_id)
+        dataset = self._get_object("Dataset", dataset_id)
         if not dataset:
             raise Exception(f"dataset with id {dataset_id} does not exist")
         
         return dataset.getName()
 
-        
     def get_dataset_for_projects(self, project_id):
-        project = self.conn.getObject("Project", project_id)
+        project = self._get_object("Project", project_id)
         if not project:
             raise Exception(f"Project with ID {project_id} not found")
 
@@ -141,7 +150,7 @@ class OmeroConnection:
         return datasets
 
     def get_dataset_ids_for_projects(self, project_id):
-        project = self.conn.getObject("Project", project_id)
+        project = self._get_object("Project", project_id)
         if not project:
             raise Exception(f"Project with ID {project_id} not found")
 
@@ -153,7 +162,7 @@ class OmeroConnection:
 
     def get_or_create_dataset(self, project_id, dataset_name) -> int:
         
-        project = self.conn.getObject("Project", project_id)
+        project = self._get_object("Project", project_id)
         if not project:
             raise Exception(f"Project with ID {project_id} not found")
 
@@ -182,10 +191,10 @@ class OmeroConnection:
         return dataset_id
 
     def get_dataset(self, dataSetId: int) -> Optional[DatasetWrapper]:
-        return self.conn.getObject("Dataset", dataSetId)
+        return self._get_object("Dataset", dataSetId)
         
     def getImage(self, imageID):
-        return self.conn.getObject("Image", imageID)
+        return self._get_object("Image", imageID)
 
     def check_duplicate_file(self, filename: str, datasetId: int):
         dataset = self.get_dataset(datasetId)
@@ -228,7 +237,7 @@ class OmeroConnection:
             List of tag values.
         """
         tags = []
-        for tag in self.conn.getObjects("TagAnnotation"): #grab all tag
+        for tag in self._get_objects("TagAnnotation"): #grab all tag
             tags.append(tag.getValue())
         tags = [x.replace(key,'') for x in tags if x.startswith(key+' ')] #filter it
 
@@ -242,7 +251,7 @@ class OmeroConnection:
                 
     def getTagAnnotations(self,tag_value):
         attributes={'textValue': tag_value}
-        return self.conn.getObjects("TagAnnotation", attributes=attributes)
+        return self._get_objects("TagAnnotation", attributes)
 
     def get_tag_annotation(self,tag_value):
         # attributes={'textValue': tag_value}
@@ -259,7 +268,7 @@ class OmeroConnection:
         return tag.getId() if tag else None
 
     def get_comment_annotations(self):
-        return self.conn.getObjects("CommentAnnotation")
+        return self._get_objects("CommentAnnotation")
 
     def get_comment_annotation(self, value):
         for comment_ann in self.get_comment_annotations():
@@ -277,8 +286,13 @@ class OmeroConnection:
         return value
 
     def get_map_annotations(self):
-        return self.conn.getObjects("MapAnnotation")
-
+        try:
+            logger.info("Fetching all map annotations")
+            return self._get_objects("MapAnnotation")
+        except Exception as e:
+            logger.error(f"Failed to get map annotations: {str(e)} stack: {traceback.format_exc()}")
+            ServerEventManager.send_error_event("N/A",f"Failed to get map annotations: {str(e)}")
+            return []
     # def get_map_annotation(self, name, value):
     #     for map_ann in self.get_map_annotations():
     #         try:
@@ -315,7 +329,7 @@ class OmeroConnection:
             List of tuples containing key-value pairs from map annotations.
         """
         map_annotations = []
-        image = self.conn.getObject("Image", imageId)
+        image = self._get_object("Image", imageId)
         if not image:
             logger.warning(f"Image with ID {imageId} not found")
             return map_annotations
@@ -337,7 +351,7 @@ class OmeroConnection:
             List of tag values associated with the image.
         """
         tags = []
-        image = self.conn.getObject("Image", imageId)
+        image = self._get_object("Image", imageId)
         if not image:
             logger.warning(f"Image with ID {imageId} not found")
             return tags
@@ -348,9 +362,9 @@ class OmeroConnection:
                 
         return tags
 
-    def setGroupNameForSession(self, group):
-        with self._mutex:
-            self.conn.setGroupNameForSession(group)
+    # def setGroupNameForSession(self, group):
+    #     with self._mutex:
+    #         self.conn.setGroupNameForSession(group)
         
     def getDefaultOmeroGroup(self) -> str:
         group = self.conn.getGroupFromContext()
@@ -379,7 +393,7 @@ class OmeroConnection:
     #return the first value of the given key or None
     def getMapAnnotationValue(self, imageId, key):
         value = None
-        image = self.conn.getObject("Image", imageId)
+        image = self._get_object("Image", imageId)
         map_annotations = [ann for ann in image.listAnnotations() if isinstance(ann, omero.gateway.MapAnnotationWrapper)] # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
         for map_ann in map_annotations:
             k_list = [x for x in map_ann.getValue() if x[0] == key]
