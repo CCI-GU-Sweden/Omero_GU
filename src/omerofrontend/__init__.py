@@ -148,7 +148,7 @@ def create_app(test_config=None):
         logger.debug("receiving files")
         files = request.files.getlist('files')
         token = session.get(conf.OMERO_SESSION_TOKEN_KEY)
-        groupname = conn.getDefaultOmeroGroup()
+        groupname = conn.get_default_omero_group()
         username = conn.get_logged_in_user_full_name()
         res, status = middle_ware.import_files(files,batch_tag,username,groupname,token)
 

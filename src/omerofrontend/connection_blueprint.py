@@ -109,7 +109,7 @@ def get_existing_groups():
     logger.info("Fetching groups from OMERO.")
     try:
         conn = getattr(g, conf.OMERO_G_CONNECTION_KEY)        
-        return jsonify(conn.get_user_group())
+        return jsonify(conn.get_user_groups())
     except Exception as e:
         logger.error(f"Error fetching group: {str(e)}")
         return jsonify({"error": str(e)}), 500
