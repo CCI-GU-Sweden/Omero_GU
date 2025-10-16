@@ -13,13 +13,13 @@ from omerofrontend.file_uploader import RetryCallback, ProgressCallback, ImportS
 
 class FileImporter:
     
-    def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, token: str) -> tuple[list[str], list[int], str]:
+    def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
         filename = fileData.getMainFileName()
         file_path, metadict = image_funcs.file_format_splitter(fileData) #file_path is a list of str
 
         fileData.addTempFilePaths(file_path)
 
-        conn: OmeroConnection = OmeroConnection(hostname=conf.OMERO_HOST, port=conf.OMERO_PORT, token=token)
+        #conn: OmeroConnection = OmeroConnection(hostname=conf.OMERO_HOST, port=conf.OMERO_PORT, token=token)
         scopes = self._get_scopes_metadata(metadict)
         self._set_folder_and_converted_name(fileData, metadict, file_path)
         date_str = metadict.get('Acquisition date', datetime.datetime.now().strftime(conf.DATE_TIME_FMT)) 

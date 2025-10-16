@@ -25,7 +25,7 @@ class FileUploader:
     
     def __init__(self, conn: OmeroConnection) -> None:
         self._oConn = conn
-        pass
+
     
     def upload_files(self, filedata: FileData, meta_dict: dict[str, str], tags: dict[str, str], dataset_id: int,  project_id : int, progress_cb: ProgressCallback = None, retry_cb: RetryCallback = None, import_cb: ImportStartedCallback = None) -> tuple[list[int],str]:
         """Upload files to OMERO from local filesystem."""
