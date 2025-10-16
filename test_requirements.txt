@@ -1,4 +1,5 @@
 ruff==0.12.2
 pytest==8.4.1
 pylance==0.31.0
+pyright==1.1.405
 tox==4.28.4
