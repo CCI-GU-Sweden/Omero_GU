@@ -49,3 +49,10 @@ class OutOfDiskError(OmeroFrontendException):
     def __init__(self, filename=None, filepath : str = "", message="No space left on disk!"):
         super().__init__(filename, message)
         self.filepath : str = filepath
+        
+class OmeroObjectNotFoundError(OmeroFrontendException):
+    """Exception raised when object is not found in omero"""
+    def __init__(self, filename=None, filepath : str = "", message="Object not found on OMERO server"):
+        super().__init__(filename, message)
+        self.filepath : str = filepath
+        

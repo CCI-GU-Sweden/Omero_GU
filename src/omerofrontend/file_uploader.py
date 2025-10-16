@@ -16,6 +16,7 @@ from common.omero_connection import OmeroConnection
 from omerofrontend.exceptions import OmeroConnectionError, AssertImportError, ImportError
 from common import logger
 from common import conf
+from common.omero_getter_ctx import OmeroGetterCtx
 
 ProgressCallback = Optional[Callable[[int], None]]  # Define a type for the progress callback
 RetryCallback = Optional[Callable[[str, int], None]]  # Define a type for the retry callback
@@ -88,8 +89,9 @@ class FileUploader:
         for i in image_ids:
             self._check_and_create_attachment(filedata, i)
 
-        proj_name = self._oConn.get_project_name(project_id)
-        dataset_name = self._oConn.get_dataset_name(dataset_id)
+        with OmeroGetterCtx(self._oConn) as ogc:   
+            proj_name = ogc.get_project_name(project_id)
+            dataset_name = ogc.get_dataset_name(dataset_id)
 
         omero_path = str(filedata.getUserName()) + '/' + proj_name + '/' + dataset_name
 
@@ -98,17 +100,9 @@ class FileUploader:
     def _check_and_create_attachment(self, filedata: FileData, imageid: int):
 
         attachmentFile = filedata.getAttachmentFile()
-        if attachmentFile:
-            file_ann = self._oConn.conn.createFileAnnfromLocalFile(
-                attachmentFile,
-                mimetype="text/plain",  # Adjust as needed
-                desc="Optional description"
-            )
+        if attachmentFile is not None:
+            self._oConn.create_and_link_local_attachment(attachmentFile,imageid)
             
-            img = self._oConn.getImage(imageid)
-            if img:
-                img.linkAnnotation(file_ann)
-    
     def _create_annotation_objects(self, meta_dict: dict[str, str], tags: dict[str,str]):
 
         result_list = []
@@ -119,7 +113,8 @@ class FileUploader:
                 ca.setTextValue(rstring(v))
                 result_list.append(ca)
                 continue
-            map_ann = self._oConn.get_map_annotation(k,v)
+            with OmeroGetterCtx(self._oConn) as ogc:
+                map_ann = ogc.get_map_annotation(k,v)
             if map_ann:
                 id = map_ann.getId()
                 logger.debug(f"Using existing map annotation for {k}: {id}")
@@ -141,14 +136,19 @@ class FileUploader:
         if len(tags_list) > 0:
             result_list.extend(tags_list)
 
-        extra_tags_names = ['Microscope', 'Lens Magnification', 'Image type']
+        extra_tag_names = ['Microscope', 'Lens Magnification', 'Image type']
         extra_tags = []
-        for tag_name in extra_tags_names:
-            if tag_name in meta_dict:
+        
+        common_tags = [x for x in extra_tag_names if x in meta_dict]
+        # unique (still in list order):
+        common_tags_unique = list(dict.fromkeys(common_tags))
+        
+        with OmeroGetterCtx(self._oConn) as ogc:
+            for tag_name in common_tags_unique:
                 tagvalue = meta_dict[tag_name]
                 if tag_name == 'Lens Magnification':
                     tagvalue = str(tagvalue) + 'X'  # Append 'x' to the lens magnification value
-                if ta := self._oConn.get_tag_annotation_id(tagvalue):
+                if ta := ogc.get_tag_annotation_id(tagvalue):
                     ti = omero.model.TagAnnotationI(ta) # type: ignore
                 else:
                     ti = omero.model.TagAnnotationI() # type: ignore
