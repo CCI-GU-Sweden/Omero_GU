@@ -141,7 +141,6 @@ class TestFileImporter:
     def do_file_imports(self, fileData: FileData, metadict, scopes):
 
         conn = OmeroConnection_("localhost","5000","")
-        ogc = OmeroGetterCtx_(conn)
         dataset = None
         now = datetime.now() # current date and time
         date_time = now.strftime("%m/%d/%Y, %H:%M:%S")

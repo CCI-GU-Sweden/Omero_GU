@@ -93,7 +93,13 @@ class FileUploader:
             proj_name = ogc.get_project_name(project_id)
             dataset_name = ogc.get_dataset_name(dataset_id)
 
-        omero_path = str(filedata.getUserName()) + '/' + proj_name + '/' + dataset_name
+        proj_name = "Unknown project" if proj_name is None else proj_name
+        dataset_name = "Unknown dataset" if dataset_name is None else dataset_name
+            
+        usern = filedata.getUserName()
+        usern = "Unknown user" if usern is None else usern
+    
+        omero_path = usern + '/' + proj_name + '/' + dataset_name
 
         return image_ids, omero_path
     
