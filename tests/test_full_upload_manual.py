@@ -8,8 +8,9 @@ from common.omero_connection import OmeroConnection
 from omerofrontend.database import SqliteDatabaseHandler
 from common import conf
 from common import logger
+from common.omero_getter_ctx import OmeroGetterCtx
 
-session_token = "f12fb054-11d2-4a97-ace9-e0ff00f33ae8" # Example session token, replace with valid token
+session_token = "7d9f2a40-9dc9-4d7f-b926-b10fce428feb" # Example session token, replace with valid token
 
 t1 = 'Tag1'
 v1 = 'Value1'
@@ -63,12 +64,14 @@ class TestFullUploadManual:
         #start tests
         assert result, "Upload did not complete successfully."
         assert len(image_ids) >= 1, "No image IDs were returned from the upload."
-        img_tags = self._conn.get_image_tags(image_ids[0])  # Check if we can retrieve tags for the uploaded image
+        with OmeroGetterCtx(self._conn) as ogc:
+            img_tags = ogc.get_image_tags(image_ids[0])  # Check if we can retrieve tags for the uploaded image
         assert f"{t1} {v1}" in img_tags, f"Tag {t1} with value {v1} not found in image tags."
         assert f"{t2} {v2}" in img_tags, f"Tag {t2} with value {v2} not found in image tags."
         assert scope in img_tags, f"Scope {scope} not found in image scopes."
         
-        kv_pairs = self._conn.get_image_map_annotations(image_ids[0])
+        with OmeroGetterCtx(self._conn) as ogc:
+            kv_pairs = ogc.get_image_map_annotations(image_ids[0])
         assert kv_pairs is not None, "Key-value pairs should not be None."
         assert ('Microscope', scope) in kv_pairs, f"Expected scope {scope}"
         assert (extrak,extrav) in kv_pairs, f"Expected {extrak} to be {extrav}."
@@ -96,7 +99,7 @@ class TestFullUploadManual:
                 # Perform the upload using the middle ware
                 try:
                     username = self._conn.get_logged_in_user_full_name()
-                    groupname = self._conn.getDefaultOmeroGroup()
+                    groupname = self._conn.get_default_omero_group()
                     self._mw.import_files([filestorage], tags, username, groupname, session_token, self.upload_done)
                     logger.info("File upload initiated successfully.")
                 except Exception as e:
@@ -125,7 +128,7 @@ class TestFullUploadManual:
                 # Perform the upload using the middle ware
                 try:
                     username = self._conn.get_logged_in_user_full_name()
-                    groupname = self._conn.getDefaultOmeroGroup()
+                    groupname = self._conn.get_default_omero_group()
                     self._mw.import_files([f1_storage,f2_storage], tags, username, groupname, session_token, self.upload_done)
                     logger.info("File upload initiated successfully.")
                 except Exception as e:
@@ -149,7 +152,7 @@ class TestFullUploadManual:
                 # Perform the upload using the middle ware
                 try:
                     username = self._conn.get_logged_in_user_full_name()
-                    groupname = self._conn.getDefaultOmeroGroup()
+                    groupname = self._conn.get_default_omero_group()
                     self._mw.import_files([filestorage], tags, username, groupname, session_token, self.upload_done)
                     logger.info("File upload initiated successfully.")
                 except Exception as e:

@@ -9,13 +9,53 @@ from common import image_funcs
 from omerofrontend.file_importer import FileImporter
 from omerofrontend.temp_file_handler import TempFileHandler
 from common.logger import logging
+from common.omero_getter_ctx import OmeroGetterCtx
+
+class FakeImage:
+    def __init__(self, acqt, name = "", id=666):
+        self.acqt = acqt
+        self.name = name
+        self.id = id
+        
+    def getAcquisitionDate(self):
+        return self.acqt
+    
+    def getName(self):
+        return self.name
+    
+    def getId(self):
+        return self.id
+
 
 class FakeDataset:
-    def __init__(self, value):
+    def __init__(self, value, name, children: list[FakeImage] = []):
         self.value = value
+        self.name = name
+        self.children = children
         
     def getValue(self):
         return self.value
+    
+    def getName(self):
+        return self.name
+    
+    def listChildren(self):
+        return self.children
+
+class OmeroGetterCtx_(OmeroGetterCtx):
+    def __init__(self, omero_connection: OmeroConnection):
+        super().__init__(omero_connection)
+
+
+class FakeProject:
+    def __init__(self,proj_name, ds_id, ds_name):
+        self._val = proj_name
+        self.ds_id = ds_id
+        self.ds_name = ds_name
+        
+    def listChildren(self):
+        return [FakeDataset(self.ds_id,self.ds_name)]
+
 
 class OmeroConnection_(OmeroConnection):
     def __init__(self, host, port, session_token):
@@ -23,8 +63,14 @@ class OmeroConnection_(OmeroConnection):
         self.port = port
         self.omero_token = session_token
         self.conn = None
+        
+    def create_dataset(self, project_id: int, dataset_name: str):
+        return 66
       
-    def get_or_create_project(self, project_name):
+    def get_user_projects(self, user_id):
+        return []
+    
+    def create_project(self, project_name):
         return 55  # Simulated project ID
 
     def get_or_create_dataset(self, project_id, dataset_name):
@@ -95,26 +141,31 @@ class TestFileImporter:
     def do_file_imports(self, fileData: FileData, metadict, scopes):
 
         conn = OmeroConnection_("localhost","5000","")
+        ogc = OmeroGetterCtx_(conn)
         dataset = None
-        with patch.object(conn,'get_dataset', side_effect=FakeDataset):
-            now = datetime.now() # current date and time
-            date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
+        now = datetime.now() # current date and time
+        date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
+        with patch.object(conn,'_get_object', return_value=FakeProject(date_time,66,"66")), patch.object(conn,'get_user_id',return_value=22):
             dataset, _ = self.fi._check_create_project_and_dataset_(scopes[0],date_time, conn)
             assert(dataset == 66)
             
+        #conn2 = OmeroConnection_("localhost","5000","")
         fname = fileData.getConvertedFileName()
-        with patch.object(conn,'check_duplicate_file', return_value=(False,None)), patch.object(conn,'compareImageAcquisitionTime', return_value=False):
+        with patch.object(conn,'_get_object', return_value=FakeDataset(12,"12")):
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
             assert(not isDup)
             assert(fname == fileData.getConvertedFileName())
 
-        with patch.object(conn,'check_duplicate_file', return_value=(True,66)), patch.object(conn,'compareImageAcquisitionTime', return_value=True):
+        acquisition_date_time = acquisition_date_time = parser.parse(metadict['Acquisition date'])
+        dup_img = FakeImage(acquisition_date_time,fname,12)
+        with patch.object(conn,'get_image', return_value=dup_img), patch.object(conn,'get_dataset', return_value=FakeDataset(66,"66", [dup_img])):
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
             assert(isDup)
             assert(fname == fileData.getConvertedFileName())
 
             
-        with patch.object(conn,'check_duplicate_file', return_value=(True,66)), patch.object(conn,'compareImageAcquisitionTime', return_value=False):
+        ndup_img = FakeImage(now,fname,12)
+        with patch.object(conn,'get_image', return_value=ndup_img),patch.object(conn,'get_dataset', return_value=FakeDataset(66,"66",[ndup_img])):
             acquisition_date_time = parser.parse(metadict['Acquisition date'])
             acq_time = acquisition_date_time.strftime("%H-%M-%S")
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
