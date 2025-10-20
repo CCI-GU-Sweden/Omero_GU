@@ -3,6 +3,7 @@ from flask import request, session, jsonify, Blueprint,g
 from common.omero_connection import OmeroConnection
 from common import conf
 from common import logger
+from common.omero_getter_ctx import OmeroGetterCtx
 
 conn_bp = Blueprint('conn_bp',__name__,url_prefix='/')
 
@@ -74,14 +75,15 @@ def get_existing_tags():
     """
     logger.info("Fetching tags from OMERO.")
     try:
-        conn = getattr(g, conf.OMERO_G_CONNECTION_KEY)
+        conn: OmeroConnection = getattr(g, conf.OMERO_G_CONNECTION_KEY)
         keys_and_values = {}
         
         # Fetch all keys from the OMERO server
         all_keys = conf.USER_VARIABLES
         for key in all_keys:
-            values = conn.get_tags_by_key(key)
-            keys_and_values[key] = values
+            with OmeroGetterCtx(conn) as ogc:
+                values = ogc.get_tags_by_key(key)
+                keys_and_values[key] = values
         
         return jsonify(keys_and_values)
     except Exception as e:
@@ -92,8 +94,8 @@ def get_existing_tags():
 def get_default_group():
     """Fetch the default group of the user"""
     try:
-        conn = getattr(g, conf.OMERO_G_CONNECTION_KEY)
-        group = conn.getDefaultOmeroGroup()
+        conn: OmeroConnection = getattr(g, conf.OMERO_G_CONNECTION_KEY)
+        group = conn.get_default_omero_group()
         logger.info(f"Default group is: {str(group)}")
         return jsonify(group)
         #function here
@@ -108,7 +110,7 @@ def get_existing_groups():
     """
     logger.info("Fetching groups from OMERO.")
     try:
-        conn = getattr(g, conf.OMERO_G_CONNECTION_KEY)        
+        conn: OmeroConnection = getattr(g, conf.OMERO_G_CONNECTION_KEY)        
         return jsonify(conn.get_user_groups())
     except Exception as e:
         logger.error(f"Error fetching group: {str(e)}")
@@ -122,9 +124,9 @@ def set_group():
         if not group:
             logger.error("No 'group' key found in JSON.")
             return jsonify({"error": "No group provided"}), 400
-        conn = getattr(g, conf.OMERO_G_CONNECTION_KEY)
+        conn: OmeroConnection = getattr(g, conf.OMERO_G_CONNECTION_KEY)
         try:
-            conn.setGroupNameForSession(group)
+            conn.set_group_name_for_session(group)
         except Exception as e:
             logger.error("Error setting group in OMERO!")
             return jsonify({"error": str(e)}), 500  # Return error message
