@@ -8,5 +8,11 @@
     "exclude": [
         ".venv",
         "src/omerofrontend/dashboard.py",
-    ]
+    ],
+    "reportOptionalMemberAccess": "error",
+    "reportUnusedImport": "warning",
+    "reportUninitializedInstanceVariable": "warning"
+
+
+
 }
