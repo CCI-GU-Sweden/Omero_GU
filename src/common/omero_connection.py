@@ -10,6 +10,7 @@ class OmeroConnection:
         self.omero_token = token
         self.hostname = hostname
         self.port = port
+        self.conn: BlitzGateway
         
         self._mutex = Lock()
 
@@ -41,40 +42,52 @@ class OmeroConnection:
             self.conn.close(hard=hardClose)
 
     def get_user(self):
-        return self.conn.getUser()
+        with self._mutex:
+            return self.conn.getUser()
 
     def get_user_id(self):
-        return self.conn.getUserId()
+        with self._mutex:
+            return self.conn.getUserId()
 
     def get_logged_in_user_name(self) -> str:
-        user = self.conn.getUser()
+        with self._mutex:
+            user = self.conn.getUser()
         return user.getName() if user else "Unknown User"
     
     def get_logged_in_user_full_name(self) -> str:
-        user = self.conn.getUser()
+        with self._mutex:
+            user = self.conn.getUser()
         return user.getFullName() if user else "Unknown User"
 
     def get_user_groups(self):
         groups = []
-        for group in self.conn.getGroupsMemberOf():
-            groups.append(group.getName())
+        with self._mutex:
+            for group in self.conn.getGroupsMemberOf():
+                groups.append(group.getName())
         return groups
 
+    def set_group_name_for_session(self, group):
+        with self._mutex:
+            self.conn.setGroupNameForSession(group)
+    
     def get_default_omero_group(self) -> str:
-        group = self.conn.getGroupFromContext()
+        with self._mutex:
+            group = self.conn.getGroupFromContext()
         return str(group.getName())
 
     def get_user_project_ids(self, user_id):
         projects = []
-        for p in self.conn.listProjects(user_id):         # Initially we just load Projects
-            projects.append((p.getName(),p.getId()))
+        with self._mutex:
+           for p in self.conn.listProjects(user_id):         # Initially we just load Projects
+                projects.append((p.getName(),p.getId()))
             
         return projects
     
     def get_user_projects(self, user_id):
         projects = []
-        for p in self.conn.listProjects(user_id):         # Initially we just load Projects
-            projects.append(p)
+        with self._mutex:
+            for p in self.conn.listProjects(user_id):         # Initially we just load Projects
+                projects.append(p)
             
         return projects
         
