@@ -166,23 +166,31 @@ class OmeroGetterCtx:
 
     def get_map_annotations(self):
         try:
-            logger.info("Fetching all map annotations")
+            #logger.info("Fetching all map annotations")
             return self.conn._get_objects("MapAnnotation")
         except Exception as e:
             logger.error(f"Failed to get map annotations: {str(e)} stack: {traceback.format_exc()}")
+            
             #ServerEventManager.send_error_event("N/A",f"Failed to get map annotations: {str(e)}")
-            return []
+        return None
 
     #TODO: this is intrusive...need fix
     def get_map_annotation(self, name, value):
-        for map_ann in self.get_map_annotations():
-            if not isinstance(map_ann, MapAnnotationWrapper): # pyright: ignore[reportAttributeAccessIssue]
+        map_ann = self.get_map_annotations()
+        if map_ann is None:
+            return None
+        
+        res = None
+        for map in map_ann: 
+            if not isinstance(map, MapAnnotationWrapper): # pyright: ignore[reportAttributeAccessIssue]
                 #logger.warning(f"Annotation {map_ann.getId()} is not a MapAnnotationWrapper")
                 continue
-            n, v = map_ann.getValue()[0]
+            n, v = map.getValue()[0]
             if n == name and v == value:
-                return map_ann            
-        return None
+                res = map
+                break
+
+        return res
 
     def get_image_map_annotations(self, imageId):
         """
