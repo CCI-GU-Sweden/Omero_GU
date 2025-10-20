@@ -10,7 +10,7 @@ class OmeroConnection:
         self.omero_token = token
         self.hostname = hostname
         self.port = port
-        self.conn: BlitzGateway | None
+        self.conn: BlitzGateway
         
         self._mutex = Lock()
 
