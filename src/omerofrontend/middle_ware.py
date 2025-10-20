@@ -199,9 +199,3 @@ class MiddleWare:
             total_file_size_mb=total_file_size / 1024 / 1024,
             import_time_s=import_time
             )
-
-    def get_ssevent(self, timeout=None):
-        """
-        Get the next server-sent event from the queue.
-        """
-        return ServerEventManager.getEvent(timeout=timeout)
