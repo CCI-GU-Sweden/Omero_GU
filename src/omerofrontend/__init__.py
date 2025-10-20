@@ -153,9 +153,11 @@ def create_app(test_config=None):
         res, status = middle_ware.import_files(files,batch_tag,username,groupname,token)
 
         if res:
-            return jsonify({"status":"Ok"})
+            logger.debug("import images returned ok 202")
+            return jsonify({"status":"ok"}), 202
         else:
-            return jsonify({"status":status}), 507
+            logger.debug("import images returned NOK 500")
+            return jsonify({"status":status}), 500
             
     @app.route('/get_projects', methods=['POST'])
     def get_projects():
