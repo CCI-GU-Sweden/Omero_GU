@@ -3,6 +3,7 @@ import platform
 import locale
 import omero
 import hashlib
+from threading import Lock
 import omero.model
 import omero.grid
 import traceback
@@ -26,50 +27,56 @@ class FileUploader:
     
     def __init__(self, conn: OmeroConnection) -> None:
         self._oConn = conn
+        self._mtx = Lock()
 
     
     def upload_files(self, filedata: FileData, meta_dict: dict[str, str], tags: dict[str, str], dataset_id: int,  project_id : int, progress_cb: ProgressCallback = None, retry_cb: RetryCallback = None, import_cb: ImportStartedCallback = None) -> tuple[list[int],str]:
         """Upload files to OMERO from local filesystem."""
-        
-        #TODO: errorhandling in this function is not very good, should be improved
-        mrepo = self._get_managed_repo()
-        if not mrepo:
-            raise OmeroConnectionError("Managed repository not found.")
-        
-        fileset = self._create_fileset(filedata)
-        
-        annotations = self._create_annotation_objects(meta_dict, tags)
-        description = meta_dict.get('Description', 'N/A')
-        settings = self._create_settings(dataset_id, description, annotations)
-        try:
-            proc = mrepo.importFileset(fileset, settings)
-        except Exception as ie:
-            logger.error(f"Import exception: {str(ie)}, traceback: {traceback.format_exc()}")
-            raise OmeroConnectionError(f"Failed to create import process: {str(ie)}")
-          
-        retry_cnt = 0
-        done = False
-        response = None
-        while not done:
+        with self._mtx:
+            #TODO: errorhandling in this function is not very good, should be improved
+            mrepo = self._get_managed_repo()
+            if not mrepo:
+                logger.error(f"Unable to get managed repo, { filedata.getMainFileName()}")
+                raise OmeroConnectionError(f"Managed repository not found. { filedata.getMainFileName()}")
+            
+            fileset = self._create_fileset(filedata)
+            
+            annotations = self._create_annotation_objects(meta_dict, tags)
+            description = meta_dict.get('Description', 'N/A')
+            settings = self._create_settings(dataset_id, description, annotations)
             try:
-                hashes = self._upload_and_calculate_hash(proc,filedata, progress_cb)
-                if import_cb:
-                    import_cb()
-                response = self._assert_import(proc, hashes)
-                done = True
-            except AssertImportError as aie:
-                logger.error(f"Import assertion error: {str(aie)}")
-                if retry_cb:
-                    retry_cb(str(aie.filename), retry_cnt)
-                retry_cnt += 1
-                if retry_cnt >= conf.IMPORT_NR_OF_RETRIES:
-                    logger.error(f"Maximum number of retries ({conf.IMPORT_NR_OF_RETRIES}) reached. Aborting import.")
+                proc = mrepo.importFileset(fileset, settings)
+            except Exception as ie:
+                logger.error(f"Import exception: {str(ie)}, traceback: {traceback.format_exc()}")
+                raise OmeroConnectionError(f"Failed to create import process: {str(ie)}")
+            
+            if proc is None:
+                logger.error("Unable to create proc for importFileset")
+                raise OmeroConnectionError(f"Failed to create import process: { filedata.getMainFileName()}")
+
+            retry_cnt = 0
+            done = False
+            response = None
+            while not done:
+                try:
+                    hashes = self._upload_and_calculate_hash(proc,filedata, progress_cb)
+                    if import_cb:
+                        import_cb()
+                    response = self._assert_import(proc, hashes)
                     done = True
+                except AssertImportError as aie:
+                    logger.error(f"Import assertion error: {str(aie)}")
+                    if retry_cb:
+                        retry_cb(str(aie.filename), retry_cnt)
+                    retry_cnt += 1
+                    if retry_cnt >= conf.IMPORT_NR_OF_RETRIES:
+                        logger.error(f"Maximum number of retries ({conf.IMPORT_NR_OF_RETRIES}) reached. Aborting import.")
+                        done = True
+                        proc.close()
+                        raise ImportError(f"Import failed after {conf.IMPORT_NR_OF_RETRIES} retries: {str(aie)}")
+                    
+                finally:
                     proc.close()
-                    raise ImportError(f"Import failed after {conf.IMPORT_NR_OF_RETRIES} retries: {str(aie)}")
-                
-            finally:
-                proc.close()
 
         if response is None:
             raise ImportError("No response received from the import process. Import may have failed.")
@@ -121,7 +128,7 @@ class FileUploader:
                 continue
             with OmeroGetterCtx(self._oConn) as ogc:
                 map_ann = ogc.get_map_annotation(k,v)
-            if map_ann:
+            if map_ann is not None:
                 id = map_ann.getId()
                 logger.debug(f"Using existing map annotation for {k}: {id}")
                 map_annotation = omero.model.MapAnnotationI(id) # type: ignore
