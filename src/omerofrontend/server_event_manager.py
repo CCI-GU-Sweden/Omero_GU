@@ -1,6 +1,7 @@
 import os
 from threading import Lock
 import redis
+from redis.exceptions import RedisError
 import json
 from redis.exceptions import ConnectionError, TimeoutError, AuthenticationError, ResponseError
 from common import conf
@@ -21,6 +22,7 @@ ERROR = "error"
 class ServerEventManager:
     
     _id_lock = Lock()
+    _send_lock = Lock()
     _id_cntr : int = -1
     
     #use this only for testing
@@ -59,15 +61,21 @@ class ServerEventManager:
         evt_type = event['type']
         data = event['data']
         
-        return cls.r.xadd(
-            conf.RQ_QUEUE_NAME,
-            {"type": evt_type, "data": json.dumps(data)},
-            maxlen=maxlen,
-            approximate=True,  # ~ trimming for performance
-        )
+        try :
+            return cls.r.xadd(
+                conf.RQ_QUEUE_NAME,
+                {"type": evt_type, "data": json.dumps(data)},
+                maxlen=maxlen,
+                approximate=True,  # ~ trimming for performance
+            )
+        except RedisError as e:
+            raise RuntimeError(f"redis xadd failed: {e}")
+        except Exception as ex:
+            raise RuntimeError(f"redis xread failed: {ex}")
+
     
     @classmethod
-    def read_import_updates(cls, last_id: str = "$", *, block_ms=30000, count=100):
+    def read_import_updates(cls, last_id: str = "$", *, block_ms=300, count=100):
         """
             Reads events from the Redis Stream consumed by /import_updates.
             - last_id: last ID received; use "$" to get only new events
@@ -75,7 +83,13 @@ class ServerEventManager:
             - count: max number of events to return at once
             Returns a list of (id, fields) tuples, where fields is a dict.
         """
-        items = cls.r.xread({conf.RQ_QUEUE_NAME: last_id}, block=block_ms, count=count)
+        try:
+            items = cls.r.xread({conf.RQ_QUEUE_NAME: last_id}, block=block_ms, count=count)
+        except RedisError as e:
+            raise RuntimeError(f"redis xread failed: {e}")
+        except Exception as ex:
+            raise RuntimeError(f"redis xread failed: {ex}")
+        
         if not items:
             return []
         _, entries = items[0] # pyright: ignore[reportIndexIssue]
