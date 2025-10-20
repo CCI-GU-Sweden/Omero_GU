@@ -10,6 +10,7 @@ from omerofrontend.file_importer import FileImporter
 from omerofrontend.temp_file_handler import TempFileHandler
 from common.logger import logging
 from common.omero_getter_ctx import OmeroGetterCtx
+from omero.gateway import BlitzGateway
 
 class FakeImage:
     def __init__(self, acqt, name = "", id=666):
@@ -62,7 +63,7 @@ class OmeroConnection_(OmeroConnection):
         self.host = host
         self.port = port
         self.omero_token = session_token
-        self.conn = None
+        self.conn = BlitzGateway()
         
     def create_dataset(self, project_id: int, dataset_name: str):
         return 66
