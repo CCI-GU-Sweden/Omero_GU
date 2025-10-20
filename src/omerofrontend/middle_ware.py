@@ -75,6 +75,9 @@ class MiddleWare:
             
 
     def _future_complete_callback(self, future):
+        
+        logger.debug("*** *** *** *** *** *** *** *** *** ***")
+        logger.debug("*** *** Future complete callback *** ***")
     
         if future.cancelled(): 
             logger.info("Import Image was cancelled.")
