@@ -1668,45 +1668,6 @@ def convert_fibics_to_ometiff(img_path: str, tif_tags: dict):
     write_tiff_pyramid(out_file, array, ome_xml=None, metadata=metadata, pxl_size=(px_um, py_um),
                        subresolutions=subresolutions,extra_tags=extratags)
     
-    # Convert µm/px -> pixels per centimeter
-    # px_cm = px_um * 1e-4
-    # py_cm = py_um * 1e-4
-    # xres0 = 1.0 / px_cm
-    # yres0 = 1.0 / py_cm
-    # subresolutions = choose_levels(float(image_width), float(image_length))
-    # with tifffile.TiffWriter(out_file, bigtiff=True) as tif:
-    #     tif.write(
-    #         array,
-    #         subifds=subresolutions-1,
-    #         metadata={
-    #                 "axes": "YX",
-    #                 "PhysicalSizeX": px_um,
-    #                 "PhysicalSizeXUnit": "µm",
-    #                 "PhysicalSizeY": py_um,
-    #                 "PhysicalSizeYUnit": "µm",
-    #         },
-    #         resolution=(xres0, yres0),
-    #         resolutionunit="CENTIMETER",
-    #         extratags=[(51023, "s", 0, xml_text, False)],
-    #         photometric="minisblack",
-    #         tile=(512, 512),
-    #         maxworkers=2,
-    #     )
-        
-    #     for level in range(1, subresolutions):
-    #         mag = 2 ** level
-    #         tif.write(
-    #             array[..., ::mag, ::mag],
-    #             subfiletype=1,
-    #             resolution=(xres0/mag, yres0/mag),
-    #             resolutionunit="CENTIMETER",
-    #             photometric="minisblack",
-    #             compression="zlib",
-    #             predictor=True,
-    #             tile=(512, 512),
-    #             maxworkers=2,
-    #         )
-
     #generate a small key-value pair for Omero!
     mini_metadata = {'Microscope': mapping('Gemini'),
                      'Lens Magnification': "N/A",
