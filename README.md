@@ -39,9 +39,8 @@ The app connects to an external OMERO.server instance; it does **not** host OMER
 
 ## Features
 
-- Web interface for OMERO data browsing [TOWRITE]  
-- API endpoints for GU workflows [TOWRITE]  
-- Optional usage logging into PostgreSQL [TOCHECK]  
+- Web interface for OMERO data import/upload
+- Optional usage logging into PostgreSQL  
 - Container-friendly design  
 - Minimal runtime dependencies
 
@@ -97,10 +96,10 @@ The app connects to an external OMERO.server instance; it does **not** host OMER
 
 Runtime dependencies:
 
-- Python 3.9+ [TOCHECK]
+- Python 3.9+
 - Redis 6+ (or managed Redis)
 - Optional: PostgreSQL 12+
-- OMERO.server version [TOFILL]
+- OMERO.server version >5
 
 For deployment:
 
