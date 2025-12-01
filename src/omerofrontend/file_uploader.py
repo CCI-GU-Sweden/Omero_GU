@@ -142,8 +142,14 @@ class FileUploader:
         
         tags_list = []
         for k, v in tags.items():
-            ti = omero.model.TagAnnotationI() # type: ignore
-            ti.setTextValue(rstring(f"{k} {v}"))
+            with OmeroGetterCtx(self._oConn) as ogc:
+                tai = ogc.get_tag_annotation_id(f"{k} {v}")
+            if tai is not None:
+                ti = omero.model.TagAnnotationI(tai) # type: ignore
+                logger.debug(f"Using existing tag annotation for {k} {v}: {tai}")
+            else:
+                ti = omero.model.TagAnnotationI() # type: ignore
+                ti.setTextValue(rstring(f"{k} {v}"))
             tags_list.append(ti)
 
         if len(tags_list) > 0:
