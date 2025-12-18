@@ -1661,7 +1661,8 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
 
         mic_ok  = mic in conf.TO_CONVERT_SCOPE
         size_ok = fileData.getTotalFileSize() > conf.CZI_CONVERT_MIN_BYTES
-        do_convert = mic_ok and (conf.FORCE_CZI_CONVERSION or size_ok)
+        #do_convert = mic_ok and (conf.FORCE_CZI_CONVERSION or size_ok)
+        do_convert = False #temporarily disable czi conversion due to issues with pyramid
 
         if do_convert:
             try:
