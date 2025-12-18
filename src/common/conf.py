@@ -45,6 +45,11 @@ USE_CHUNK_READ_ON_LARGE_FILES = True
 REDIS_URL = "redis://:redis@redis-omero-test:6379/0"
 RQ_QUEUE_NAME = "sse:omero_imports"
 
+ #Conversion to OME-TIFF
+TO_CONVERT_SCOPE: list = ["LSM 700", "LSM 710"]
+FORCE_CZI_CONVERSION: bool = True if USE_TEST_URL else False #will convert all the CZI files to ome-tiff if using test instance
+CZI_CONVERT_MIN_BYTES: int = int(1024 ** 3) #1GB
+
 try:
     import config #pyright: ignore[reportAttributeAccessIssue]
     FILE_IMPORT_THREADS = config.FILE_IMPORT_THREADS if hasattr(config,"FILE_IMPORT_THREADS") else FILE_IMPORT_THREADS# pyright: ignore[reportAttributeAccessIssue]
@@ -55,14 +60,18 @@ try:
     LOG_LEVEL = config.LOG_LEVEL if hasattr(config,"LOG_LEVEL") else LOG_LEVEL
     USE_CHUNK_READ_ON_LARGE_FILES = config.USE_CHUNK_READ_ON_LARGE_FILES if hasattr(config,"USE_CHUNK_READ_ON_LARGE_FILES") else USE_CHUNK_READ_ON_LARGE_FILES
     REDIS_URL = config.REDIS_URL if hasattr(config,"REDIS_URL") else REDIS_URL
+
+    TO_CONVERT_SCOPE = config.TO_CONVERT_SCOPE if hasattr(config,"TO_CONVERT_SCOPE") else TO_CONVERT_SCOPE
+    FORCE_CZI_CONVERSION = config.FORCE_CZI_CONVERSION if hasattr(config,"FORCE_CZI_CONVERSION") else FORCE_CZI_CONVERSION
+    CZI_CONVERT_MIN_BYTES = config.CZI_CONVERT_MIN_BYTES if hasattr(config,"CZI_CONVERT_MIN_BYTES") else CZI_CONVERT_MIN_BYTES
     
 except ImportError:
     pass
 
- #Conversion to OME-TIFF
-TO_CONVERT_SCOPE: list = ["LSM 700", "LSM 710"]
-FORCE_CZI_CONVERSION: bool = True if USE_TEST_URL else False #will convert all the CZI files to ome-tiff if using test instance
-CZI_CONVERT_MIN_BYTES: int = int(1024 ** 3) #1GB
+#be sure it is of the correct type
+TO_CONVERT_SCOPE = list(TO_CONVERT_SCOPE)
+FORCE_CZI_CONVERSION = bool(FORCE_CZI_CONVERSION)
+CZI_CONVERT_MIN_BYTES = int(CZI_CONVERT_MIN_BYTES)
 
 #if DB_HANDLER == "sqlite":
 SQL_DB_DIR = "database"
