@@ -41,3 +41,17 @@ pytest tests "-m not manual"
 To run the manual tests you run
 pytest tests "-m manual"
 
+
+### Deploying on Open shift
+
+The image is built automatically on core-omero-test namespace whenever the main branch is updated in git.
+When the image is in the expected and wanted state you tag it in core-omero-prod using oc:
+
+use oc to login and change to the core-omero-prod project
+run oc tag core-omero-test/omero-frontend-test:latest omero-frontend-prod:name_of_tag (usually v1.x or similar)
+
+Update the yaml for flask-app. Look for the section
+containers:
+        - name: flask-app
+          image: 'image-registry.openshift-image-registry.svc:5000/core-omero-prod/omero-frontend-prod:v1.5'
+ and update the version number in the end to the one you tagged.
