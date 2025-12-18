@@ -1658,7 +1658,6 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
     if ext == "czi": #Light microscope format - CarlZeissImage
         key_pair = get_info_metadata_from_czi(Path(img_path))
         mic = (key_pair.get("Microscope") or "").strip()
-
         mic_ok  = mic in conf.TO_CONVERT_SCOPE
         size_ok = fileData.getTotalFileSize() > conf.CZI_CONVERT_MIN_BYTES
         do_convert = mic_ok and (conf.FORCE_CZI_CONVERSION or size_ok)
