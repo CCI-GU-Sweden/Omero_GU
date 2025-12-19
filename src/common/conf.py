@@ -47,7 +47,7 @@ RQ_QUEUE_NAME = "sse:omero_imports"
 
  #Conversion to OME-TIFF
 TO_CONVERT_SCOPE: list = ["LSM 700", "LSM 710"]
-FORCE_CZI_CONVERSION: bool = True if USE_TEST_URL else False #will convert all the CZI files to ome-tiff if using test instance
+FORCE_CZI_CONVERSION: bool = USE_TEST_URL #will convert all the CZI files to ome-tiff if using test instance
 CZI_CONVERT_MIN_BYTES: int = int(1024 ** 3) #1GB
 
 try:
@@ -68,11 +68,6 @@ try:
 except ImportError:
     pass
 
-#be sure it is of the correct type
-TO_CONVERT_SCOPE = list(TO_CONVERT_SCOPE)
-FORCE_CZI_CONVERSION = bool(FORCE_CZI_CONVERSION)
-CZI_CONVERT_MIN_BYTES = int(CZI_CONVERT_MIN_BYTES)
-
 #if DB_HANDLER == "sqlite":
 SQL_DB_DIR = "database"
 SQL_DB_NAME = 'omero_imports.db'
@@ -80,13 +75,9 @@ SQL_DB_NAME = 'omero_imports.db'
 if USE_TEST_URL:
     OMERO_HOST = 'omero-cli.test.gu.se'
     OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
-    FORCE_CZI_CONVERSION = True
 else: #production mode
     OMERO_HOST = 'omero-cci-cli.gu.se'
     OMERO_BASE_URL = 'https://omero-cci-users.gu.se'
-    FORCE_CZI_CONVERSION: bool = False
-
-CZI_CONVERT_MIN_BYTES: int = int(1024 ** 3)
 
 OMERO_PORT = '4064'
 
