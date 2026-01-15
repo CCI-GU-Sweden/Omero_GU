@@ -148,8 +148,26 @@ export function updateFileStatus(fileName, fileStatus, message)
 {
     var fName = fileName.split(/[/\\]/).pop();
     var fileData = Array.from(fileComponents).find((element) => element.getName() == fName);
-    if(fileData)
-        fileData.setStatus(fileStatus,message);
+    if(fileData) {
+        fileData.setStatus(fileStatus, message);
+        
+        // Reorder list: move recently updated files to the top, duplicates to the bottom
+        const index = fileComponents.indexOf(fileData);
+        if (index !== -1) {
+            fileComponents.splice(index, 1); // Remove from current position
+            
+            if (fileStatus === FileStatus.DUPLICATE) {
+                // Move duplicates to the end
+                fileComponents.push(fileData);
+            } else {
+                // Move other status updates to the beginning
+                fileComponents.unshift(fileData);
+            }
+            
+            renderListOrder();
+            callCCB();
+        }
+    }
 }
 
 export function updateRetryStatus(fileName, retry, maxRetries)
@@ -220,4 +238,14 @@ export function getFileListForImport()
     });
 
     return returnList;
+}
+
+function renderListOrder() {
+  const list = getFileList();
+
+  for (const comp of fileComponents) {
+    if (comp?.container instanceof Node) {
+      list.appendChild(comp.container);
+    }
+  }
 }
