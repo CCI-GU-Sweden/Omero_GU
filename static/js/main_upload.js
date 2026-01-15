@@ -1,5 +1,5 @@
 import { fetchWrapper, showErrorPage } from "./utils.js";
-import { updateFileStatus, addFilesToList, getFileListForImport, nrFilesForUpload, clearFileList, setFileListChangeCB, updateRetryStatus, setAllPendingToError } from "./file_list.js";
+import { updateFileStatus, addFilesToList, getFileListForImport, nrFilesForUpload, clearFileList, setFileListChangeCB, updateRetryStatus, setAllPendingToError} from "./file_list.js";
 import { FileStatus } from "./file_list_component.js";
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const importButton = document.getElementById('import-button');
     const disconnectButton = document.getElementById('disconnect-button');
     const clearButton = document.getElementById('clear-button');
+    const cleanButton = document.getElementById('clean-button');
 	const groupsEndpoint = '/get_existing_groups';
 	const groupDropdown = document.getElementById('group-dropdown');
 	const defaultGroupEndpoint = "/get_default_group";
