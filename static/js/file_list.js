@@ -144,38 +144,63 @@ export function clearFileList()
     callCCB();
 }
 
-export function updateFileStatus(fileName, fileStatus, message)
-{
-    var fName = fileName.split(/[/\\]/).pop();
-    var fileData = Array.from(fileComponents).find((element) => element.getName() == fName);
-    if(fileData) {
-        fileData.setStatus(fileStatus, message);
-        
-        // Reorder list: move recently updated files to the top, duplicates to the bottom
-        const index = fileComponents.indexOf(fileData);
-        if (index !== -1) {
-            fileComponents.splice(index, 1); // Remove from current position
-            
-            if (fileStatus === FileStatus.DUPLICATE) {
-                // Move duplicates to the end
-                fileComponents.push(fileData);
-            } else {
-                // Move other status updates to the beginning
-                fileComponents.unshift(fileData);
-            }
-            
-            renderListOrder();
-            callCCB();
-        }
+function findParentComponentByAnyName(fileName) {
+  return fileComponents.find(comp => {
+    if (!comp) return false;
+    if (comp.getName?.() === fileName) return true;
+
+    if (comp.hasChildComponent?.()) {
+      const child = comp.getChildComponent?.();
+      return child?.getName?.() === fileName;
     }
+    return false;
+  });
 }
 
-export function updateRetryStatus(fileName, retry, maxRetries)
-{
-    var fileData = Array.from(fileComponents).find((element) => element.getName() == fileName);
-    if(fileData)
-        fileData.setRetryText(retry,maxRetries);
+export function updateFileStatus(fileName, fileStatus, message) {
+  const fName = fileName.split(/[/\\]/).pop();
+
+  const parent = findParentComponentByAnyName(fName);
+  if (!parent) return;
+
+  // Always update parent; parent propagates to child
+  parent.setStatus(fileStatus, message);
+
+  // Reorder by recent update (parent is the unit)
+  const index = fileComponents.indexOf(parent);
+  if (index !== -1) {
+    fileComponents.splice(index, 1);
+
+    if (fileStatus === FileStatus.DUPLICATE) fileComponents.push(parent);
+    else fileComponents.unshift(parent);
+
+    renderListOrder();
+    callCCB();
+  }
 }
+
+
+
+export function updateRetryStatus(fileName, retry, maxRetries) {
+  // Find either parent or child; apply text on the matching component
+  for (const comp of fileComponents) {
+    if (!comp) continue;
+
+    if (comp.getName?.() === fileName) {
+      comp.setRetryText(retry, maxRetries);
+      return;
+    }
+
+    if (comp.hasChildComponent?.()) {
+      const child = comp.getChildComponent?.();
+      if (child?.getName?.() === fileName) {
+        child.setRetryText(retry, maxRetries);
+        return;
+      }
+    }
+  }
+}
+
 
 
 export function setAllPendingToError(message)
@@ -243,9 +268,66 @@ export function getFileListForImport()
 function renderListOrder() {
   const list = getFileList();
 
+  // 1) Record current positions (parent + child)
+  const nodes = [];
   for (const comp of fileComponents) {
-    if (comp?.container instanceof Node) {
-      list.appendChild(comp.container);
+    if (comp?.container instanceof Node) nodes.push(comp.container);
+
+    if (comp?.hasChildComponent?.()) {
+      const child = comp.getChildComponent?.();
+      if (child?.container instanceof Node) nodes.push(child.container);
     }
   }
+
+  const first = new Map();
+  for (const el of nodes) {
+    first.set(el, el.getBoundingClientRect());
+  }
+
+  // 2) Reorder DOM (parent + child)
+  for (const comp of fileComponents) {
+    if (comp?.container instanceof Node) list.appendChild(comp.container);
+
+    if (comp?.hasChildComponent?.()) {
+      const child = comp.getChildComponent?.();
+      if (child?.container instanceof Node) list.appendChild(child.container);
+    }
+  }
+
+  // 3) Measure new positions and animate the delta
+  for (const el of nodes) {
+    const f = first.get(el);
+    if (!f) continue;
+
+    const last = el.getBoundingClientRect();
+    const dx = f.left - last.left;
+    const dy = f.top - last.top;
+
+    // If it didn't move, skip
+    if (dx === 0 && dy === 0) continue;
+
+    // Invert
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    el.style.transition = "transform 0s";
+
+    el.classList.add("moving");
+
+    // Play
+    requestAnimationFrame(() => {
+      el.style.transition = "transform 400ms ease";
+      el.style.transform = "";
+    });
+
+    // Cleanup transition property after
+    el.addEventListener(
+      "transitionend",
+      () => {
+        el.style.transition = "";
+        el.style.transform = "";
+        el.classList.remove("moving");
+      },
+      { once: true }
+    );
+  }
 }
+

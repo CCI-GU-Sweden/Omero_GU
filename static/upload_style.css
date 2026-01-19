@@ -16,6 +16,13 @@
     justify-content: space-between;
     align-items: center;
     height: 20px;
+    will-change: transform;
+    position: relative;
+}
+
+.file-item.moving {
+  z-index: 10;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 }
 
 .child {
