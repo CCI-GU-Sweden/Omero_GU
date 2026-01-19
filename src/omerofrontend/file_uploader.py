@@ -16,7 +16,7 @@ from common.file_data import FileData
 from common.omero_connection import OmeroConnection
 from omerofrontend.exceptions import OmeroConnectionError, AssertImportError, ImportError
 from common import logger
-from common import conf
+#from common import conf
 from common.omero_getter_ctx import OmeroGetterCtx
 
 ProgressCallback = Optional[Callable[[int], None]]  # Define a type for the progress callback
@@ -54,29 +54,30 @@ class FileUploader:
                 logger.error("Unable to create proc for importFileset")
                 raise OmeroConnectionError(f"Failed to create import process: { filedata.getMainFileName()}")
 
-            retry_cnt = 0
-            done = False
+            #retry_cnt = 0
+            #done = False
             response = None
-            while not done:
-                try:
-                    hashes = self._upload_and_calculate_hash(proc,filedata, progress_cb)
-                    if import_cb:
-                        import_cb()
-                    response = self._assert_import(proc, hashes)
-                    done = True
-                except AssertImportError as aie:
-                    logger.error(f"Import assertion error: {str(aie)}")
-                    if retry_cb:
-                        retry_cb(str(aie.filename), retry_cnt)
-                    retry_cnt += 1
-                    if retry_cnt >= conf.IMPORT_NR_OF_RETRIES:
-                        logger.error(f"Maximum number of retries ({conf.IMPORT_NR_OF_RETRIES}) reached. Aborting import.")
-                        done = True
-                        proc.close()
-                        raise ImportError(f"Import failed after {conf.IMPORT_NR_OF_RETRIES} retries: {str(aie)}")
-                    
-                finally:
-                    proc.close()
+#            while not done:
+            try:
+                hashes = self._upload_and_calculate_hash(proc,filedata, progress_cb)
+                if import_cb:
+                    import_cb()
+                response = self._assert_import(proc, hashes)
+                #done = True
+            except AssertImportError as aie:
+                logger.error(f"Import assertion error: {str(aie)}")
+                proc.close()
+                # if retry_cb:
+                #     retry_cb(str(aie.filename), retry_cnt)
+                # retry_cnt += 1
+                # if retry_cnt >= conf.IMPORT_NR_OF_RETRIES:
+                #     logger.error(f"Maximum number of retries ({conf.IMPORT_NR_OF_RETRIES}) reached. Aborting import.")
+                    #done = True
+                    #proc.close()
+                #    raise ImportError(f"Import failed after {conf.IMPORT_NR_OF_RETRIES} retries: {str(aie)}")
+                
+            #finally:
+            #    proc.close()
 
         if response is None:
             raise ImportError("No response received from the import process. Import may have failed.")
