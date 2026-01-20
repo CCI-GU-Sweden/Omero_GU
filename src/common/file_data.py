@@ -71,19 +71,19 @@ class FileData:
     def getUserName(self) -> Optional[str]:
         return self.username
 
-    def setUploadFilePaths(self, paths: list[str]) -> None:
-        self._upload_paths = list(paths)
+    # def setUploadFilePaths(self, paths: list[str]) -> None:
+    #     self._upload_paths = list(paths)
 
-    def getUploadFilePaths(self) -> list[str]:
-        # fallback to single path if legacy code set only one
-        try:
-            if self._upload_paths:
-                return self._upload_paths
-        except AttributeError:
-            pass
-        # keep backward compatibility
-        single = self.getUploadFilePath()
-        return [single] if single else []
+    # def getUploadFilePaths(self) -> list[str]:
+    #     # fallback to single path if legacy code set only one
+    #     try:
+    #         if self._upload_paths:
+    #             return self._upload_paths
+    #     except AttributeError:
+    #         pass
+    #     # keep backward compatibility
+    #     single = self.getUploadFilePath()
+    #     return [single] if single else []
 
     # def setFileAnnotations(self, annotations: dict[str,str]):
     #     self.annotations = annotations

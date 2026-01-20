@@ -29,7 +29,7 @@ class FileImporter:
         omero_path_last = ""
         image_ids_all: list[int] = []
         for path in file_path:
-            fileData.setUploadFilePaths([path])
+            #fileData.setUploadFilePaths([path])
             fileData.setConvertedFileName(os.path.basename(path))
             if self._check_duplicate_file_rename_if_needed(fileData, dataset_id, metadict, conn):
                 continue
