@@ -40,6 +40,7 @@ class FileImporter:
             omero_path_last = omero_path
 
         if not image_ids_all:
+            logger.info(f"All files were duplicates for file {filename}")
             raise DuplicateFileExists(filename)
 
         return scopes, image_ids_all, omero_path_last
@@ -89,7 +90,7 @@ class FileImporter:
             
                 file = fileData.getConvertedFileName() #?????????
                 acq_time = acquisition_date_time.strftime("%H-%M-%S")
-                new_name = ''.join(file.split('.')[:-1]+['_', acq_time,'.',file.split('.')[-1]])   
+                new_name = ''.join(file.split('.')[:1]+['_', acq_time,'.','.'.join(file.split('.')[1:])])
                 fileData.renameFile(new_name)
 
         return False
