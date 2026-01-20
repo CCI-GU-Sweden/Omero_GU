@@ -17,6 +17,9 @@ What minimum entries does the key-value pair dictionnary need?
 import os
 import math
 import datetime
+from datetime import timezone
+from zoneinfo import ZoneInfo
+import tzlocal
 import re
 from dateutil import parser
 from pathlib import Path
@@ -39,6 +42,21 @@ from typing import Dict, Any
 from pylibCZIrw import czi as pyczi
 from czitools.read_tools import read_tools
 from aicspylibczi import CziFile #required for the planetable
+
+def set_utc(dt: datetime.datetime) -> datetime.datetime:
+    """
+    Return a UTC‑aware datetime.
+
+    * If dt.tzinfo is None → assume it’s in the system’s local timezone.
+    * If dt.tzinfo is set → convert whatever zone it is in to UTC.
+    """
+    if dt.tzinfo is None:
+        # ① Naïve → treat as local
+        local_tz_name = tzlocal.get_localzone_name()   # e.g. "America/New_York"
+        local_tz = ZoneInfo(local_tz_name)
+        dt = dt.replace(tzinfo=local_tz)               # now aware, still same wall‑clock time
+    # ② Either way, convert to UTC
+    return dt.replace(tzinfo=timezone.utc)
 
 #Metadata function
 def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, partial_search:bool=False) -> list:
@@ -399,7 +417,7 @@ def get_info_metadata_from_czi(img_path : Path) -> dict:
         return {}
          
     logger.debug("_"*25)
-    
+
     mini_metadata = {'Microscope':microscope,
                      'Lens Magnification': lensMag,
                      'Lens NA': lensNA,
@@ -896,8 +914,10 @@ def convert_emi_to_ometiff(img_path: str):
         'Image Size X':dict_crawler(data, 'DetectorPixelHeight')[0],
         'Image Size Y':dict_crawler(data, 'DetectorPixelWidth')[0],
     }
-
-    date_object = datetime.datetime.strptime(dict_crawler(data, 'AcquireDate')[0], '%a %b %d %H:%M:%S %Y')
+    date_Str = dict_crawler(data, 'AcquireDate')[0]
+    date_object = parser.parse(date_Str)
+    date_object = set_utc(date_object)
+    #date_object = datetime.datetime.strptime(date_Str, '%a %b %d %H:%M:%S %Y')
     date_str = date_object.strftime(conf.DATE_TIME_FMT)
     key_pair['Acquisition date'] = date_str
     
@@ -1036,6 +1056,7 @@ def convert_emd_to_ometiff(img_path: str):
     }
     
     date_object = datetime.datetime.fromtimestamp(int(dict_crawler(data, 'AcquisitionDatetime')[0]['DateTime']))
+    date_object = set_utc(date_object)
     date_str = date_object.strftime(conf.DATE_TIME_FMT)
     key_pair['Acquisition date'] = date_str
     mode = dict_crawler(data, 'TemOperatingSubMode')[0]+' '
