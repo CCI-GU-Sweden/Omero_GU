@@ -169,7 +169,7 @@ class TestFileImporter:
             acq_time = acquisition_date_time.strftime("%H-%M-%S")
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
             assert(not isDup)
-            new_file_name = ''.join(fname.split('.')[:-1]+['_', acq_time,'.',fname.split('.')[-1]])
+            new_file_name = ''.join(fname.split('.')[:1]+['_', acq_time,'.','.'.join(fname.split('.')[1:])])
             assert(new_file_name == fileData.getConvertedFileName())
             assert(fileData.getBasePath() + "/" + new_file_name == fileData.getConvertedFilePath())
             assert( os.path.isfile(fileData.getConvertedFilePath()))
