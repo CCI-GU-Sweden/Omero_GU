@@ -218,11 +218,12 @@ class FileUploader:
         """Create a new Fileset from local files."""
         fileset = omero.model.FilesetI() # type: ignore
         #for f in filedata.getTempFilePaths():
-        for f in filedata.getUploadFilePaths():
-            entry = omero.model.FilesetEntryI() # type: ignore
-            entry.setClientPath(rstring(f))
-            fileset.addFilesetEntry(entry)
-        # Fill version info
+#        for f in filedata.getUploadFilePaths():
+        f = filedata.getUploadFilePath()
+        entry = omero.model.FilesetEntryI() # type: ignore
+        entry.setClientPath(rstring(f))
+        fileset.addFilesetEntry(entry)
+         # Fill version info
         system, node, release, version, machine, processor = platform.uname()
         client_version_info = [
             omero.model.NamedValue('omero.version', omero_version), # type: ignore
@@ -272,34 +273,35 @@ class FileUploader:
 
 #        for i, fobj in enumerate([filedata.getMainFileName()]):
         #for i, fobj in enumerate(filedata.getTempFilePaths()):
-        upload_paths = filedata.getUploadFilePaths()
-        for idx, fobj in enumerate(upload_paths):
-            rfs = proc.getUploader(0)
-            digest = hashlib.sha1()  # Add 'import hashlib' at top
-        
-            try:
-                with open(fobj, 'rb') as f:  # file is already a Path
-                # Single-pass upload and hash calculation
-                    offset = 0
-                    while (block := f.read(1_000_000)):  # Walrus operator (Python 3.8+)
-                        rfs.write(block, offset, len(block))
-                        digest.update(block)
-                        read_size = len(block)
-                        totRead += read_size
-                        offset += len(block)
-                        if progress_cb:
-                            prog_percentage = int((totRead / totSize) * 100)
-                            if prog_percentage > tot_percentage:
-                                tot_percentage = prog_percentage
-                                progress_cb(tot_percentage)
-            except FileNotFoundError as fnf:
-                error_msg = f"File not found during upload: {fnf.filename}"
-                logger.error(error_msg)
-                raise OmeroConnectionError(error_msg)
-            finally:
-                rfs.close()  # Ensure cleanup even if errors occur
-        
-            hashes.append(digest.hexdigest())
+        #upload_path = filedata.getUploadFilePath()
+        fobj = filedata.getUploadFilePath()
+#        for idx, fobj in enumerate(upload_path):
+        rfs = proc.getUploader(0)
+        digest = hashlib.sha1()  # Add 'import hashlib' at top
+    
+        try:
+            with open(fobj, 'rb') as f:  # file is already a Path
+            # Single-pass upload and hash calculation
+                offset = 0
+                while (block := f.read(1_000_000)):  # Walrus operator (Python 3.8+)
+                    rfs.write(block, offset, len(block))
+                    digest.update(block)
+                    read_size = len(block)
+                    totRead += read_size
+                    offset += len(block)
+                    if progress_cb:
+                        prog_percentage = int((totRead / totSize) * 100)
+                        if prog_percentage > tot_percentage:
+                            tot_percentage = prog_percentage
+                            progress_cb(tot_percentage)
+        except FileNotFoundError as fnf:
+            error_msg = f"File not found during upload: {fnf.filename}"
+            logger.error(error_msg)
+            raise OmeroConnectionError(error_msg)
+        finally:
+            rfs.close()  # Ensure cleanup even if errors occur
+    
+        hashes.append(digest.hexdigest())
 
         return hashes
 
