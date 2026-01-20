@@ -43,20 +43,13 @@ from pylibCZIrw import czi as pyczi
 from czitools.read_tools import read_tools
 from aicspylibczi import CziFile #required for the planetable
 
-def set_utc(dt: datetime.datetime) -> datetime.datetime:
-    """
-    Return a UTC‑aware datetime.
+def get_timezone_aware_iso_str(dt: datetime.datetime) -> str:
+    
+    local_zone_name = tzlocal.get_localzone_name()   # e.g. "Europe/Paris"
+    local_zone = ZoneInfo(local_zone_name)
 
-    * If dt.tzinfo is None → assume it’s in the system’s local timezone.
-    * If dt.tzinfo is set → convert whatever zone it is in to UTC.
-    """
-    if dt.tzinfo is None:
-        # ① Naïve → treat as local
-        local_tz_name = tzlocal.get_localzone_name()   # e.g. "America/New_York"
-        local_tz = ZoneInfo(local_tz_name)
-        dt = dt.replace(tzinfo=local_tz)               # now aware, still same wall‑clock time
-    # ② Either way, convert to UTC
-    return dt.replace(tzinfo=timezone.utc)
+    aware_real = dt.replace(tzinfo=local_zone)
+    return aware_real.isoformat()
 
 #Metadata function
 def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, partial_search:bool=False) -> list:
@@ -914,9 +907,9 @@ def convert_emi_to_ometiff(img_path: str):
         'Image Size X':dict_crawler(data, 'DetectorPixelHeight')[0],
         'Image Size Y':dict_crawler(data, 'DetectorPixelWidth')[0],
     }
-    date_Str = dict_crawler(data, 'AcquireDate')[0]
-    date_object = parser.parse(date_Str)
-    date_object = set_utc(date_object)
+    date_str = dict_crawler(data, 'AcquireDate')[0]
+    date_iso_str= get_timezone_aware_iso_str(parser.parse(date_str))
+    date_object = parser.isoparse(date_iso_str)
     #date_object = datetime.datetime.strptime(date_Str, '%a %b %d %H:%M:%S %Y')
     date_str = date_object.strftime(conf.DATE_TIME_FMT)
     key_pair['Acquisition date'] = date_str
@@ -947,7 +940,7 @@ def convert_emi_to_ometiff(img_path: str):
     image = model.Image(
         id="Image:0",
         name=os.path.basename(img_path),
-        acquisition_date=datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
+        acquisition_date=date_object,#datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
         
         pixels = model.Pixels(
             id="Pixels:0",
@@ -1056,7 +1049,8 @@ def convert_emd_to_ometiff(img_path: str):
     }
     
     date_object = datetime.datetime.fromtimestamp(int(dict_crawler(data, 'AcquisitionDatetime')[0]['DateTime']))
-    date_object = set_utc(date_object)
+    date_iso_str = get_timezone_aware_iso_str(date_object)
+    date_object = parser.isoparse(date_iso_str)
     date_str = date_object.strftime(conf.DATE_TIME_FMT)
     key_pair['Acquisition date'] = date_str
     mode = dict_crawler(data, 'TemOperatingSubMode')[0]+' '
@@ -1088,7 +1082,7 @@ def convert_emd_to_ometiff(img_path: str):
     image = model.Image(
         id="Image:0",
         name=os.path.basename(img_path),
-        acquisition_date=datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
+        acquisition_date=date_object, #datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
         pixels = model.Pixels(
             id="Pixels:0",
             dimension_order=model.Pixels_DimensionOrder.XYCZT,
