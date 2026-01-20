@@ -17,7 +17,6 @@ What minimum entries does the key-value pair dictionnary need?
 import os
 import math
 import datetime
-from datetime import timezone
 from zoneinfo import ZoneInfo
 import tzlocal
 import re
@@ -1712,7 +1711,7 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
     
     if not converted_path:
         # Fallback to staged originals (what TempFileHandler saved)
-        staged = fileData.getUploadFilePaths() or fileData.getTempFilePaths()
+        staged = fileData.getTempFilePaths()
         if staged:
             logger.warning(f"format_splitter returned no paths; falling back to staged uploads: {str(staged)}")
             converted_path = staged
