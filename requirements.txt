@@ -18,3 +18,4 @@ czitools==0.10.3
 imagecodecs==2024.12.30
 redis==4.5.5
 fakeredis==2.21.0
+tzlocal==5.3.1
