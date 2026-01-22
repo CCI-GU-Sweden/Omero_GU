@@ -88,7 +88,7 @@ OMERO_SESSION_TOKEN_URL = f'{OMERO_BASE_URL}/oauth/sessiontoken'
 UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
 
-USER_VARIABLES = ["Sample", "User", "PI", "Preparation"]
+USER_VARIABLES = ["Sample", "User", "PI", "Preparation", "Lens ID"]
 
 DATE_TIME_FMT = "%Y-%m-%d %H:%M:%S"
 
