@@ -327,6 +327,7 @@ def get_info_metadata_from_czi(img_path : Path) -> dict:
     acq_type = None
     lensNA = None
     lensMag = None
+    lensImmersion = None
     pre_processed = None
     comment = None
     description = None
@@ -380,13 +381,18 @@ def get_info_metadata_from_czi(img_path : Path) -> dict:
         logger.debug('Image acquired with a %s mode' %(acq_type))
             
         #lens info
+        obj_settings = dict_crawler(metadata, "ObjectiveSettings")[0]
+        if isinstance(obj_settings, dict):
+            lensImmersion = obj_settings.get("Medium", "Other")
+            lensImmersion = lensImmersion if lensImmersion in model.Objective_Immersion._value2member_map_ else "Other"
+
         lensNA = metadata['Information']['Instrument']['Objectives']['Objective'].get('LensNA', None)
         if lensNA is not None: 
             lensNA = round(float(lensNA), 2)
         lensMag = metadata['Information']['Instrument']['Objectives']['Objective'].get('NominalMagnification', None)
         if lensMag is not None: 
             lensMag = int(lensMag)
-        logger.debug('Objective lens used has a magnification of %s and a NA of %s' %(lensMag, lensNA))
+        logger.debug('Objective lens used has a magnification of %s, a NA of %s and an immersion of %s' %(lensMag, lensNA, lensImmersion))
             
         #processing (if any)
         processing = metadata['Information'].get('Processing', None)
@@ -413,6 +419,7 @@ def get_info_metadata_from_czi(img_path : Path) -> dict:
     mini_metadata = {'Microscope':microscope,
                      'Lens Magnification': lensMag,
                      'Lens NA': lensNA,
+                     'Lens Immersion': lensImmersion,
                      'Image type':acq_type,
                      'Physical pixel size':physical_pixel_sizes,
                      'Image Size':size,
