@@ -66,7 +66,7 @@ class FileUploader:
                 #done = True
             except AssertImportError as aie:
                 logger.error(f"Import assertion error: {str(aie)}")
-                proc.close()
+                #proc.close()
                 # if retry_cb:
                 #     retry_cb(str(aie.filename), retry_cnt)
                 # retry_cnt += 1
@@ -76,8 +76,8 @@ class FileUploader:
                     #proc.close()
                 #    raise ImportError(f"Import failed after {conf.IMPORT_NR_OF_RETRIES} retries: {str(aie)}")
                 
-            #finally:
-            #    proc.close()
+            finally:
+                proc.close()
 
         if response is None:
             raise ImportError("No response received from the import process. Import may have failed.")
