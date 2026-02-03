@@ -71,6 +71,51 @@ def dict_crawler(dictionary:dict, search_key:str, case_insensitive:bool=False, p
         result.append("")
     return result
 
+def downsample2x_nearest(im):
+    # Fast + dependency-free. Good enough for pyramids/thumbnails.
+    return im[::2, ::2]
+
+def write_simple_ometif_pyramid(
+    output_fpath: str,
+    img_yx: np.ndarray,
+    ome_xml: str,
+    tile=(256, 256),
+    compression="zlib",
+    target_min=512,
+):
+    if img_yx.ndim != 2:
+        raise ValueError(f"Expected 2D grayscale (Y,X). Got shape {img_yx.shape}")
+
+    y, x = img_yx.shape
+    nlevels = choose_levels(y, x, target_min=target_min)
+
+    # BigTIFF is safer for large images/pyramids
+    with tifffile.TiffWriter(output_fpath, bigtiff=True) as tif:
+        # Write base level with SubIFDs reserved
+        tif.write(
+            img_yx,
+            description=ome_xml,
+            metadata={"axes": "YX"},
+            photometric="minisblack",
+            planarconfig="contig",
+            tile=tile,
+            compression=compression,
+            subifds=nlevels-1,   # reserve space for pyramid levels
+        )
+
+        # Write reduced levels into the SubIFDs
+        level = img_yx
+        for _ in range(1, nlevels):
+            level = downsample2x_nearest(level)
+            tif.write(
+                level,
+                subfiletype=1,          # reduced-resolution image
+                photometric="minisblack",
+                planarconfig="contig",
+                tile=tile,
+                compression=compression,
+                metadata=None,         # no metadata for pyramid levels
+            )
 
 def safe_get(data, keys, default=None):
     if not isinstance(keys, (list, tuple)):
@@ -886,19 +931,30 @@ def convert_emi_to_ometiff(img_path: str):
             data = data[0]
         else:
             raise MetaDataError(img_path, f"Length of data at {len(data)} different of 1.")
-        
+
         img_array = data['data']
-        # img_array = img_array[ :, :, np.newaxis, np.newaxis, np.newaxis,]
+        if img_array.ndim != 2:
+            raise ValueError(f"Expected 2D grayscale image data. Got shape {img_array.shape}")
+
     except FileNotFoundError:
         raise FileNotFoundError(f"The file {img_path} does not exist.")
-    # except Exception as e:
-    #     raise ValueError(f"Error opening or reading metadata: {str(e)}")
     
     logger.debug(f"{img_path} successfully readen!")
         # Check if this is possible to reduce its bit size
     dimension_order = Pixels_DimensionOrder.XYCZT
-    img_array, bit = optimize_bit_depth(img_array)
-      
+    img_array, _ = optimize_bit_depth(img_array)
+
+    size_y, size_x = img_array.shape
+    dtype_to_ome = {
+        np.dtype("uint8"): "uint8",
+        np.dtype("uint16"): "uint16",
+        np.dtype("uint32"): "uint32",
+        np.dtype("float32"): "float32",
+    }
+    px_type = dtype_to_ome.get(img_array.dtype, None)
+    if px_type is None:
+        raise ValueError(f"Unsupported dtype for OME: {img_array.dtype}")
+
     key_pair = {
         'Microscope':mapping(dict_crawler(data, 'Microscope')[0][1]),
         'Electron source': dict_crawler(data, 'Gun type')[0],
@@ -916,7 +972,6 @@ def convert_emi_to_ometiff(img_path: str):
     date_str = dict_crawler(data, 'AcquireDate')[0]
     date_iso_str= get_timezone_aware_iso_str(parser.parse(date_str))
     date_object = parser.isoparse(date_iso_str)
-    #date_object = datetime.datetime.strptime(date_Str, '%a %b %d %H:%M:%S %Y')
     date_str = date_object.strftime(conf.DATE_TIME_FMT)
     key_pair['Acquisition date'] = date_str
     
@@ -951,9 +1006,9 @@ def convert_emi_to_ometiff(img_path: str):
         pixels = model.Pixels(
             id="Pixels:0",
             dimension_order=dimension_order,
-            type=model.PixelType(str(img_array.dtype)),
-            size_x=key_pair['Image Size X'],
-            size_y=key_pair['Image Size Y'],
+            type=model.PixelType(px_type),
+            size_x=size_x,
+            size_y=size_y,
             size_c=1,
             size_z=1,
             size_t=1,
@@ -963,7 +1018,23 @@ def convert_emi_to_ometiff(img_path: str):
             physical_size_y_unit=key_pair['Pixel unit'],
         )
     )
-    
+    # Add a single channel with SamplesPerPixel=1 to match grayscale TIFF storage
+    pixels = image.pixels
+    pixels.channels.append(
+        model.Channel(
+            id="Channel:0",
+            name="Channel:0",
+            samples_per_pixel=1,
+        )
+    )
+    # add explicit TiffData plane mapping - only 2d mono image here
+    pixels.tiff_data_blocks.append(
+        model.TiffData(
+            first_z=0, first_c=0, first_t=0,
+            plane_count=1,
+            ifd=0
+        )
+    )
     
     # Add Image to OME
     ome.images.append(image)
@@ -1011,13 +1082,12 @@ def convert_emi_to_ometiff(img_path: str):
     ome_xml = ome.to_xml()
     logger.debug("OME created")
     
-    output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tiff"))   
+    output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emi", ".ome.tif"))   
     
-    # Write OME-TIFF file
-    with tifffile.TiffWriter(output_fpath) as tif:
-        tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+    # Write OME-TIF file
+    write_simple_ometif_pyramid(output_fpath, img_array, ome_xml)
     
-    logger.debug(f"Ome-tiff written at {output_fpath}.")
+    logger.debug(f"Ome-tif written at {output_fpath}.")
     
     return output_fpath, key_pair
 
@@ -1036,8 +1106,19 @@ def convert_emd_to_ometiff(img_path: str):
     logger.debug(f"Conversion to ometiff from emd required for {img_path}")
     
     img = emd.file_reader(img_path)[0]
-    img_array, bitdepth = optimize_bit_depth(img['data'])
-        
+    img_array, _ = optimize_bit_depth(img['data'])
+
+    size_y, size_x = img_array.shape
+    dtype_to_ome = {
+        np.dtype("uint8"): "uint8",
+        np.dtype("uint16"): "uint16",
+        np.dtype("uint32"): "uint32",
+        np.dtype("float32"): "float32",
+    }
+    px_type = dtype_to_ome.get(img_array.dtype, None)
+    if px_type is None:
+        raise ValueError(f"Unsupported dtype for OME: {img_array.dtype}")
+
     data = img['original_metadata']
     logger.debug(f"{img_path} successfully readen!")  
 
@@ -1092,9 +1173,9 @@ def convert_emd_to_ometiff(img_path: str):
         pixels = model.Pixels(
             id="Pixels:0",
             dimension_order=model.Pixels_DimensionOrder.XYCZT,
-            type=model.PixelType(str(img_array.dtype)),
-            size_x=key_pair['Image Size X'],
-            size_y=key_pair['Image Size Y'],
+            type=model.PixelType(px_type),
+            size_x=size_x,
+            size_y=size_y,
             size_c=1,
             size_z=1,
             size_t=1,
@@ -1104,7 +1185,25 @@ def convert_emd_to_ometiff(img_path: str):
             physical_size_y_unit=key_pair['Physical pixel unit'],
         )
     )
-    
+
+    # Add a single channel with SamplesPerPixel=1 to match grayscale TIFF storage
+    pixels = image.pixels
+    pixels.channels.append(
+        model.Channel(
+            id="Channel:0",
+            name="Channel:0",
+            samples_per_pixel=1,
+        )
+    )
+    # add explicit TiffData plane mapping - only 2d mono image here
+    pixels.tiff_data_blocks.append(
+        model.TiffData(
+            first_z=0, first_c=0, first_t=0,
+            plane_count=1,
+            ifd=0
+        )
+    )
+
     # Add Image to OME
     ome.images.append(image)
     
@@ -1151,13 +1250,12 @@ def convert_emd_to_ometiff(img_path: str):
     ome_xml = ome.to_xml()
     logger.debug("OME created")
     
-    output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emd", ".ome.tiff"))
+    output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".emd", ".ome.tif"))
     
-    # Write OME-TIFF file
-    with tifffile.TiffWriter(output_fpath) as tif:
-        tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+    # Write OME-TIF file
+    write_simple_ometif_pyramid(output_fpath, img_array, ome_xml)
         
-    logger.debug(f"Ome-tiff written at {output_fpath}.")
+    logger.debug(f"Ome-tif written at {output_fpath}.")
     return output_fpath, key_pair
 
 
