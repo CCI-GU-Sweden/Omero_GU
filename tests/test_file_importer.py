@@ -109,7 +109,7 @@ class TestFileImporter:
             assert(len(scopes) == 1)
             assert scopes[0] == 'Talos L120C'  
             self.fi._set_folder_and_converted_name(fileData,metadict, path)
-            assert fileData.getConvertedFileName() == "test_emd_file.ome.tiff"
+            assert fileData.getConvertedFileName() == "test_emd_file.ome.tif"
             self.do_file_imports(fileData, metadict, scopes)
             tfh._remove_temp_files(fileData)  # Clean up temp files after test
  

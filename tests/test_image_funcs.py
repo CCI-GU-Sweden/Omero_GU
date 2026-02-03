@@ -46,7 +46,7 @@ def test_convert_emi_to_ometiff_file_not_found():
 def test_convert_emi_to_ometiff():
     fileName = 'tests/data/49944_A1_0001.emi'
     p, dict = convert_emi_to_ometiff(fileName)
-    assert p == 'tests/data/49944_A1_0001.ome.tiff'
+    assert p == 'tests/data/49944_A1_0001.ome.tif'
     check_image_base_em_metadata(dict)
     assert('Comment' in dict )
     #TODO: also check emi specific meta data?
@@ -55,7 +55,7 @@ def test_convert_emi_to_ometiff():
 def test_convert_emd_to_ometiff():
     fileName = 'tests/data/test_emd_file.emd'
     p, dict = convert_emd_to_ometiff(fileName)
-    assert p == 'tests/data/test_emd_file.ome.tiff'
+    assert p == 'tests/data/test_emd_file.ome.tif'
     check_image_base_em_metadata(dict)
     #TODO: also check emd specific meta data?
     os.remove(p)  # Clean up the generated file after the test

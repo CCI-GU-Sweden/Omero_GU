@@ -9,3 +9,4 @@ config.py
 .continue
 tbsocket*
 *.sock
+test.py
