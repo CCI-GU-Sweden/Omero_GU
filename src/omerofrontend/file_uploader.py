@@ -318,5 +318,6 @@ class FileUploader:
         rsp = cb.getResponse()
         if isinstance(rsp, omero.cmd.ERR): # type: ignore
             raise AssertImportError(message=str(rsp))
+        cb.close(handle)
         return rsp
         
