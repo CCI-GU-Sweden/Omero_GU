@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     libbz2-dev \
     default-jre-headless \
+    htop \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
