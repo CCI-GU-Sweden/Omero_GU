@@ -5,7 +5,8 @@ FROM  ${BASE_IMAGE}
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     #OMERO_USER=omero \
-    APP_HOME=/app/omero
+    APP_HOME=/app/omero \
+    USER_NAME=cci
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
@@ -29,12 +30,23 @@ RUN apt-get update && apt-get install -y \
 
 RUN python -m pip install --upgrade pip setuptools wheel
 
-
+# Create a new user
+RUN useradd -m -s /bin/bash ${USER_NAME}
 
 # Set the working directory
 WORKDIR ${APP_HOME}
 
-COPY . ${APP_HOME}
+#COPY . ${APP_HOME}
+COPY src ${APP_HOME}
+COPY static ${APP_HOME}
+COPY templates ${APP_HOME}
+
+COPY config.py ${APP_HOME}
+COPY gunicorn.conf.py ${APP_HOME}
+COPY logback.xml ${APP_HOME} 
+COPY requirements.txt ${APP_HOME}
+COPY uwsgi.ini ${APP_HOME}
+
 
 RUN chmod 777 -R ${APP_HOME}
 
@@ -44,3 +56,7 @@ EXPOSE 5000
 
 USER 1001
 CMD ["uwsgi","--ini","uwsgi.ini"]
+
+# Switch to the new user for all subsequent commands and runtime
+USER ${USER_NAME}
+# Set the working directory (optional)
