@@ -3,13 +3,17 @@ name: Docker Build and Test
 on:
   push:
     branches: ["main"]  # Change to your default branch if needed
+    paths:
+      - '**/Dockerfile'
+      - '.github/workflows/build_docker.yaml'
 
 env:
   DOCKER_IMAGE_NAME: flask_app  # No need for Docker Hub username here
   DOCKER_TAG: latest
 
 jobs:
-  build-and-test:
+  test:
+    name: "Build Docker Image"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
