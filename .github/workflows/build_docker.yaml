@@ -2,7 +2,6 @@ name: Docker Build and Test
 
 on: 
   push:
-    branches: ["main"]  # Change to your default branch if needed
     paths:
       - 'Dockerfile'
       - '.github/workflows/build_docker.yaml'
