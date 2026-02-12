@@ -4,7 +4,7 @@ on:
   push:
     branches: ["main"]  # Change to your default branch if needed
     paths:
-      - '**/Dockerfile'
+      - 'Dockerfile'
       - '.github/workflows/build_docker.yaml'
 
 env:
