@@ -41,7 +41,6 @@ COPY src ${APP_HOME}
 COPY static ${APP_HOME}
 COPY templates ${APP_HOME}
 
-COPY config.py ${APP_HOME}
 COPY gunicorn.conf.py ${APP_HOME}
 COPY logback.xml ${APP_HOME} 
 COPY requirements.txt ${APP_HOME}
