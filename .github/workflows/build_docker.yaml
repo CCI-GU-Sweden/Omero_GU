@@ -1,0 +1,24 @@
+name: Docker Build and Test
+
+on:
+  push:
+    branches: ["main"]  # Change to your default branch if needed
+
+env:
+  DOCKER_IMAGE_NAME: flask_app  # No need for Docker Hub username here
+  DOCKER_TAG: latest
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} .
+
+    #   - name: Test Docker image
+    #     run: |
+    #       docker run --rm ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} your-test-command
+    #       # Example: docker run --rm your-image echo "Build successful!"
