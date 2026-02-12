@@ -37,9 +37,9 @@ RUN useradd -m -s /bin/bash ${USER_NAME}
 WORKDIR ${APP_HOME}
 
 #COPY . ${APP_HOME}
-COPY src ${APP_HOME}
-COPY static ${APP_HOME}
-COPY templates ${APP_HOME}
+COPY src ${APP_HOME}/src
+COPY static ${APP_HOME}/static
+COPY templates ${APP_HOME}/templates
 
 COPY logback.xml ${APP_HOME} 
 COPY requirements.txt ${APP_HOME}
