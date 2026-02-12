@@ -12,7 +12,8 @@ env:
   DOCKER_TAG: latest
 
 jobs:
-  build-and-test:
+  test:
+    name: "Build Docker Image"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
