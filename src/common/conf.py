@@ -32,6 +32,8 @@ LOG_LEVEL = logging.DEBUG
 
 FILE_IMPORT_THREADS = 8
 
+GENERATE_THUMBNAILS = False
+
 #configs for local running
 USE_TEST_URL = True
 DB_HOST = "localhost"
@@ -64,6 +66,8 @@ try:
     TO_CONVERT_SCOPE = config.TO_CONVERT_SCOPE if hasattr(config,"TO_CONVERT_SCOPE") else TO_CONVERT_SCOPE
     FORCE_CZI_CONVERSION = config.FORCE_CZI_CONVERSION if hasattr(config,"FORCE_CZI_CONVERSION") else FORCE_CZI_CONVERSION
     CZI_CONVERT_MIN_BYTES = config.CZI_CONVERT_MIN_BYTES if hasattr(config,"CZI_CONVERT_MIN_BYTES") else CZI_CONVERT_MIN_BYTES
+    
+    GENERATE_THUMBNAILS = config.GENERATE_THUMBNAILS if hasattr(config,"GENERATE_THUMBNAILS") else GENERATE_THUMBNAILS
     
 except ImportError:
     pass
