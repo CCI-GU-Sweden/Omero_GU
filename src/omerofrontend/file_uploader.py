@@ -13,10 +13,10 @@ from omero.model.enums import ChecksumAlgorithmSHA1160 # type: ignore
 from omero_version import omero_version 
 from omero.callbacks import CmdCallbackI
 from common.file_data import FileData
+from common import conf
 from common.omero_connection import OmeroConnection
 from omerofrontend.exceptions import OmeroConnectionError, AssertImportError, ImportError
 from common import logger
-#from common import conf
 from common.omero_getter_ctx import OmeroGetterCtx
 
 ProgressCallback = Optional[Callable[[int], None]]  # Define a type for the progress callback
@@ -244,7 +244,7 @@ class FileUploader:
     def _create_settings(self, datasset_id: int, description: str, annotations) -> omero.grid.ImportSettings: # type: ignore
         """Create ImportSettings and set some values."""
         settings = omero.grid.ImportSettings() # type: ignore
-        settings.doThumbnails = rbool(False)
+        settings.doThumbnails = rbool(conf.GENERATE_THUMBNAILS)
         settings.noStatsInfo = rbool(False)
 
         dataset = omero.model.DatasetI(datasset_id, False) # type: ignore
