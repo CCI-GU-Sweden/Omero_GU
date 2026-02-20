@@ -244,7 +244,7 @@ class FileUploader:
     def _create_settings(self, datasset_id: int, description: str, annotations) -> omero.grid.ImportSettings: # type: ignore
         """Create ImportSettings and set some values."""
         settings = omero.grid.ImportSettings() # type: ignore
-        settings.doThumbnails = rbool(True)
+        settings.doThumbnails = rbool(False)
         settings.noStatsInfo = rbool(False)
 
         dataset = omero.model.DatasetI(datasset_id, False) # type: ignore
