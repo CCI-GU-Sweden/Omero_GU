@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=public.ecr.aws/docker/library/python:3.12-slim
+ARG BASE_IMAGE=public.ecr.aws/docker/library/ubuntu:24.04
 ARG CZI_PYRAMIDIZER_VERSION=v0.1.3
 ARG CZI_PYRAMIDIZER_ASSET=czi-pyramidizer-ubuntu-24.04-x64-v0.1.3.tar.gz
 ARG CZI_PYRAMIDIZER_SHA256=00e59e266e071a826c6a23bee5fe4488f28082a9d9cd248a19027d31f8fc351d
@@ -17,6 +17,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python-is-python3 \
     build-essential \
     libssl-dev \
     libjpeg-dev \
@@ -30,6 +34,10 @@ RUN apt-get update && apt-get install -y \
     gettext \
     curl \
     libbz2-dev \
+    libopencv-core406 \
+    libopencv-imgproc406 \
+    libopencv-imgcodecs406 \
+    libopencv-videoio406 \
     default-jre-headless \
     htop \
     && apt-get clean \
@@ -49,8 +57,6 @@ RUN set -eux; \
     czi-pyramidizer --version; \
     rm -rf "/tmp/${CZI_PYRAMIDIZER_ASSET}" "${package_dir}"
 
-RUN python -m pip install --upgrade pip setuptools wheel
-
 # Create a new user
 RUN useradd -m -s /bin/bash ${USER_NAME}
 
@@ -69,7 +75,7 @@ COPY uwsgi.ini ${APP_HOME}
 
 RUN chmod 777 -R ${APP_HOME}
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --no-cache-dir --break-system-packages -r requirements.txt
 
 EXPOSE 5000
 
