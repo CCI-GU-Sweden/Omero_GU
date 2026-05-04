@@ -3,6 +3,7 @@ import logging
 import inspect
 import os
 from pathlib import Path 
+from typing import Union
 from common import conf
 
 class CustomFormatter(logging.Formatter):
@@ -49,7 +50,11 @@ class CustomFormatter(logging.Formatter):
 
         return module
 
-def setup_logger(level=logging.DEBUG):
+def setup_logger(level: Union[int, str] = logging.DEBUG):
+
+    normalized_level = level
+    if isinstance(level, str):
+        normalized_level = logging._nameToLevel.get(level.upper(), logging.DEBUG)
 
     #check logfile existance
     if not Path(conf.LOG_FILE).is_file():
@@ -59,15 +64,15 @@ def setup_logger(level=logging.DEBUG):
     logging.getLogger(conf.APP_NAME)
     fmtStr = '%(process)d: %(asctime)s -%(levelname)s-: %(message)s'
     
-    logging.basicConfig(filename=conf.LOG_FILE, level=level,
+    logging.basicConfig(filename=conf.LOG_FILE, level=normalized_level,
                         format=fmtStr)
     localLogger = logging.StreamHandler(sys.stdout)
     llFmt = CustomFormatter()
     localLogger.setFormatter(llFmt)
-    localLogger.setLevel(level)
+    localLogger.setLevel(normalized_level)
     logging.getLogger(conf.APP_NAME).addHandler(localLogger)
         
-    str_level = logging.getLevelName(level)
+    str_level = logging.getLevelName(normalized_level)
     info(f"Logger set up with level: {str_level}")
 
 

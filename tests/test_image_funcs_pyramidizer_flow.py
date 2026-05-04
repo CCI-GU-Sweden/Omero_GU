@@ -1,28 +1,18 @@
 from common import image_funcs
 from common import czi_pyramidizer
+from common.file_data import FileData
 
 
-class DummyFileData:
-    def __init__(self, main_path: str, total_size: int = 0):
-        self.main_path = main_path
-        self.total_size = total_size
-
-    def getMainFileExtension(self) -> str:
-        return "czi"
-
-    def getMainFileTempPath(self) -> str:
-        return self.main_path
-
-    def getTotalFileSize(self) -> int:
-        return self.total_size
-
-    def getTempFilePaths(self):
-        return [self.main_path]
+def _make_file_data(main_path: str, total_size: int = 0) -> FileData:
+    fd = FileData([main_path])
+    fd.setTempFilePaths([main_path])
+    fd.setFileSizes([total_size])
+    return fd
 
 
 def test_file_format_splitter_uses_pyramidizer_when_enabled(monkeypatch):
     file_path = "tests/data/test_image.czi"
-    dummy = DummyFileData(file_path, total_size=1024)
+    file_data = _make_file_data(file_path, total_size=1024)
 
     check_result = czi_pyramidizer.CziPyramidCheckResult(
         needs_pyramid=True,
@@ -49,7 +39,7 @@ def test_file_format_splitter_uses_pyramidizer_when_enabled(monkeypatch):
     monkeypatch.setattr(image_funcs.conf, "CZI_PYRAMIDIZER_ENABLED", True)
     monkeypatch.setattr(image_funcs.conf, "CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION", False)
 
-    converted, metadata = image_funcs.file_format_splitter(dummy)
+    converted, metadata = image_funcs.file_format_splitter(file_data)
 
     assert converted == [file_path]
     assert metadata["Microscope"] == "LSM 700"
@@ -57,7 +47,7 @@ def test_file_format_splitter_uses_pyramidizer_when_enabled(monkeypatch):
 
 def test_file_format_splitter_uses_legacy_fallback_on_pyramidizer_error(monkeypatch):
     file_path = "tests/data/test_image.czi"
-    dummy = DummyFileData(file_path, total_size=1024)
+    file_data = _make_file_data(file_path, total_size=1024)
 
     run_result = czi_pyramidizer.CziPyramidizerRunResult(
         command=("czi-pyramidizer",),
@@ -78,6 +68,6 @@ def test_file_format_splitter_uses_legacy_fallback_on_pyramidizer_error(monkeypa
     monkeypatch.setattr(image_funcs.conf, "CZI_PYRAMIDIZER_ENABLED", True)
     monkeypatch.setattr(image_funcs.conf, "CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION", True)
 
-    converted, _ = image_funcs.file_format_splitter(dummy)
+    converted, _ = image_funcs.file_format_splitter(file_data)
 
     assert converted == ["legacy.ome.tiff"]
