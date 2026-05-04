@@ -1,4 +1,7 @@
 ARG BASE_IMAGE=public.ecr.aws/docker/library/python:3.12-slim
+ARG CZI_PYRAMIDIZER_VERSION=v0.1.3
+ARG CZI_PYRAMIDIZER_ASSET=czi-pyramidizer-ubuntu-24.04-x64-v0.1.3.tar.gz
+ARG CZI_PYRAMIDIZER_SHA256=00e59e266e071a826c6a23bee5fe4488f28082a9d9cd248a19027d31f8fc351d
 
 FROM  ${BASE_IMAGE}
 
@@ -27,6 +30,20 @@ RUN apt-get update && apt-get install -y \
     htop \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    archive_url="https://github.com/ZEISS/czi-pyramidizer/releases/download/${CZI_PYRAMIDIZER_VERSION}/${CZI_PYRAMIDIZER_ASSET}"; \
+    curl -fsSL -o "/tmp/${CZI_PYRAMIDIZER_ASSET}" "${archive_url}"; \
+    echo "${CZI_PYRAMIDIZER_SHA256}  /tmp/${CZI_PYRAMIDIZER_ASSET}" | sha256sum -c -; \
+    tar -xzf "/tmp/${CZI_PYRAMIDIZER_ASSET}" -C /tmp; \
+    package_dir="/tmp/${CZI_PYRAMIDIZER_ASSET%.tar.gz}"; \
+    install -m 0755 "${package_dir}/czi-pyramidizer" /usr/local/bin/czi-pyramidizer; \
+    mkdir -p /opt/czi-pyramidizer; \
+    cp "${package_dir}/LICENSE" /opt/czi-pyramidizer/; \
+    cp "${package_dir}/THIRD_PARTY_LICENSES.txt" /opt/czi-pyramidizer/; \
+    cp "${package_dir}/README.release.md" /opt/czi-pyramidizer/; \
+    czi-pyramidizer --version; \
+    rm -rf "/tmp/${CZI_PYRAMIDIZER_ASSET}" "${package_dir}"
 
 RUN python -m pip install --upgrade pip setuptools wheel
 
