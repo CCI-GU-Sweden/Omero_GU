@@ -22,7 +22,7 @@ jobs:
         echo PATH=$PWD/.venv/bin:$PATH >> $GITHUB_ENV
 
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: pip install -r requirements-pyright.txt
 
 
     - uses: jakebailey/pyright-action@v2
