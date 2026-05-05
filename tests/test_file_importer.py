@@ -162,6 +162,13 @@ class TestFileImporter:
             assert(isDup)
             assert(fname == fileData.getConvertedFileName())
 
+        suffixed_name = ''.join(fname.split('.')[:1]+['_', acquisition_date_time.strftime("%H-%M-%S"),'.','.'.join(fname.split('.')[1:])])
+        dup_suffixed_img = FakeImage(acquisition_date_time,suffixed_name,13)
+        with patch.object(conn,'get_image', return_value=dup_suffixed_img), patch.object(conn,'get_dataset', return_value=FakeDataset(66,"66", [dup_suffixed_img])):
+            isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
+            assert(isDup)
+            assert(fname == fileData.getConvertedFileName())
+
             
         ndup_img = FakeImage(now,fname,12)
         with patch.object(conn,'get_image', return_value=ndup_img),patch.object(conn,'get_dataset', return_value=FakeDataset(66,"66",[ndup_img])):
