@@ -26,6 +26,9 @@ class FakeImage:
     def getId(self):
         return self.id
 
+    def listAnnotations(self):
+        return []
+
 
 class FakeDataset:
     def __init__(self, value, name, children: list[FakeImage] = []):
@@ -62,7 +65,7 @@ class OmeroConnection_(OmeroConnection):
         self.host = host
         self.port = port
         self.omero_token = session_token
-        #self.conn = BlitzGateway()
+        self.conn = None
         
     def create_dataset(self, project_id: int, dataset_name: str):
         return 66
@@ -162,7 +165,7 @@ class TestFileImporter:
             assert(isDup)
             assert(fname == fileData.getConvertedFileName())
 
-        suffixed_name = ''.join(fname.split('.')[:1]+['_', acquisition_date_time.strftime("%H-%M-%S"),'.','.'.join(fname.split('.')[1:])])
+        suffixed_name = self.fi._build_time_suffixed_name(fname, acquisition_date_time)
         dup_suffixed_img = FakeImage(acquisition_date_time,suffixed_name,13)
         with patch.object(conn,'get_image', return_value=dup_suffixed_img), patch.object(conn,'get_dataset', return_value=FakeDataset(66,"66", [dup_suffixed_img])):
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
@@ -173,10 +176,9 @@ class TestFileImporter:
         ndup_img = FakeImage(now,fname,12)
         with patch.object(conn,'get_image', return_value=ndup_img),patch.object(conn,'get_dataset', return_value=FakeDataset(66,"66",[ndup_img])):
             acquisition_date_time = parser.parse(metadict['Acquisition date'])
-            acq_time = acquisition_date_time.strftime("%H-%M-%S")
             isDup = self.fi._check_duplicate_file_rename_if_needed(fileData,dataset,metadict,conn)
             assert(not isDup)
-            new_file_name = ''.join(fname.split('.')[:1]+['_', acq_time,'.','.'.join(fname.split('.')[1:])])
+            new_file_name = self.fi._build_time_suffixed_name(fname, acquisition_date_time)
             assert(new_file_name == fileData.getConvertedFileName())
             assert(fileData.getBasePath() + "/" + new_file_name == fileData.getConvertedFilePath())
             assert( os.path.isfile(fileData.getConvertedFilePath()))
