@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Sequence
 
 from common import conf
+from common import logger
 
 
 SUCCESS_EXIT_CODE = 0
@@ -48,7 +49,9 @@ class CziPyramidizerError(RuntimeError):
 
 def get_version(timeout_sec: int | None = None) -> CziPyramidizerRunResult:
     command = (conf.CZI_PYRAMIDIZER_BIN, "--version")
-    return _run(command, timeout_sec=timeout_sec)
+    result = _run(command, timeout_sec=timeout_sec)
+    logger.debug(f"[czi-pyramidizer] Checked version with command {command!r}: exit_code={result.exit_code}, stdout={result.stdout!r}, stderr={result.stderr!r}")
+    return result
 
 
 def check_needs_pyramid(path: str | Path, timeout_sec: int | None = None) -> CziPyramidCheckResult:
@@ -57,13 +60,16 @@ def check_needs_pyramid(path: str | Path, timeout_sec: int | None = None) -> Czi
     run_result = _run(command, timeout_sec=timeout_sec)
 
     if run_result.exit_code == SUCCESS_EXIT_CODE:
+        logger.debug(f"[czi-pyramidizer] check for {source_path} indicates no pyramid needed (exit code {run_result.exit_code})")
         return CziPyramidCheckResult(needs_pyramid=False, run_result=run_result)
 
     if run_result.exit_code == PYRAMID_NEEDED_EXIT_CODE:
+        logger.debug(f"[czi-pyramidizer] check for {source_path} indicates pyramid needed (exit code {run_result.exit_code})")
         return CziPyramidCheckResult(needs_pyramid=True, run_result=run_result)
 
+    logger.debug(f"[czi-pyramidizer] check for {source_path} failed with exit code {run_result.exit_code}")
     raise CziPyramidizerError(
-        f"czi-pyramidizer check failed for {source_path} with exit code {run_result.exit_code}",
+        f"[czi-pyramidizer] check failed for {source_path} with exit code {run_result.exit_code}",
         run_result=run_result,
     )
 
@@ -75,13 +81,16 @@ def build_pyramid(source_path: str | Path, destination_path: str | Path, timeout
     run_result = _run(command, timeout_sec=timeout_sec)
 
     if run_result.exit_code == SUCCESS_EXIT_CODE:
+        logger.debug(f"[czi-pyramidizer] build for {source} succeeded (exit code {run_result.exit_code})")
         return CziPyramidBuildResult(created_output=True, run_result=run_result)
 
     if run_result.exit_code == NO_ACTION_EXIT_CODE:
+        logger.debug(f"[czi-pyramidizer] build for {source} resulted in no action (exit code {run_result.exit_code})")
         return CziPyramidBuildResult(created_output=False, run_result=run_result)
 
+    logger.debug(f"[czi-pyramidizer] build for {source} failed with exit code {run_result.exit_code}")
     raise CziPyramidizerError(
-        f"czi-pyramidizer build failed for {source} with exit code {run_result.exit_code}",
+        f"[czi-pyramidizer] build failed for {source} with exit code {run_result.exit_code}",
         run_result=run_result,
     )
 
@@ -128,13 +137,13 @@ def _run(command: Sequence[str], timeout_sec: int | None = None) -> CziPyramidiz
             timeout=effective_timeout,
         )
     except FileNotFoundError as exc:
-        raise CziPyramidizerError(f"Unable to find czi-pyramidizer binary: {conf.CZI_PYRAMIDIZER_BIN}") from exc
+        raise CziPyramidizerError(f"[czi-pyramidizer] Unable to find czi-pyramidizer binary: {conf.CZI_PYRAMIDIZER_BIN}") from exc
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout if isinstance(exc.stdout, str) else (exc.stdout.decode() if exc.stdout else "")
         stderr = exc.stderr if isinstance(exc.stderr, str) else (exc.stderr.decode() if exc.stderr else "")
         run_result = CziPyramidizerRunResult(tuple(command), GENERAL_FAILURE_EXIT_CODE, stdout, stderr)
         raise CziPyramidizerError(
-            f"czi-pyramidizer timed out after {effective_timeout} seconds",
+            f"[czi-pyramidizer] czi-pyramidizer timed out after {effective_timeout} seconds",
             run_result=run_result,
         ) from exc
 

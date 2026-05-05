@@ -12,6 +12,10 @@ from omerofrontend.file_uploader import RetryCallback, ProgressCallback, ImportS
 from common.omero_getter_ctx import OmeroGetterCtx
 
 class FileImporter:
+
+    def _build_time_suffixed_name(self, filename: str, acquisition_date_time: datetime.datetime) -> str:
+        stem, ext = os.path.splitext(filename)
+        return f"{stem}_{acquisition_date_time.strftime('%H-%M-%S')}{ext}"
     
     def import_image_data(self, fileData: FileData, batchtags: dict[str,str], progress_cb: ProgressCallback, retry_cb: RetryCallback, import_cb: ImportStartedCallback, conn: OmeroConnection) -> tuple[list[str], list[int], str]:
         filename = fileData.getMainFileName()
@@ -74,23 +78,44 @@ class FileImporter:
             metadict['UploadFolder'] = folder
 
     def _check_duplicate_file_rename_if_needed(self, fileData: FileData, dataset_id: int, meta_dict: dict[str,str], conn: OmeroConnection):
-        
+        acquisition_date_time = meta_dict.get('Acquisition date')
+        parsed_acquisition_date: datetime.datetime | None = None
+        if acquisition_date_time:
+            parsed_acquisition_date = parser.parse(acquisition_date_time)
+
         with OmeroGetterCtx(conn) as ogc:
             dup, childId = ogc.check_duplicate_file(fileData.getConvertedFileName(),dataset_id)
 
-            if dup:
-                acquisition_date_time = meta_dict.get('Acquisition date')
-                if acquisition_date_time: #no value for date time. Should NOT happen though
-                    acquisition_date_time = parser.parse(acquisition_date_time)
-                    sameTime = ogc.compare_image_acquisition_time(childId,acquisition_date_time)
+            if dup and childId is not None:
+                if parsed_acquisition_date is not None: #no value for date time. Should NOT happen though
+                    sameTime = ogc.compare_image_acquisition_time(childId,parsed_acquisition_date)
                     if sameTime:
                         return True
-                else: #security
-                    acquisition_date_time = datetime.datetime.now()
-            
-                file = fileData.getConvertedFileName() #?????????
-                acq_time = acquisition_date_time.strftime("%H-%M-%S")
-                new_name = ''.join(file.split('.')[:1]+['_', acq_time,'.','.'.join(file.split('.')[1:])])
+                    # Some OMERO backends normalize acquisition date/time differently;
+                    # use the stored map annotation as a secondary exact-date check.
+                    stored_acq_date = ogc.get_map_annotation_value(childId, 'Acquisition date')
+                    expected_acq_date = parsed_acquisition_date.strftime(conf.DATE_TIME_FMT)
+                    if stored_acq_date == expected_acq_date:
+                        return True
+
+            # Backward compatibility: older imports may already exist with the time-suffixed name.
+            if parsed_acquisition_date is not None:
+                alternate_name = self._build_time_suffixed_name(fileData.getConvertedFileName(), parsed_acquisition_date)
+                dup_alt, child_alt_id = ogc.check_duplicate_file(alternate_name, dataset_id)
+                if dup_alt and child_alt_id is not None:
+                    sameTimeAlt = ogc.compare_image_acquisition_time(child_alt_id, parsed_acquisition_date)
+                    if sameTimeAlt:
+                        return True
+                    stored_acq_date_alt = ogc.get_map_annotation_value(child_alt_id, 'Acquisition date')
+                    expected_acq_date = parsed_acquisition_date.strftime(conf.DATE_TIME_FMT)
+                    if stored_acq_date_alt == expected_acq_date:
+                        return True
+
+            if dup:
+                if parsed_acquisition_date is None: #security
+                    parsed_acquisition_date = datetime.datetime.now()
+
+                new_name = self._build_time_suffixed_name(fileData.getConvertedFileName(), parsed_acquisition_date)
                 fileData.renameFile(new_name)
 
         return False
