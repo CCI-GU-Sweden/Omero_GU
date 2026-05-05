@@ -10,5 +10,10 @@ config.py
 tbsocket*
 *.sock
 test.py
+<<<<<<< HEAD
 dev_plan/
 .vscode/
+=======
+.vscode/
+dev_plan/*
+>>>>>>> 1f90fc3 (updtae)
