@@ -10,3 +10,5 @@ config.py
 tbsocket*
 *.sock
 test.py
+.vscode/
+dev_plan/
