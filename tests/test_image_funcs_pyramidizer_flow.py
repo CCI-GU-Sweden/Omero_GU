@@ -10,20 +10,18 @@ TEST_DATA_DIR = Path(__file__).parent / "data"
 
 
 def _require_pyramidizer_available() -> None:
-    result = None
     try:
         result = czi_pyramidizer.get_version(timeout_sec=15)
     except czi_pyramidizer.CziPyramidizerError as exc:
         pytest.skip(f"czi-pyramidizer not available: {exc}")
-
-    if result is None:
-        pytest.skip("czi-pyramidizer version check did not return a result")
+        return
 
     if result.exit_code != czi_pyramidizer.SUCCESS_EXIT_CODE:
         pytest.skip(
             "czi-pyramidizer --version failed "
             f"(exit_code={result.exit_code}, stderr={result.stderr!r})"
         )
+        return
 
 
 def test_980_fixture_is_already_pyramidized():
