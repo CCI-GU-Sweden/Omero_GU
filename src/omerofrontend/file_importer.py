@@ -114,10 +114,8 @@ class FileImporter:
             if dup:
                 if parsed_acquisition_date is None: #security
                     parsed_acquisition_date = datetime.datetime.now()
-            
-                file = fileData.getConvertedFileName() #?????????
-                acq_time = parsed_acquisition_date.strftime("%H-%M-%S")
-                new_name = ''.join(file.split('.')[:1]+['_', acq_time,'.','.'.join(file.split('.')[1:])])
+
+                new_name = self._build_time_suffixed_name(fileData.getConvertedFileName(), parsed_acquisition_date)
                 fileData.renameFile(new_name)
 
         return False
