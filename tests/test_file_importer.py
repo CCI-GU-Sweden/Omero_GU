@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any, cast
 from dateutil import parser
 import os.path
 from unittest.mock import patch
@@ -65,7 +66,7 @@ class OmeroConnection_(OmeroConnection):
         self.host = host
         self.port = port
         self.omero_token = session_token
-        self.conn = None
+        self.conn = cast(Any, None)
         
     def create_dataset(self, project_id: int, dataset_name: str):
         return 66
