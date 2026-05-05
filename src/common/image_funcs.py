@@ -32,6 +32,7 @@ from ome_types.model import Microscope_Type, Pixels_DimensionOrder
 from ome_types.model import Map
 from ome_types.model.simple_types import PixelType, UnitsLength
 from common import conf
+from common import czi_pyramidizer
 from common import logger
 from common.file_data import FileData
 from omerofrontend.exceptions import MetaDataError, ImageNotSupported
@@ -1770,25 +1771,72 @@ def is_supported_format(fileName):
     ext = fileName.split('.')[-1]
     return ('.'+ext) in conf.ALLOWED_FOLDER_FILE_EXT or ('.'+ext) in conf.ALLOWED_SINGLE_FILE_EXT
 
+
+def _convert_czi_with_legacy_policy(fileData: FileData, img_path: str, key_pair: dict[str, str]) -> list[str]:
+    mic = (key_pair.get("Microscope") or "").strip()
+    mic_ok = mic in conf.TO_CONVERT_SCOPE
+    size_ok = fileData.getTotalFileSize() > conf.CZI_CONVERT_MIN_BYTES
+    do_convert = mic_ok and (conf.FORCE_CZI_CONVERSION or size_ok)
+
+    if not do_convert:
+        return [img_path]
+
+    try:
+        return convert_czi_to_ometiff(img_path)
+    except Exception:
+        logger.error(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
+        return [img_path]
+
+
+def _handle_czi_with_pyramidizer(fileData: FileData, img_path: str, key_pair: dict[str, str]) -> list[str]:
+    if not conf.CZI_PYRAMIDIZER_ENABLED:
+        return _convert_czi_with_legacy_policy(fileData, img_path, key_pair)
+
+    source_size = fileData.getTotalFileSize()
+    destination_path = img_path
+
+    try:
+        check_result = czi_pyramidizer.check_needs_pyramid(img_path)
+        logger.info(
+            "CZI pyramid check done "
+            f"czi_pyramid_check_exit_code={check_result.run_result.exit_code} "
+            f"czi_source_bytes={source_size}"
+        )
+
+        if not check_result.needs_pyramid:
+            return [img_path]
+
+        build_result = czi_pyramidizer.build_pyramid(img_path, destination_path)
+        logger.info(
+            "CZI pyramid build done "
+            f"czi_pyramid_build_exit_code={build_result.run_result.exit_code} "
+            f"czi_source_bytes={source_size}"
+        )
+        if build_result.created_output:
+            logger.info(f"Pyramidized CZI in place for {img_path}")
+
+        return [destination_path]
+    except czi_pyramidizer.CziPyramidizerError as exc:
+        run_result = exc.run_result
+        exit_code = run_result.exit_code if run_result is not None else "n/a"
+        logger.error(
+            "CZI pyramidizer failed "
+            f"for {img_path}. exit_code={exit_code}. "
+            f"fallback_path_used={conf.CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION}. "
+            f"error={str(exc)}"
+        )
+        if conf.CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION:
+            return _convert_czi_with_legacy_policy(fileData, img_path, key_pair)
+
+        return [img_path]
+
 def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]:
     ext = fileData.getMainFileExtension().lower()
     img_path = fileData.getMainFileTempPath()
     logger.info(f"Received file is of format {ext}")
     if ext == "czi": #Light microscope format - CarlZeissImage
         key_pair = get_info_metadata_from_czi(Path(img_path))
-        mic = (key_pair.get("Microscope") or "").strip()
-        mic_ok  = mic in conf.TO_CONVERT_SCOPE
-        size_ok = fileData.getTotalFileSize() > conf.CZI_CONVERT_MIN_BYTES
-        do_convert = mic_ok and (conf.FORCE_CZI_CONVERSION or size_ok)
-
-        if do_convert:
-            try:
-                converted_path = convert_czi_to_ometiff(img_path) #issue in case of multiposition, converted_path will be a list!
-            except Exception:  # catch-all is fine; not a bare except
-                    logger.error(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
-                    converted_path = [img_path]
-        else: #no conversion needed
-            converted_path = [img_path]
+        converted_path = _handle_czi_with_pyramidizer(fileData, img_path, key_pair)
     
     elif ext == "tif": #Tif, but only SEM-TIF or Fibics-TIF are supported
         converted_path, key_pair = convert_tif_to_ometiff(img_path)

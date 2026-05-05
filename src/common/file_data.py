@@ -8,6 +8,10 @@ class FileData:
     def __init__(self,fileBaseNames):
         self.originalFileNames = []
         self._upload_paths: list[str] = []
+        self.tempPaths: list[str] = []
+        self.basePath: str = ""
+        self.convertedFileName: Optional[str] = None
+        self.fileSizes: list[int] = []
         self.annotations: Optional[dict[str,str]] = None
         self.username: Optional[str] = None
         for f in fileBaseNames:
@@ -107,7 +111,7 @@ class FileData:
         return self.getMainFileTempPath()
 
     def hasConvertedFileName(self):
-        return hasattr(self, 'convertedFileName')
+        return self.convertedFileName is not None
     
     def getConvertedFilePath(self):
         return self.basePath + "/" + self.getConvertedFileName()
@@ -116,6 +120,8 @@ class FileData:
         self.convertedFileName = convertedName
         
     def getConvertedFileName(self):
+        if self.convertedFileName is None:
+            raise ValueError("convertedFileName has not been set")
         return self.convertedFileName
 
     def renameFile(self, newName: str):
