@@ -46,6 +46,7 @@ USE_CHUNK_READ_ON_LARGE_FILES = True
 
 REDIS_URL = "redis://:redis@redis-omero-test:6379/0"
 RQ_QUEUE_NAME = "sse:omero_imports"
+USE_FAKE_REDIS: bool = False
 
  #Conversion to OME-TIFF
 TO_CONVERT_SCOPE: list = ["LSM 700", "LSM 710"]
@@ -72,6 +73,7 @@ try:
     LOG_LEVEL = getattr(config, "LOG_LEVEL", LOG_LEVEL)
     USE_CHUNK_READ_ON_LARGE_FILES = getattr(config, "USE_CHUNK_READ_ON_LARGE_FILES", USE_CHUNK_READ_ON_LARGE_FILES)
     REDIS_URL = getattr(config, "REDIS_URL", REDIS_URL)
+    USE_FAKE_REDIS = getattr(config, "USE_FAKE_REDIS", USE_FAKE_REDIS)
 
     TO_CONVERT_SCOPE = getattr(config, "TO_CONVERT_SCOPE", TO_CONVERT_SCOPE)
     FORCE_CZI_CONVERSION = getattr(config, "FORCE_CZI_CONVERSION", FORCE_CZI_CONVERSION)
