@@ -63,6 +63,8 @@ CZI_PYRAMIDIZER_MAX_TOP_LEVEL: int = 1024
 CZI_PYRAMIDIZER_MODE: str = "IfNeeded"
 CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION: bool = False
 
+USER_VARIABLES = ["Sample", "User", "PI", "Preparation", "Lens ID"]
+
 try:
     import config #pyright: ignore[reportAttributeAccessIssue]
     FILE_IMPORT_THREADS = getattr(config, "FILE_IMPORT_THREADS", FILE_IMPORT_THREADS)
@@ -88,7 +90,8 @@ try:
     CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION = getattr(config, "CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION", CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION)
 
     GENERATE_THUMBNAILS = getattr(config, "GENERATE_THUMBNAILS", GENERATE_THUMBNAILS)
-    
+    USER_VARIABLES = getattr(config, "USER_VARIABLES", USER_VARIABLES)
+
 except ImportError:
     pass
 
@@ -111,8 +114,6 @@ OMERO_SESSION_TOKEN_URL = f'{OMERO_BASE_URL}/oauth/sessiontoken'
 
 UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
-
-USER_VARIABLES = ["Sample", "User", "PI", "Preparation", "Lens ID"]
 
 DATE_TIME_FMT = "%Y-%m-%d %H:%M:%S"
 
