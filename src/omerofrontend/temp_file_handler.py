@@ -5,6 +5,7 @@ from werkzeug.datastructures import FileStorage
 from common import logger
 from common import conf
 from common.file_data import FileData
+from common import czi_pyramidizer
 from common import image_funcs
 from omerofrontend.exceptions import GeneralError, ImageNotSupported, OutOfDiskError
 
@@ -94,6 +95,12 @@ class TempFileHandler:
             os.remove(cfile)
         else:
             logger.info(f"Unable to remove converted temp file: {cfile} since it did not exist (perhaps not converted at all?)")
+
+        main_temp_path = fileData.getMainFileTempPath()
+        if main_temp_path and fileData.getMainFileExtension().lower() == "czi":
+            pyramidized_path = czi_pyramidizer.default_pyramidized_path(main_temp_path)
+            if os.path.normpath(pyramidized_path) != os.path.normpath(main_temp_path):
+                self.remove_temp_file_by_path(pyramidized_path)
             
     def remove_temp_file_by_path(self, filepath: str):
         if os.path.exists(filepath):
