@@ -10,5 +10,6 @@ config.py
 tbsocket*
 *.sock
 test.py
-dev_plan/
-.vscode/
+dev_plan/*
+.vscode/*
+local-uwsgi.ini

@@ -87,6 +87,10 @@ class TempFileHandler:
                         #logger.debug(f"storing {tot} of {file_size} ")
                 if file_size <= 0:
                     call_if_not_none(temp_cb, filename, 100)
+
+            # Some request streams do not expose a reliable content length.
+            # Always trust on-disk size after save to avoid zero-size metadata.
+            file_size = os.path.getsize(file_path)
         except Exception as e:
             logger.error(f"Error in _store_temp_file:  {str(e)}")
             raise OutOfDiskError(filename, file_path, "Out Of Disk on temp storage!")
