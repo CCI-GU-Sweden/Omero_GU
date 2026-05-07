@@ -1,4 +1,3 @@
-import os
 from threading import Lock
 import redis
 from redis.exceptions import RedisError
@@ -26,7 +25,7 @@ class ServerEventManager:
     _id_cntr : int = -1
     
     #use this only for testing
-    USE_FAKE_REDIS = os.getenv("USE_FAKE_REDIS") == "1"
+    USE_FAKE_REDIS = conf.USE_FAKE_REDIS
     if USE_FAKE_REDIS:
         import fakeredis
         r = fakeredis.FakeRedis(decode_responses=False)

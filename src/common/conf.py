@@ -46,6 +46,7 @@ USE_CHUNK_READ_ON_LARGE_FILES = True
 
 REDIS_URL = "redis://:redis@redis-omero-test:6379/0"
 RQ_QUEUE_NAME = "sse:omero_imports"
+USE_FAKE_REDIS: bool = False
 
  #Conversion to OME-TIFF
 TO_CONVERT_SCOPE: list = ["LSM 700", "LSM 710"]
@@ -62,6 +63,8 @@ CZI_PYRAMIDIZER_MAX_TOP_LEVEL: int = 1024
 CZI_PYRAMIDIZER_MODE: str = "IfNeeded"
 CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION: bool = False
 
+USER_VARIABLES = ["Sample", "User", "PI", "Preparation", "Lens ID"]
+
 try:
     import config #pyright: ignore[reportAttributeAccessIssue]
     FILE_IMPORT_THREADS = getattr(config, "FILE_IMPORT_THREADS", FILE_IMPORT_THREADS)
@@ -72,6 +75,7 @@ try:
     LOG_LEVEL = getattr(config, "LOG_LEVEL", LOG_LEVEL)
     USE_CHUNK_READ_ON_LARGE_FILES = getattr(config, "USE_CHUNK_READ_ON_LARGE_FILES", USE_CHUNK_READ_ON_LARGE_FILES)
     REDIS_URL = getattr(config, "REDIS_URL", REDIS_URL)
+    USE_FAKE_REDIS = getattr(config, "USE_FAKE_REDIS", USE_FAKE_REDIS)
 
     TO_CONVERT_SCOPE = getattr(config, "TO_CONVERT_SCOPE", TO_CONVERT_SCOPE)
     FORCE_CZI_CONVERSION = getattr(config, "FORCE_CZI_CONVERSION", FORCE_CZI_CONVERSION)
@@ -86,7 +90,8 @@ try:
     CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION = getattr(config, "CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION", CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION)
 
     GENERATE_THUMBNAILS = getattr(config, "GENERATE_THUMBNAILS", GENERATE_THUMBNAILS)
-    
+    USER_VARIABLES = getattr(config, "USER_VARIABLES", USER_VARIABLES)
+
 except ImportError:
     pass
 
@@ -109,8 +114,6 @@ OMERO_SESSION_TOKEN_URL = f'{OMERO_BASE_URL}/oauth/sessiontoken'
 
 UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
-
-USER_VARIABLES = ["Sample", "User", "PI", "Preparation", "Lens ID"]
 
 DATE_TIME_FMT = "%Y-%m-%d %H:%M:%S"
 

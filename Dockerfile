@@ -34,10 +34,10 @@ RUN apt-get update && apt-get install -y \
     gettext \
     curl \
     libbz2-dev \
-    libopencv-core406 \
-    libopencv-imgproc406 \
-    libopencv-imgcodecs406 \
-    libopencv-videoio406 \
+    libopencv-core406t64 \
+    libopencv-imgproc406t64 \
+    libopencv-imgcodecs406t64 \
+    libopencv-videoio406t64 \
     default-jre-headless \
     htop \
     && apt-get clean \
@@ -79,9 +79,5 @@ RUN python -m pip install --no-cache-dir --break-system-packages -r requirements
 
 EXPOSE 5000
 
-USER 1001
-CMD ["uwsgi","--ini","uwsgi.ini"]
-
-# Switch to the new user for all subsequent commands and runtime
 USER ${USER_NAME}
-# Set the working directory (optional)
+CMD ["uwsgi","--ini","uwsgi.ini"]
