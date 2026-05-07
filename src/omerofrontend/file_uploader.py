@@ -7,6 +7,7 @@ from threading import Lock
 import omero.model
 import omero.grid
 import traceback
+import os
 from typing import Callable, Optional
 from omero.rtypes import rstring, rbool
 from omero.model.enums import ChecksumAlgorithmSHA1160  # type: ignore
