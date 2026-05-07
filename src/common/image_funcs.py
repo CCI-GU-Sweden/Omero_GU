@@ -1793,7 +1793,7 @@ def _handle_czi_with_pyramidizer(fileData: FileData, img_path: str, key_pair: di
         return _convert_czi_with_legacy_policy(fileData, img_path, key_pair)
 
     source_size = fileData.getTotalFileSize()
-    destination_path = img_path
+    destination_path = czi_pyramidizer.default_pyramidized_path(img_path)
 
     try:
         check_result = czi_pyramidizer.check_needs_pyramid(img_path)
@@ -1813,9 +1813,11 @@ def _handle_czi_with_pyramidizer(fileData: FileData, img_path: str, key_pair: di
             f"czi_source_bytes={source_size}"
         )
         if build_result.created_output:
-            logger.info(f"Pyramidized CZI in place for {img_path}")
+            logger.info(f"Pyramidized CZI written to {destination_path}")
+            return [destination_path]
 
-        return [destination_path]
+        logger.info(f"Pyramidizer took no action for {img_path}, using original")
+        return [img_path]
     except czi_pyramidizer.CziPyramidizerError as exc:
         run_result = exc.run_result
         exit_code = run_result.exit_code if run_result is not None else "n/a"

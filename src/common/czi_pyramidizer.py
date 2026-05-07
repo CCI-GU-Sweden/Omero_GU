@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -15,6 +16,7 @@ GENERAL_FAILURE_EXIT_CODE = 1
 PYRAMID_NEEDED_EXIT_CODE = 10
 NO_ACTION_EXIT_CODE = 11
 ARGUMENT_ERROR_EXIT_CODE = 99
+MAX_LOG_TAIL_CHARS = 16000
 
 
 @dataclass(frozen=True)
@@ -129,13 +131,20 @@ def _run(command: Sequence[str], timeout_sec: int | None = None) -> CziPyramidiz
     effective_timeout = conf.CZI_PYRAMIDIZER_TIMEOUT_SEC if timeout_sec is None else timeout_sec
 
     try:
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            check=False,
-            text=True,
-            timeout=effective_timeout,
-        )
+        # Keep subprocess output off RAM for large/verbose runs; only read a small tail for logs.
+        with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as stdout_file, tempfile.TemporaryFile(
+            mode="w+t", encoding="utf-8"
+        ) as stderr_file:
+            completed = subprocess.run(
+                command,
+                stdout=stdout_file,
+                stderr=stderr_file,
+                check=False,
+                text=True,
+                timeout=effective_timeout,
+            )
+            stdout = _read_tail(stdout_file, MAX_LOG_TAIL_CHARS)
+            stderr = _read_tail(stderr_file, MAX_LOG_TAIL_CHARS)
     except FileNotFoundError as exc:
         raise CziPyramidizerError(f"[czi-pyramidizer] Unable to find czi-pyramidizer binary: {conf.CZI_PYRAMIDIZER_BIN}") from exc
     except subprocess.TimeoutExpired as exc:
@@ -150,11 +159,19 @@ def _run(command: Sequence[str], timeout_sec: int | None = None) -> CziPyramidiz
     return CziPyramidizerRunResult(
         command=tuple(str(arg) for arg in command),
         exit_code=completed.returncode,
-        stdout=completed.stdout,
-        stderr=completed.stderr,
+        stdout=stdout,
+        stderr=stderr,
     )
 
 
 def default_pyramidized_path(source_path: str | Path) -> str:
     source = Path(source_path)
     return os.fspath(source.with_suffix(".pyramidized.czi"))
+
+
+def _read_tail(file_obj, max_chars: int) -> str:
+    file_obj.seek(0)
+    content = file_obj.read()
+    if len(content) <= max_chars:
+        return content
+    return content[-max_chars:]

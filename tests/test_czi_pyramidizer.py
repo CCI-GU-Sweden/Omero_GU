@@ -9,10 +9,12 @@ from common import czi_pyramidizer
 def test_check_needs_pyramid_builds_expected_command(monkeypatch):
     recorded = {}
 
-    def fake_run(command, capture_output, check, text, timeout):
+    def fake_run(command, stdout, stderr, check, text, timeout):
         recorded["command"] = tuple(command)
         recorded["timeout"] = timeout
-        return subprocess.CompletedProcess(command, 10, "needed", "")
+        stdout.write("needed")
+        stderr.write("")
+        return subprocess.CompletedProcess(command, 10)
 
     monkeypatch.setattr(czi_pyramidizer.conf, "CZI_PYRAMIDIZER_BIN", "mock-pyramidizer")
     monkeypatch.setattr(czi_pyramidizer.conf, "CZI_PYRAMIDIZER_THRESHOLD", 2048)
@@ -34,8 +36,10 @@ def test_check_needs_pyramid_builds_expected_command(monkeypatch):
 
 
 def test_check_needs_pyramid_raises_on_generic_failure(monkeypatch):
-    def fake_run(command, capture_output, check, text, timeout):
-        return subprocess.CompletedProcess(command, 1, "", "boom")
+    def fake_run(command, stdout, stderr, check, text, timeout):
+        stdout.write("")
+        stderr.write("boom")
+        return subprocess.CompletedProcess(command, 1)
 
     monkeypatch.setattr(czi_pyramidizer.subprocess, "run", fake_run)
 
@@ -49,9 +53,11 @@ def test_check_needs_pyramid_raises_on_generic_failure(monkeypatch):
 def test_build_pyramid_returns_no_action(monkeypatch):
     recorded = {}
 
-    def fake_run(command, capture_output, check, text, timeout):
+    def fake_run(command, stdout, stderr, check, text, timeout):
         recorded["command"] = tuple(command)
-        return subprocess.CompletedProcess(command, 11, "skipped", "")
+        stdout.write("skipped")
+        stderr.write("")
+        return subprocess.CompletedProcess(command, 11)
 
     monkeypatch.setattr(czi_pyramidizer.conf, "CZI_PYRAMIDIZER_BIN", "mock-pyramidizer")
     monkeypatch.setattr(czi_pyramidizer.conf, "CZI_PYRAMIDIZER_MODE", "IfNeeded")

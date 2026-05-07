@@ -1,5 +1,4 @@
 import pytest
-import os
 #import logging
 from queue import Queue, Empty
 from werkzeug.datastructures import FileStorage
@@ -26,8 +25,7 @@ class TestFullUploadManual:
 
     @classmethod
     def _assert_fake_redis(cls):
-        fake_redis = os.getenv("USE_FAKE_REDIS") == "1"
-        assert fake_redis, "Hello! \n I see you are running manual tests without the USE_FAKE_REDIS environment variable set to '1' \n Tests must be run with USE_FAKE_REDIS=1 environment variable set."
+        assert conf.USE_FAKE_REDIS, "Hello! \n I see you are running manual tests without USE_FAKE_REDIS enabled. \n Set USE_FAKE_REDIS = True in config.py before running manual tests."
 
     @classmethod
     def setup_class(cls):
