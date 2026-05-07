@@ -3,7 +3,8 @@ from datetime import datetime
 from common import omero_connection
 from common import logger
 from common import conf
-from omero.gateway import DatasetWrapper, MapAnnotationWrapper, CommentAnnotationWrapper, TagAnnotationWrapper
+from omero.gateway import DatasetWrapper, MapAnnotationWrapper, CommentAnnotationWrapper, TagAnnotationWrapper, \
+    BlitzGateway, BlitzObjectWrapper
 from omerofrontend.exceptions.exceptions import OmeroObjectNotFoundError
 
 class OmeroGetterCtx:
@@ -242,4 +243,10 @@ class OmeroGetterCtx:
             tag_ann = self.conn.create_tag_annotation(tag_value)
             
         self.conn.set_annotation_on_image(image,tag_ann)
-            
+
+
+    def delete_plates(self, plate_ids):
+        #plates: list[BlitzObjectWrapper] = list(self.conn.conn.getObjects("Plate"))
+        #plate_ids = [plate.getId() for plate in plates]
+        self.conn.conn.deleteObjects("Plate", plate_ids)
+

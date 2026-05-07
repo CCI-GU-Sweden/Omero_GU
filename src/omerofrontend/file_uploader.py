@@ -3,6 +3,7 @@ import platform
 import locale
 import omero
 import hashlib
+import os
 from threading import Lock
 import omero.model
 import omero.grid
@@ -11,6 +12,7 @@ import os
 from typing import Callable, Optional
 from omero.rtypes import rstring, rbool
 from omero.model.enums import ChecksumAlgorithmSHA1160  # type: ignore
+from omero_model_PlateI import PlateI
 from omero_version import omero_version
 from omero.callbacks import CmdCallbackI
 from common.file_data import FileData
@@ -115,6 +117,7 @@ class FileUploader:
             )
 
         image_ids: list[int] = []
+        plate_ids: list[int] = []
         for objs in response.objects:
             if isinstance(objs, omero.model.ImageI):  # type: ignore
                 image = objs
@@ -129,7 +132,10 @@ class FileUploader:
                 )
             elif isinstance(objs, omero.model.PlateI):  # type: ignore
                 logger.info(f"Plate image id: {objs.getId().getValue()}")
+                plate_ids.append(objs.getId().getValue())
+                # are these images or plates?
                 image_ids.append(objs.getId().getValue())
+
             else:
                 logger.warning(f"Unexpected object type returned: {type(objs)}")
 
@@ -139,6 +145,7 @@ class FileUploader:
         with OmeroGetterCtx(self._oConn) as ogc:
             proj_name = ogc.get_project_name(project_id)
             dataset_name = ogc.get_dataset_name(dataset_id)
+            ogc.delete_plates(plate_ids)
 
         proj_name = "Unknown project" if proj_name is None else proj_name
         dataset_name = "Unknown dataset" if dataset_name is None else dataset_name
@@ -146,7 +153,7 @@ class FileUploader:
         usern = filedata.getUserName()
         usern = "Unknown user" if usern is None else usern
 
-        omero_path = usern + "/" + proj_name + "/" + dataset_name
+        omero_path = os.path.join(usern, proj_name, dataset_name)
 
         return image_ids, omero_path
 
