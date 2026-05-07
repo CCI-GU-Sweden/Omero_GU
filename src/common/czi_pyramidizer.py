@@ -16,7 +16,7 @@ GENERAL_FAILURE_EXIT_CODE = 1
 PYRAMID_NEEDED_EXIT_CODE = 10
 NO_ACTION_EXIT_CODE = 11
 ARGUMENT_ERROR_EXIT_CODE = 99
-MAX_LOG_TAIL_CHARS = 16000
+MAX_LOG_TAIL_CHARS = 8000
 
 
 @dataclass(frozen=True)
@@ -135,26 +135,33 @@ def _run(command: Sequence[str], timeout_sec: int | None = None) -> CziPyramidiz
         with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as stdout_file, tempfile.TemporaryFile(
             mode="w+t", encoding="utf-8"
         ) as stderr_file:
-            completed = subprocess.run(
-                command,
-                stdout=stdout_file,
-                stderr=stderr_file,
-                check=False,
-                text=True,
-                timeout=effective_timeout,
-            )
+            try:
+                completed = subprocess.run(
+                    command,
+                    stdout=stdout_file,
+                    stderr=stderr_file,
+                    check=False,
+                    text=True,
+                    timeout=effective_timeout,
+                )
+            except subprocess.TimeoutExpired as exc:
+                stdout = _read_tail(stdout_file, MAX_LOG_TAIL_CHARS)
+                stderr = _read_tail(stderr_file, MAX_LOG_TAIL_CHARS)
+                if not stdout:
+                    stdout = exc.stdout if isinstance(exc.stdout, str) else (exc.stdout.decode(errors="replace") if exc.stdout else "")
+                if not stderr:
+                    stderr = exc.stderr if isinstance(exc.stderr, str) else (exc.stderr.decode(errors="replace") if exc.stderr else "")
+
+                run_result = CziPyramidizerRunResult(tuple(command), GENERAL_FAILURE_EXIT_CODE, stdout, stderr)
+                raise CziPyramidizerError(
+                    f"[czi-pyramidizer] czi-pyramidizer timed out after {effective_timeout} seconds",
+                    run_result=run_result,
+                ) from exc
+
             stdout = _read_tail(stdout_file, MAX_LOG_TAIL_CHARS)
             stderr = _read_tail(stderr_file, MAX_LOG_TAIL_CHARS)
     except FileNotFoundError as exc:
         raise CziPyramidizerError(f"[czi-pyramidizer] Unable to find czi-pyramidizer binary: {conf.CZI_PYRAMIDIZER_BIN}") from exc
-    except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout if isinstance(exc.stdout, str) else (exc.stdout.decode() if exc.stdout else "")
-        stderr = exc.stderr if isinstance(exc.stderr, str) else (exc.stderr.decode() if exc.stderr else "")
-        run_result = CziPyramidizerRunResult(tuple(command), GENERAL_FAILURE_EXIT_CODE, stdout, stderr)
-        raise CziPyramidizerError(
-            f"[czi-pyramidizer] czi-pyramidizer timed out after {effective_timeout} seconds",
-            run_result=run_result,
-        ) from exc
 
     return CziPyramidizerRunResult(
         command=tuple(str(arg) for arg in command),
@@ -170,8 +177,25 @@ def default_pyramidized_path(source_path: str | Path) -> str:
 
 
 def _read_tail(file_obj, max_chars: int) -> str:
-    file_obj.seek(0)
-    content = file_obj.read()
-    if len(content) <= max_chars:
-        return content
-    return content[-max_chars:]
+    if max_chars <= 0:
+        return ""
+
+    # Use the underlying binary buffer to support end-relative seeks while
+    # keeping text-mode file handles for subprocess/test compatibility.
+    buffer_obj = getattr(file_obj, "buffer", None)
+    if buffer_obj is None:
+        file_obj.seek(0)
+        content = file_obj.read()
+        if len(content) <= max_chars:
+            return content
+        return content[-max_chars:]
+
+    buffer_obj.seek(0, os.SEEK_END)
+    end_pos = buffer_obj.tell()
+    if end_pos <= 0:
+        return ""
+
+    read_size = min(end_pos, max_chars)
+    buffer_obj.seek(-read_size, os.SEEK_END)
+    chunk = buffer_obj.read(read_size)
+    return chunk.decode("utf-8", errors="replace")
