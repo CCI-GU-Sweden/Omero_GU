@@ -133,6 +133,7 @@ class FileUploader:
             elif isinstance(objs, omero.model.PlateI):  # type: ignore
                 logger.info(f"Plate image id: {objs.getId().getValue()}")
                 plate_ids.append(objs.getId().getValue())
+                logger.debug(f"plate_ids before delete: {plate_ids!r}, type: {type(plate_ids)}")
                 # are these images or plates?
                 image_ids.append(objs.getId().getValue())
 
@@ -145,7 +146,13 @@ class FileUploader:
         with OmeroGetterCtx(self._oConn) as ogc:
             proj_name = ogc.get_project_name(project_id)
             dataset_name = ogc.get_dataset_name(dataset_id)
-            ogc.delete_plates(plate_ids)
+            logger.debug(f"plate_ids={plate_ids!r}")
+            logger.debug(f"type(plate_ids)={type(plate_ids)}")
+
+            if isinstance(plate_ids, list):
+                logger.debug(f"item types={[type(x) for x in plate_ids]}")
+            if plate_ids:
+                ogc.delete_plates(plate_ids)
 
         proj_name = "Unknown project" if proj_name is None else proj_name
         dataset_name = "Unknown dataset" if dataset_name is None else dataset_name

@@ -246,7 +246,5 @@ class OmeroGetterCtx:
 
 
     def delete_plates(self, plate_ids):
-        #plates: list[BlitzObjectWrapper] = list(self.conn.conn.getObjects("Plate"))
-        #plate_ids = [plate.getId() for plate in plates]
         self.conn.conn.deleteObjects("Plate", plate_ids)
 
