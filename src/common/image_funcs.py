@@ -1821,11 +1821,15 @@ def _handle_czi_with_pyramidizer(fileData: FileData, img_path: str, key_pair: di
     except czi_pyramidizer.CziPyramidizerError as exc:
         run_result = exc.run_result
         exit_code = run_result.exit_code if run_result is not None else "n/a"
+        stderr_tail = run_result.stderr if run_result is not None else ""
+        stdout_tail = run_result.stdout if run_result is not None else ""
         logger.error(
             "CZI pyramidizer failed "
             f"for {img_path}. exit_code={exit_code}. "
             f"fallback_path_used={conf.CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION}. "
-            f"error={str(exc)}"
+            f"error={str(exc)}\n"
+            f"  stderr: {stderr_tail!r}\n"
+            f"  stdout: {stdout_tail!r}"
         )
         if conf.CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION:
             return _convert_czi_with_legacy_policy(fileData, img_path, key_pair)
