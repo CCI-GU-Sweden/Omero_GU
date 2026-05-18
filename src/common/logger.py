@@ -61,16 +61,32 @@ def setup_logger(level: Union[int, str] = logging.DEBUG):
         Path(conf.LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
         Path(conf.LOG_FILE).touch()
         
-    logging.getLogger(conf.APP_NAME)
+    app_logger = logging.getLogger(conf.APP_NAME)
     fmtStr = '%(process)d: %(asctime)s -%(levelname)s-: %(message)s'
-    
-    logging.basicConfig(filename=conf.LOG_FILE, level=normalized_level,
-                        format=fmtStr)
+
+    # Avoid duplicate output when create_app() is called multiple times
+    # (for example in debug reloads or tests).
+    for h in list(app_logger.handlers):
+        app_logger.removeHandler(h)
+        try:
+            h.close()
+        except Exception:
+            pass
+
+    app_logger.setLevel(normalized_level)
+    app_logger.propagate = False
+
+    file_handler = logging.FileHandler(conf.LOG_FILE, encoding='utf-8')
+    file_handler.setLevel(normalized_level)
+    file_handler.setFormatter(logging.Formatter(fmtStr))
+
     localLogger = logging.StreamHandler(sys.stdout)
     llFmt = CustomFormatter()
     localLogger.setFormatter(llFmt)
     localLogger.setLevel(normalized_level)
-    logging.getLogger(conf.APP_NAME).addHandler(localLogger)
+
+    app_logger.addHandler(file_handler)
+    app_logger.addHandler(localLogger)
         
     str_level = logging.getLevelName(normalized_level)
     info(f"Logger set up with level: {str_level}")

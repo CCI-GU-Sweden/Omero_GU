@@ -69,7 +69,11 @@ def check_needs_pyramid(path: str | Path, timeout_sec: int | None = None) -> Czi
         logger.debug(f"[czi-pyramidizer] check for {source_path} indicates pyramid needed (exit code {run_result.exit_code})")
         return CziPyramidCheckResult(needs_pyramid=True, run_result=run_result)
 
-    logger.debug(f"[czi-pyramidizer] check for {source_path} failed with exit code {run_result.exit_code}")
+    logger.error(
+        f"[czi-pyramidizer] check for {source_path} failed with exit code {run_result.exit_code}\n"
+        f"  stderr: {run_result.stderr!r}\n"
+        f"  stdout: {run_result.stdout!r}"
+    )
     raise CziPyramidizerError(
         f"[czi-pyramidizer] check failed for {source_path} with exit code {run_result.exit_code}",
         run_result=run_result,
@@ -87,10 +91,19 @@ def build_pyramid(source_path: str | Path, destination_path: str | Path, timeout
         return CziPyramidBuildResult(created_output=True, run_result=run_result)
 
     if run_result.exit_code == NO_ACTION_EXIT_CODE:
-        logger.debug(f"[czi-pyramidizer] build for {source} resulted in no action (exit code {run_result.exit_code})")
+        logger.warning(
+            f"[czi-pyramidizer] build for {source} took no action (exit code {run_result.exit_code}) "
+            f"despite check indicating pyramid was needed\n"
+            f"  stderr: {run_result.stderr!r}\n"
+            f"  stdout: {run_result.stdout!r}"
+        )
         return CziPyramidBuildResult(created_output=False, run_result=run_result)
 
-    logger.debug(f"[czi-pyramidizer] build for {source} failed with exit code {run_result.exit_code}")
+    logger.error(
+        f"[czi-pyramidizer] build for {source} failed with exit code {run_result.exit_code}\n"
+        f"  stderr: {run_result.stderr!r}\n"
+        f"  stdout: {run_result.stdout!r}"
+    )
     raise CziPyramidizerError(
         f"[czi-pyramidizer] build failed for {source} with exit code {run_result.exit_code}",
         run_result=run_result,
