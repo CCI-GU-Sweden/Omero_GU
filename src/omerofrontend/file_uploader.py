@@ -7,6 +7,7 @@ from threading import Lock
 import omero.model
 import omero.grid
 import traceback
+import os
 from typing import Callable, Optional
 from omero.rtypes import rstring, rbool
 from omero.model.enums import ChecksumAlgorithmSHA1160  # type: ignore
@@ -315,6 +316,12 @@ class FileUploader:
         tot_percentage: int = -1
         fobj = filedata.getUploadFilePath()
 
+        if totSize <= 0:
+            try:
+                totSize = os.path.getsize(fobj)
+            except OSError:
+                totSize = 0
+
         #        for i, fobj in enumerate([filedata.getMainFileName()]):
         # for i, fobj in enumerate(filedata.getTempFilePaths()):
         # upload_path = filedata.getUploadFilePath()
@@ -334,16 +341,20 @@ class FileUploader:
                     totRead += read_size
                     offset += len(block)
                     if progress_cb:
-                        prog_percentage = int((totRead / totSize) * 100)
-                        if prog_percentage > tot_percentage:
-                            tot_percentage = prog_percentage
-                            progress_cb(tot_percentage)
+                        if totSize > 0:
+                            prog_percentage = int((totRead / totSize) * 100)
+                            if prog_percentage > tot_percentage:
+                                tot_percentage = prog_percentage
+                                progress_cb(tot_percentage)
         except FileNotFoundError as fnf:
             error_msg = f"File not found during upload: {fnf.filename}"
             logger.error(error_msg)
             raise OmeroConnectionError(error_msg)
         finally:
             rfs.close()  # Ensure cleanup even if errors occur
+
+        if progress_cb and tot_percentage < 100:
+            progress_cb(100)
 
         hashes.append(digest.hexdigest())
 

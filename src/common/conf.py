@@ -1,5 +1,6 @@
 import pathlib
 import logging
+import os
 
 ALLOWED_FOLDER_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml", ".emd"]
 ALLOWED_SINGLE_FILE_EXT = [".czi", ".tif", ".emi", ".ser", ".mrc", ".xml"]
@@ -65,6 +66,14 @@ CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION: bool = False
 
 USER_VARIABLES = ["Sample", "User", "PI", "Preparation", "Lens ID"]
 
+
+def _getenv_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 try:
     import config #pyright: ignore[reportAttributeAccessIssue]
     FILE_IMPORT_THREADS = getattr(config, "FILE_IMPORT_THREADS", FILE_IMPORT_THREADS)
@@ -94,6 +103,11 @@ try:
 
 except ImportError:
     pass
+
+# Environment variables can override file-based config, useful for Docker runs
+# where local config.py is not mounted into /app/omero.
+REDIS_URL = os.getenv("REDIS_URL", REDIS_URL)
+USE_FAKE_REDIS = _getenv_bool("USE_FAKE_REDIS", USE_FAKE_REDIS)
 
 #if DB_HANDLER == "sqlite":
 SQL_DB_DIR = "database"

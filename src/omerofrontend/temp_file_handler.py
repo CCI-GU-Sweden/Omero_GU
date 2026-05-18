@@ -12,6 +12,21 @@ from omerofrontend.exceptions import GeneralError, ImageNotSupported, OutOfDiskE
 TempProgressCallback = Optional[Callable[[str, int], None]]  # Define a type for the progress callback
 
 class TempFileHandler:
+
+    @staticmethod
+    def _get_file_size(file: FileStorage) -> int:
+        if file.content_length is not None and file.content_length >= 0:
+            return int(file.content_length)
+
+        stream = file.stream
+        if not stream.seekable():
+            return 0
+
+        current_pos = stream.tell()
+        stream.seek(0, os.SEEK_END)
+        size = stream.tell()
+        stream.seek(current_pos)
+        return int(size)
     
     def check_and_store_tempfiles(self, files: list[FileStorage], username: str, temp_cb: TempProgressCallback) -> FileData:
         filePaths = []
@@ -47,10 +62,13 @@ class TempFileHandler:
             return cb(fname, data) if cb is not None else None
         
         file_path = self._create_user_temp_dir(filename, username)
-    
-        file.seek(0)    
-        file_size = len(file.read())
-        file.seek(0)
+
+        stream = file.stream
+        if stream.seekable():
+            stream.seek(0)
+        file_size = self._get_file_size(file)
+        if stream.seekable():
+            stream.seek(0)
     
         try:
             call_if_not_none(temp_cb,filename,0)
@@ -67,8 +85,15 @@ class TempFileHandler:
                     while chunk := file.stream.read(conf.CHUNK_SIZE):
                         tot += len(chunk)
                         f.write(chunk)
-                        call_if_not_none(temp_cb, filename, (tot / file_size) * 100)
+                        if file_size > 0:
+                            call_if_not_none(temp_cb, filename, (tot / file_size) * 100)
                         #logger.debug(f"storing {tot} of {file_size} ")
+                if file_size <= 0:
+                    call_if_not_none(temp_cb, filename, 100)
+
+            # Some request streams do not expose a reliable content length.
+            # Always trust on-disk size after save to avoid zero-size metadata.
+            file_size = os.path.getsize(file_path)
         except Exception as e:
             logger.error(f"Error in _store_temp_file:  {str(e)}")
             raise OutOfDiskError(filename, file_path, "Out Of Disk on temp storage!")
