@@ -63,9 +63,12 @@ class TempFileHandler:
         
         file_path = self._create_user_temp_dir(filename, username)
 
-        file.stream.seek(0)
+        stream = file.stream
+        if stream.seekable():
+            stream.seek(0)
         file_size = self._get_file_size(file)
-        file.stream.seek(0)
+        if stream.seekable():
+            stream.seek(0)
     
         try:
             call_if_not_none(temp_cb,filename,0)
