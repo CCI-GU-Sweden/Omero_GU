@@ -15,7 +15,7 @@ class TempFileHandler:
 
     @staticmethod
     def _get_file_size(file: FileStorage) -> int:
-        if file.content_length is not None and file.content_length >= 0:
+        if file.content_length is not None and file.content_length > 0:
             return int(file.content_length)
 
         stream = file.stream
