@@ -95,7 +95,7 @@ def test_default_pyramidized_path_uses_distinct_czi_name():
 def test_read_tail_reads_only_tail_and_replaces_decode_errors():
     with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as log_file:
         log_file.buffer.write(b"123456789\xffEND")
-
+        log_file.flush()
         result = czi_pyramidizer._read_tail(log_file, 4)
 
     assert result == "�END"
@@ -103,6 +103,8 @@ def test_read_tail_reads_only_tail_and_replaces_decode_errors():
 
 def test_run_timeout_keeps_only_stdout_stderr_tail(monkeypatch):
     def fake_run(command, stdout, stderr, check, text, timeout):
+        assert check is False
+        assert text is True
         stdout.write("a" * (czi_pyramidizer.MAX_LOG_TAIL_CHARS + 100))
         stderr.write("b" * (czi_pyramidizer.MAX_LOG_TAIL_CHARS + 100))
         stdout.flush()
@@ -125,6 +127,8 @@ def test_run_timeout_keeps_only_stdout_stderr_tail(monkeypatch):
 
 def test_run_timeout_falls_back_to_exception_output_when_logs_are_empty(monkeypatch):
     def fake_run(command, stdout, stderr, check, text, timeout):
+        assert check is False
+        assert text is True
         raise subprocess.TimeoutExpired(command, timeout, output=b"out\xff", stderr=b"err\xff")
 
     monkeypatch.setattr(czi_pyramidizer.subprocess, "run", fake_run)
