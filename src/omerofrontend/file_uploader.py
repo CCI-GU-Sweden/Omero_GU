@@ -3,7 +3,6 @@ import platform
 import locale
 import omero
 import hashlib
-import os
 from threading import Lock
 import omero.model
 import omero.grid
@@ -12,7 +11,6 @@ import os
 from typing import Callable, Optional
 from omero.rtypes import rstring, rbool
 from omero.model.enums import ChecksumAlgorithmSHA1160  # type: ignore
-from omero_model_PlateI import PlateI
 from omero_version import omero_version
 from omero.callbacks import CmdCallbackI
 from common.file_data import FileData

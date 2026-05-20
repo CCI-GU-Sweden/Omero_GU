@@ -3,8 +3,7 @@ from datetime import datetime
 from common import omero_connection
 from common import logger
 from common import conf
-from omero.gateway import DatasetWrapper, MapAnnotationWrapper, CommentAnnotationWrapper, TagAnnotationWrapper, \
-    BlitzGateway, BlitzObjectWrapper
+from omero.gateway import DatasetWrapper, MapAnnotationWrapper, CommentAnnotationWrapper, TagAnnotationWrapper
 from omerofrontend.exceptions.exceptions import OmeroObjectNotFoundError
 
 class OmeroGetterCtx:
