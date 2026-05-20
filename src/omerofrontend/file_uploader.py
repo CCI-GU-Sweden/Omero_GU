@@ -135,7 +135,7 @@ class FileUploader:
                 plate_ids.append(objs.getId().getValue())
                 logger.debug(f"plate_ids before delete: {plate_ids!r}, type: {type(plate_ids)}")
                 # are these images or plates?
-                image_ids.append(objs.getId().getValue())
+                #image_ids.append(objs.getId().getValue())
 
             else:
                 logger.warning(f"Unexpected object type returned: {type(objs)}")
