@@ -115,6 +115,7 @@ class FileUploader:
             )
 
         image_ids: list[int] = []
+        plate_ids: list[int] = []
         for objs in response.objects:
             if isinstance(objs, omero.model.ImageI):  # type: ignore
                 image = objs
@@ -129,7 +130,11 @@ class FileUploader:
                 )
             elif isinstance(objs, omero.model.PlateI):  # type: ignore
                 logger.info(f"Plate image id: {objs.getId().getValue()}")
-                image_ids.append(objs.getId().getValue())
+                plate_ids.append(objs.getId().getValue())
+                logger.debug(f"plate_ids before delete: {plate_ids!r}, type: {type(plate_ids)}")
+                # are these images or plates?
+                #image_ids.append(objs.getId().getValue())
+
             else:
                 logger.warning(f"Unexpected object type returned: {type(objs)}")
 
@@ -139,6 +144,13 @@ class FileUploader:
         with OmeroGetterCtx(self._oConn) as ogc:
             proj_name = ogc.get_project_name(project_id)
             dataset_name = ogc.get_dataset_name(dataset_id)
+            logger.debug(f"plate_ids={plate_ids!r}")
+            logger.debug(f"type(plate_ids)={type(plate_ids)}")
+
+            if isinstance(plate_ids, list):
+                logger.debug(f"item types={[type(x) for x in plate_ids]}")
+            if plate_ids:
+                ogc.delete_plates(plate_ids)
 
         proj_name = "Unknown project" if proj_name is None else proj_name
         dataset_name = "Unknown dataset" if dataset_name is None else dataset_name
@@ -146,7 +158,7 @@ class FileUploader:
         usern = filedata.getUserName()
         usern = "Unknown user" if usern is None else usern
 
-        omero_path = usern + "/" + proj_name + "/" + dataset_name
+        omero_path = os.path.join(usern, proj_name, dataset_name)
 
         return image_ids, omero_path
 

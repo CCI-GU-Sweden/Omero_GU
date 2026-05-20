@@ -242,4 +242,8 @@ class OmeroGetterCtx:
             tag_ann = self.conn.create_tag_annotation(tag_value)
             
         self.conn.set_annotation_on_image(image,tag_ann)
-            
+
+
+    def delete_plates(self, plate_ids):
+        self.conn.conn.deleteObjects("Plate", plate_ids)
+
