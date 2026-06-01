@@ -1189,6 +1189,10 @@ def _handle_czi_with_pyramidizer(fileData: FileData, img_path: str, key_pair: di
     source_size = fileData.getTotalFileSize()
     destination_path = czi_pyramidizer.default_pyramidized_path(img_path)
 
+    if not conf.CZI_PYRAMIDIZER_ENABLED:
+        logger.info("CZI pyramidizer is disabled by configuration, skipping pyramidization")
+        return [img_path]
+
     try:
         check_result = czi_pyramidizer.check_needs_pyramid(img_path)
         logger.info(
