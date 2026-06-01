@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 
 from common.image_funcs import (get_info_metadata_from_czi, convert_emi_to_ometiff, convert_emd_to_ometiff,
-                                       convert_tif_to_ometiff, convert_atlas_to_ometiff)
+                                       convert_tif_to_ometiff, convert_atlas_to_ometiff, convert_czi_to_ometiff)
 
 def test_get_info_metadata_from_czi_file_not_found():
     fileName = Path('tests/data/test_image_no_exist.czi')
@@ -66,6 +66,24 @@ def test_convert_fibicstif_and_test_metadata():
     check_image_minimal_metadata(meta_data)
     assert p == 'tests/data/fibics_test.ome.tiff'
     os.remove(p) # Clean up the generated file after the test
+
+def test_convert_czi700():
+    fileName = 'tests/data/test_700-conversion.czi' 
+    files = convert_czi_to_ometiff(fileName)
+    assert isinstance(files, list)
+    assert files[0] == 'tests/data/test_700-conversion.ome.tiff'
+    os.remove(files[0])  # Clean up the generated file after the test
+
+# def test_convert_mrc_to_ometiff():
+#     fileNameMrc = 'tests/data/Atlas_1.mrc'
+#     fileNameXml = 'tests/data/Atlas_1.xml'
+#     atlasPair = {}
+#     atlasPair['xml'] = fileNameXml
+#     atlasPair['mrc'] = fileNameMrc
+#     p, dict = convert_atlas_to_ometiff(atlasPair)
+#     assert p == 'tests/data/Atlas_1.ome.tiff'
+#     check_image_base_em_metadata(dict)
+#     os.remove(p)  # Clean up the generated file after the test
     
 def check_image_base_metadata(meta_dict):
     assert('Microscope' in meta_dict)

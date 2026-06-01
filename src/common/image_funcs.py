@@ -36,10 +36,12 @@ from common import czi_pyramidizer
 from common import logger
 from common.file_data import FileData
 from omerofrontend.exceptions import MetaDataError, ImageNotSupported
-from typing import Any
+from typing import Dict, Any
 
 #Let's use the czi tools to extract the metadata
 from pylibCZIrw import czi as pyczi
+from czitools.read_tools import read_tools
+from aicspylibczi import CziFile #required for the planetable
 
 def get_timezone_aware_iso_str(dt: datetime.datetime) -> str:
     
@@ -499,6 +501,415 @@ def unit_converter(string:str):
         return string
     #TODO add other units
 
+def ome_extraction(full_metadata, output_name, scene_idx) -> model.OME:
+    """
+    Extract OME metadata from the full_metadata object obtained from a CZI file. Read the subblock using aicsczi to get the plane information..
+    Confirmed to work with Zeiss LSM 700 and 710 files.
+    Failed with files from LSM 900 (missing information in the metadata).
+    Not tested on LSM 880, 980, Elyra, Lightsheet - but likely to fail as well.
+    Parameters:
+    - full_metadata: The metadata object from the CZI file. It should contain all necessary information about the image acquisition.
+    - output_name: The name of the output file, used for naming the image in the OME metadata.
+    - scene_idx: The index of the scene being processed, used for multi-scene CZI files.
+    Returns:
+    - An OME object containing the extracted metadata.
+    """
+
+    full_meta = full_metadata.czi_box.ImageDocument.Metadata
+    meta_dict = full_meta.to_dict()
+    
+    if full_metadata.ismosaic: #read_tool load the full image, not the mosaic
+        size_x = full_metadata.array6d_size[-1]
+        size_y = full_metadata.array6d_size[-2]
+    else:
+        size_x = full_metadata.image.SizeX
+        size_y = full_metadata.image.SizeY
+    
+    if full_metadata.image.SizeB or full_metadata.image.SizeH or full_metadata.image.SizeI or full_metadata.image.SizeR or full_metadata.image.SizeV:
+        pass
+       
+    # Create an OME object
+    ome = model.OME()
+
+    #OBJECTIVE LENS
+    czi_objectives = full_metadata.objective
+
+    objectives_list = []
+    for idx in range(len(czi_objectives.name)):
+        ome_objective = model.Objective(id=czi_objectives.Id[idx])
+        ome_objective.lens_na = float(czi_objectives.NA[idx]) if czi_objectives.NA[idx] is not None else np.nan
+        ome_objective.nominal_magnification = float(czi_objectives.objmag[idx]) if czi_objectives.objmag[idx] is not None else np.nan #or totalmag
+        immersion_value = czi_objectives.immersion[idx]
+        ome_objective.immersion = model.Objective_Immersion(immersion_value) if immersion_value in model.Objective_Immersion._value2member_map_ else None
+        ome_objective.model = str(czi_objectives.name[idx])
+        
+        objectives_list.append(ome_objective)
+
+    #LASER #TODO correct in case of presence of other lightsource
+    laser_lines = dict_crawler(meta_dict, "Lasers")[0]
+    ome_laser = []
+    if isinstance(laser_lines, dict):
+        laser_lines = laser_lines.get("Laser", [])
+        for idx, line in enumerate(laser_lines):
+            laser = model.Laser(id="LightSource:"+str(idx+1))
+            laser.power = float(line.get("LaserPower", 0)) * 1000
+            laser.model = str(line.get("LaserName", ""))
+            wavelenght = str(line.get("LaserName", ""))
+            wavelenght = [int(m.group(1)) for m in re.finditer(r"(?<!\d)(\d{3,4})(?!\d)", wavelenght)]
+            if len(wavelenght) != 0:
+                wavelenght = wavelenght[0] if 330 <= wavelenght[0] <= 1700 else None
+                if wavelenght:
+                    laser.wavelength = float(wavelenght)
+            ome_laser.append(laser)
+    
+    #LIGHTSOURCE #TODO fix for other microscopes
+    ome_lightsources = []
+    lightsources = dict_crawler(meta_dict, "LightSources")[0]
+    if isinstance(lightsources, dict):
+        lightsources = lightsources.get("LightSource", [])
+        for idx, light in enumerate(lightsources):
+            ome_lightsource = model.LightSource(id=light.get("@Id", "LightSource:"+str(idx+1)))
+            power = light.get("Power", None)
+            if power:
+                ome_lightsource.power = float(power)
+            ome_lightsources.append(ome_lightsource)
+
+    #DETECTOR
+    czi_detectors = full_metadata.detector
+    ome_detectors = []
+    for idx in range(len(czi_detectors.Id)):
+        detector = model.Detector(id=czi_detectors.Id[idx])
+        gain = czi_detectors.gain[idx]
+        if gain:
+            detector.gain = float(gain)
+        amp_gain = czi_detectors.amplificationgain[idx]
+        if amp_gain:
+            detector.amplification_gain = amp_gain
+        detector.model = str(czi_detectors.model[idx]) if czi_detectors.model[idx] is not None else ""
+        zoom = czi_detectors.zoom[idx]
+        if zoom:
+            detector.zoom = float(zoom)
+        detector_type = str(czi_detectors.modeltype[idx])
+        detector.type = model.Detector_Type(detector_type) if detector_type in model.Detector_Type._value2member_map_ else None
+
+        ome_detectors.append(detector)
+
+    #FILTERS   
+    filters = dict_crawler(meta_dict, "Filters")[0]
+    ome_filters = []
+    if isinstance(filters, dict):
+        filters = filters.get("Filter", [])
+        if isinstance(filters, dict):
+            filters = [filters]
+
+        for idx, f in enumerate(filters):
+            ome_filter = model.Filter(id=f.get("@Id", "Filter:"+str(idx+1)))
+            
+            tr_range = model.TransmittanceRange()
+            cut_in = float(f["TransmittanceRange"].get("CutIn", 0))
+            if cut_in != 0:
+                tr_range.cut_in = cut_in
+            cut_out = float(f["TransmittanceRange"].get("CutOut", 0))
+            if cut_out != 0:
+                tr_range.cut_out = cut_out
+                        
+            ome_filter.transmittance_range = tr_range
+            
+            ome_filters.append(ome_filter)
+        
+    #FILTERSETS
+    filtersets = dict_crawler(meta_dict, "FilterSets")[0]
+    ome_filtersets = []
+    if isinstance(filtersets, dict):
+        filtersets= filtersets.get("FilterSet", [])
+        if isinstance(filtersets, dict):
+            filtersets = [filtersets]       
+
+        for idx, f in enumerate(filtersets): 
+            
+            ome_filterset = model.FilterSet(id=f.get("@Id", "FilterSet:"+str(idx+1))) 
+            
+            em_filter = f.get("EmissionFilters", {}).get("EmissionFilterRef", {}).get("@Id", None)
+            if em_filter:
+                ome_filterset.emission_filters = [model.FilterRef(id=em_filter)]
+            
+            ex_filter = f.get("ExcitationFilters", {}).get("ExcitationFilterRef", {}).get("@Id", None)
+            if ex_filter:
+                ome_filterset.excitation_filters = [model.FilterRef(id=ex_filter)]
+            
+            ome_filtersets.append(ome_filterset)
+        
+    
+    #CREATE OME Instrument part
+    micro = model.Microscope()
+    micro.model = full_metadata.microscope.System
+    instr = model.Instrument(id="Instrument:1",
+                             microscope=micro,
+                             lasers=ome_laser,
+                             objectives=objectives_list,
+                             detectors=ome_detectors,
+                             filters=ome_filters,
+                             filter_sets=ome_filtersets)
+    ome.instruments = [instr]
+
+    #PLANETABLE
+    aicsczi = CziFile(full_metadata.filepath)
+    subblocks = aicsczi.read_subblock_metadata(S=scene_idx)
+    
+    planes = []
+    for block in subblocks:
+        pos = block[0]
+        meta = block[1]
+        if float(pos.get("M", 0)) > 0:
+            continue
+
+        #initialize value for the position
+        position_x = math.nan
+        position_y = math.nan
+        position_z = math.nan
+        delta_t = 0
+        if meta != "":#TODO - parsing example to add the Plane info (localization) to the metadata
+            #print('METADATA: '+meta)
+            pass
+            
+        pl_kwargs: Dict[str, Any] = dict(the_t=pos.get('T'),
+                                         the_z=pos.get('Z'),
+                                         the_c=pos.get('C'),
+                                         position_x=position_x,
+                                         position_y=position_y,
+                                         position_z=position_z,
+                                         delta_t=delta_t)
+        planes.append(model.Plane(**pl_kwargs))
+    
+    #Channel
+    channels = dict_crawler(meta_dict.get("Information", {}).get("Image", {}), "Channels")
+    ome_channels = []
+    types = []
+    for ch_idx in range(len(full_metadata.channelinfo.dyes)):
+        ome_channel = model.Channel(id = "Channel:"+str(ch_idx))
+        types.append(full_metadata.channelinfo.pixeltypes[ch_idx])
+        
+        #basic and minimal information
+        ome_channel.name = full_metadata.channelinfo.dyes[ch_idx]
+        ome_channel.color = full_metadata.channelinfo.colors[ch_idx]
+        ome_channel.samples_per_pixel = 1
+        
+        #Advance settings from the whole metadata
+        ch = channels[0]
+        if isinstance(ch, dict):
+            ch = ch.get("Channel")
+            if isinstance(ch, list):
+                ch = ch[ch_idx]
+
+        if isinstance(ch, dict):
+            #illumination, acquisition and contrast
+            acq_mode = str(ch.get("AcquisitionMode", "Other"))
+            ome_channel.acquisition_mode = model.Channel_AcquisitionMode(acq_mode) if acq_mode in model.Channel_AcquisitionMode._value2member_map_ else None
+            illu_type = str(ch.get("IlluminationType", "Other"))
+            ome_channel.illumination_type = model.Channel_IlluminationType(illu_type) if illu_type in model.Channel_IlluminationType._value2member_map_ else None
+            contrast_m = str(ch.get("ContrastMethod", "Other"))
+            ome_channel.contrast_method = model.Channel_ContrastMethod(contrast_m) if contrast_m in model.Channel_ContrastMethod._value2member_map_ else None
+            #excitation, emission and fluor
+            ext_w = ch.get("ExcitationWavelength", None)
+            if ext_w:
+                ome_channel.excitation_wavelength = float(ext_w)
+            emi_w = ch.get("EmissionWavelength", None)
+            if emi_w:
+                ome_channel.emission_wavelength = float(emi_w)
+            ome_channel.fluor = str(ch.get("Fluor", "None"))
+            
+            #light source settings
+            lss = ch.get("LightSourcesSettings", {}).get("LightSourceSettings", None)
+            if ext_w:
+                ext_w = int(float(ext_w))
+            if isinstance(lss, dict):
+                lss = [lss]
+            if lss:
+                for idx, ls in enumerate(lss):
+                    wavelenght = ls.get("Wavelength")
+                    if wavelenght and ext_w == int(float(wavelenght)): #check that the excitation is the same!
+                        ome_lss = model.LightSourceSettings(id=ls.get("LightSource", {}).get("@Id"))
+                        attenuation = ls.get("Attenuation")
+                        if attenuation:
+                            ome_lss.attenuation = float(attenuation)
+                        if wavelenght:
+                            ome_lss.wavelength = float(wavelenght)
+                        ome_channel.light_source_settings = ome_lss
+            
+            #detector settings
+            ds = ch.get("DetectorSettings", None)
+            if ds:
+                ome_ds = model.DetectorSettings(id=ds.get("Detector").get("@Id"))
+                ome_ds.offset = float(ds.get("Offset"))
+                ome_ds.gain = float(ds.get("Gain"))
+                binning = str(ds.get("Binning"))
+                ome_ds.binning = model.Binning(binning) if binning in model.Binning._value2member_map_ else None
+                ome_channel.detector_settings = ome_ds
+
+        ome_channels.append(ome_channel)
+    
+    #CREATE THE PIXEL OBJECT
+    pixels = model.Pixels(
+        id="Pixels:1",
+        dimension_order=model.Pixels_DimensionOrder.XYCZT,
+        big_endian = False,
+        interleaved = False,
+        type = model.PixelType(pixel_type_to_ome(types[0])),
+        size_x = full_metadata.image.SizeX if not full_metadata.ismosaic else size_x,
+        size_y = full_metadata.image.SizeY if not full_metadata.ismosaic else size_y,
+        size_c = full_metadata.image.SizeC if full_metadata.image.SizeC is not None else 1,
+        size_z = full_metadata.image.SizeZ if full_metadata.image.SizeZ is not None else 1,
+        size_t = full_metadata.image.SizeT if full_metadata.image.SizeT is not None else 1,
+        physical_size_x = float(full_metadata.scale.X),
+        physical_size_y = float(full_metadata.scale.Y),
+        physical_size_z = float(full_metadata.scale.Z) if full_metadata.image.SizeZ is not None else None,
+        channels = ome_channels,    
+        )
+    #pixels size unit - default is micron
+    if full_metadata.scale.unit != "micron":
+        pixels.physical_size_x_unit = UnitsLength(unit_converter(full_metadata.scale.unit))
+        pixels.physical_size_y_unit = UnitsLength(unit_converter(full_metadata.scale.unit))
+        if full_metadata.image.SizeZ is not None:
+            pixels.physical_size_z_unit = UnitsLength(unit_converter(full_metadata.scale.unit))
+        
+    pixels.tiff_data_blocks = [model.TiffData()]
+    pixels.planes = planes
+    
+    # Create the Image object
+    date_object = parser.isoparse(full_metadata.creation_date)
+    
+    image = model.Image(
+        id="Image:1",
+        name = output_name,
+        acquisition_date = date_object,
+        pixels = pixels,
+    )
+    image.instrument_ref = model.InstrumentRef(id="Instrument:1")
+    #objective settings
+    obj_settings = dict_crawler(meta_dict, "ObjectiveSettings")[0]
+    if isinstance(obj_settings, dict):
+        obj_immersion = obj_settings.get("Medium", "Other")
+        obj_immersion = obj_immersion if obj_immersion in model.Objective_Immersion._value2member_map_ else "Other"
+        image.objective_settings = model.ObjectiveSettings(
+            id = str(obj_settings.get("ObjectiveRef", {}).get("@Id")),
+            medium = model.ObjectiveSettings_Medium(obj_immersion),
+            refractive_index = float(obj_settings.get("RefractiveIndex", 0))
+            )
+
+    ome.images.append(image)
+    
+    return ome
+
+def convert_czi_to_ometiff(filename: str, output:str="") -> list[str]:
+    """
+    Convert a CZI file to one or more OME-TIFF files, one per scene.
+    The output files are named based on the input file name, with scene information appended if multiple scenes exist.
+    If an output directory or base name is provided, it is used accordingly.
+    Parameters:
+    - file: str or Path : Path to the input CZI file.
+    - output: str : Optional path to the output directory or base name for the OME-TIFF files.
+    Returns:
+    - List of str to the created OME-TIFF files.
+    """
+    if isinstance(filename, str):
+        in_path = Path(filename)
+    else:
+        in_path = filename
+
+    if output:
+        out_path = Path(output)
+        if out_path.suffix:  # looks like a file path
+            dest_dir = out_path.parent
+            base_stem = out_path.stem
+            # strip a trailing ".ome" if someone passed "name.ome.tiff" as base
+            if base_stem.endswith(".ome"):
+                base_stem = base_stem[:-4]
+        else: # directory
+            dest_dir = out_path
+            base_stem = in_path.stem
+    else:
+        dest_dir = in_path.parent
+        base_stem = in_path.stem
+        
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    
+    out_files = []
+    
+    with pyczi.open_czi(filename) as czidoc:
+        metadata = czidoc.metadata["ImageDocument"]["Metadata"]
+        size = {}
+        dims = metadata['Information']['Image']
+        for d in dims.keys():
+            if 'Size' in d: #just the different Size (X,Y,Z,C,M,H,S...)
+                size[d] = int(dims[d])
+        scene = dims.get("Dimensions", {}).get("S", {}).get("Scenes", {}).get("Scene", []) #list
+        if isinstance(scene, dict):  #if only one scene, it is stored as a dict!
+            scene = [scene]
+        n_scenes = size.get("SizeS", len(scene))
+        
+        for scene_idx in range(n_scenes):
+            #grab the information about the scene
+            well_name = scene[scene_idx].get('@Name', None)
+            index_n = scene[scene_idx].get('@Index', None)
+
+            #add the information to the output name
+            extra = ""
+            if n_scenes > 1:
+                if well_name:
+                    extra += "_"+well_name
+                if index_n:
+                    extra += "_Scene"+str(index_n)
+            
+            #name the output file
+            out_name = f"{base_stem}{extra}.ome.tiff"
+            out_file = dest_dir / out_name
+            out_files.append(out_file)
+            
+            #Heavy part: read the whole array for the scene using the read_tools from czitools
+            array, full_metadata = read_tools.read_6darray(filename, planes={"S":(scene_idx, scene_idx)})
+
+            #Annoying part: build the ome metadata from the full_metadata
+            ome = ome_extraction(full_metadata, out_name, scene_idx)
+            ome_xml = ome.to_xml() #build the xml
+            ome_xml = "<?xml version=\"1.0\"?>\n" + ome.to_xml() #add the header
+            #TODO maybe build the whole ome with multi level? just need to duplicate the image part and update the pixel size in it
+            pxlx_size = float(ome.images[0].pixels.physical_size_x)
+            pxly_size = float(ome.images[0].pixels.physical_size_y)
+
+            # return full_metadata
+            if array is not None:
+                array = array[0] #first scene - should have only one
+                array = array.transpose("T", "Z", "C", "Y", "X")
+            else:
+                raise ValueError("Array returned from read_tools.read_6darray is None.")
+            
+            subresolutions = choose_levels(len(array["Y"]), len(array["X"]))
+            with tifffile.TiffWriter(out_file, bigtiff=True) as tif:
+                tif.write(
+                    array,
+                    subifds=subresolutions-1,
+                    description=ome_xml,
+                    resolution=(pxlx_size, pxly_size),
+                    photometric="minisblack",
+                    tile=(512, 512),
+                    maxworkers=2,
+                )
+                
+                for level in range(1, subresolutions):
+                    mag = 2 ** level
+                    tif.write(
+                        array[..., ::mag, ::mag],
+                        resolution=(pxlx_size*(2**level), pxly_size*(2**level)),
+                        subfiletype=1,
+                        photometric="minisblack",
+                        compression="zlib",
+                        predictor=True,
+                        tile=(512, 512),
+                        maxworkers=2,
+                    )
+            
+    return [str(p) for p in out_files]
+
 def convert_emi_to_ometiff(img_path: str):
     """
     Convert .emi file to ome-tiff format.
@@ -676,7 +1087,9 @@ def convert_emi_to_ometiff(img_path: str):
     
     # Write OME-TIF file
     write_simple_ometif_pyramid(output_fpath, img_array, ome_xml)
+    
     logger.debug(f"Ome-tif written at {output_fpath}.")
+    
     return output_fpath, key_pair
 
 
@@ -892,6 +1305,96 @@ def convert_atlas_to_ometiff(img_path: dict):
     key_pair['Image type'] = mode
 
     output_fpath = img_path['mrc']
+    
+    #extra pair for the general metadata        
+    # extra_pair = {
+    #     'Mode': mode,
+    #     'Defocus': dict_crawler(data, 'Defocus',)[0],
+    #     'Lens intensity': dict_crawler(data, 'Intensity')[0],
+    #     'Tilt': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'A']),
+    #     'Stage X': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'X']),
+    #     'Stage Y': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'Y']),
+    #     'Stage Z': safe_get(dict_crawler(data, 'stage')[0], ['Position', 'Z']),
+    #     }
+    
+    # # Create an OME object
+    # ome = model.OME()
+    
+    # # Create an Image object
+    # image = model.Image(
+    #     id="Image:0",
+    #     name = os.path.basename(img_path['mrc']),
+    #     acquisition_date=datetime.datetime.strptime(date_str,conf.DATE_TIME_FMT),
+        
+    #     pixels = model.Pixels(
+    #         id="Pixels:0",
+    #         dimension_order=Pixels_DimensionOrder.XYCZT,
+    #         type=model.PixelType(str(img_array.dtype)),
+    #         size_x=key_pair['Image Size X'],
+    #         size_y=key_pair['Image Size Y'],
+    #         size_c=1,
+    #         size_z=1,
+    #         size_t=1,
+    #         physical_size_x=key_pair['Physical pixel size'],
+    #         physical_size_x_unit=key_pair['Physical pixel unit'],
+    #         physical_size_y=key_pair['Physical pixel size'],
+    #         physical_size_y_unit=key_pair['Physical pixel unit'],
+    #     )
+    # )
+    
+
+    # # Add Image to OME
+    # ome.images.append(image)
+    
+    # # Create MapAnnotation for custom metadata
+    # custom_metadata = model.MapAnnotation(
+    #     id="Annotation:0",
+    #     namespace="custom.ome.metadata",
+    #     value=model.Map(ms=[Map.M(k=_key, value=str(_value)) for _key, _value in extra_pair.items()])
+        
+    # )
+    
+    # # Add Instrument information
+    # instrument = model.Instrument(
+    #     id = "Instrument:0",
+    #     microscope=model.Microscope(
+    #                                 type=Microscope_Type.OTHER,
+    #                                 model=key_pair['Microscope']
+    #     ),
+    #     detectors=[
+    #         model.Detector(
+    #             id="Detector:0",
+    #             model=key_pair['Electron source'],
+    #             voltage=key_pair['Beam tension'],
+    #             voltage_unit=model.UnitsElectricPotential('kV'),
+    #             ),
+    #         model.Detector(
+    #             id="Detector:1",
+    #             model=key_pair['Camera'],
+    #             ),
+    #         ]
+    #     )
+    
+    # ome.instruments.append(instrument)
+    # ome.structured_annotations.extend([custom_metadata])#type: ignore
+    # # Create Objective for Magnification
+    # objective = model.Objective(
+    #     id="Objective:0",
+    #     nominal_magnification=float(key_pair['Lens Magnification'])
+    # )
+    # instrument.objectives.append(objective)
+    
+    # # Convert OME object to XML string
+    # ome_xml = ome.to_xml()
+    # logger.debug("OME created")
+    
+    # output_fpath = os.path.join(os.path.dirname(img_path['mrc']), os.path.basename(img_path['mrc']).replace(".mrc", ".ome.tiff"))
+    
+    # # Write OME-TIFF file
+    # with tifffile.TiffWriter(output_fpath) as tif:
+    #     tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+        
+    # logger.debug(f"Ome-tiff written at {output_fpath}.")
     return output_fpath, key_pair
 
 
@@ -1027,7 +1530,84 @@ def convert_semtif_to_ometiff(img_path: str, tif_tags: dict) -> tuple[str, dict]
 
     output_fpath = img_path
     
-    return output_fpath, key_pair       
+    return output_fpath, key_pair
+
+    #legacy code in case we want to write the ome-tiff from semtif
+    # with tifffile.TiffFile(img_path) as tif:
+        #img_array = tif.asarray()
+                                                
+        # Create an OME object
+        # ome = model.OME()
+        
+        # # Create an Image object
+        # image = model.Image(
+        #     id="Image:0",
+        #     name = os.path.basename(img_path),
+        #     acquisition_date=datetime.datetime.strptime(date_str, conf.DATE_TIME_FMT),
+            
+        #     pixels = model.Pixels(
+        #         id="Pixels:0",
+        #         dimension_order= Pixels_DimensionOrder.XYCZT,
+        #         type=model.PixelType(str(img_array.dtype)),
+        #         size_x=key_pair['Image Size X'],
+        #         size_y=key_pair['Image Size Y'],
+        #         size_c=1,
+        #         size_z=1,
+        #         size_t=1,
+        #         physical_size_x=key_pair['Physical pixel size'],
+        #         physical_size_x_unit=key_pair['Physical pixel unit'],
+        #         physical_size_y=key_pair['Physical pixel size'],
+        #         physical_size_y_unit=key_pair['Physical pixel unit'],
+        #     )
+        # )
+        
+        # # Add Image to OME
+        # ome.images.append(image)
+        
+        # # Create MapAnnotation for custom metadata
+        # custom_metadata = model.MapAnnotation(
+        #     id="Annotation:0",
+        #     namespace="custom.ome.metadata",
+        #     value=model.Map(ms=[Map.M(k=safe_encode(_key), value=safe_encode(_value)) for _key, _value in cz_sem_metadata.items()])
+        # )
+        
+        # # Add Instrument information
+        # instrument = model.Instrument(
+        #     id = "Instrument:0",
+        #     microscope=model.Microscope(
+        #                                 type=Microscope_Type.OTHER,
+        #                                 model=key_pair['Microscope']
+        #     ),
+        #     detectors=[
+        #         model.Detector(
+        #             id="Detector:0",
+        #             voltage=key_pair['EHT value'],
+        #             voltage_unit=model.UnitsElectricPotential(key_pair['EHT unit']),
+        #             ),
+        #         ]
+        #     )
+        
+        # ome.instruments.append(instrument)
+        # ome.structured_annotations.extend([custom_metadata])#type: ignore
+        # # Create Objective for Magnification
+        # objective = model.Objective(
+        #     id="Objective:0",
+        #     nominal_magnification=float(key_pair['Lens Magnification'])
+        # )
+        # instrument.objectives.append(objective)
+        
+        # # Convert OME object to XML string
+        # ome_xml = ome.to_xml()
+        # logger.debug("OME created")
+        
+        # output_fpath = os.path.join(os.path.dirname(img_path), os.path.basename(img_path).replace(".tif", ".ome.tiff"))
+        
+        # # Write OME-TIFF file
+        # with tifffile.TiffWriter(output_fpath) as tif:
+        #     tif.write(img_array, description=ome_xml, metadata={'axes': 'YX',})
+            
+        # logger.debug(f"Ome-tiff written at {output_fpath}.")
+        
 
 def convert_fibics_to_ometiff(img_path: str, tif_tags: dict):
 
@@ -1176,16 +1756,42 @@ def safe_encode(value):
     return str(value)  # Ensure everything else (e.g., None) is converted to string
 
 
+# def delete(file_path:str):
+#     if os.path.exists(file_path):
+#         os.remove(file_path)
+#         logger.info(f"Successfully deleted temporary file: {file_path}")
+#     else:
+#         logger.warning(f"Temporary file not found for deletion: {file_path}")
+
 def is_supported_format(fileName):
     if '.' not in fileName:
-        logger.info(f"{fileName} is not a proper file name")
+        logger.info(f"{fileName} is not a propper file name")
         return False
     
     ext = fileName.split('.')[-1]
     return ('.'+ext) in conf.ALLOWED_FOLDER_FILE_EXT or ('.'+ext) in conf.ALLOWED_SINGLE_FILE_EXT
 
+
+def _convert_czi_with_legacy_policy(fileData: FileData, img_path: str, key_pair: dict[str, str]) -> list[str]:
+    mic = (key_pair.get("Microscope") or "").strip()
+    mic_ok = mic in conf.TO_CONVERT_SCOPE
+    size_ok = fileData.getTotalFileSize() > conf.CZI_CONVERT_MIN_BYTES
+    do_convert = mic_ok and (conf.FORCE_CZI_CONVERSION or size_ok)
+
+    if not do_convert:
+        return [img_path]
+
+    try:
+        return convert_czi_to_ometiff(img_path)
+    except Exception:
+        logger.error(f"CZI→OME-TIFF conversion failed for {str(img_path)}; falling back to Bio-Formats.")
+        return [img_path]
+
+
 def _handle_czi_with_pyramidizer(fileData: FileData, img_path: str, key_pair: dict[str, str]) -> list[str]:
-    """Handle CZI files with the pyramidizer, including error handling and fallback."""
+    if not conf.CZI_PYRAMIDIZER_ENABLED:
+        return _convert_czi_with_legacy_policy(fileData, img_path, key_pair)
+
     source_size = fileData.getTotalFileSize()
     destination_path = czi_pyramidizer.default_pyramidized_path(img_path)
 
@@ -1220,10 +1826,13 @@ def _handle_czi_with_pyramidizer(fileData: FileData, img_path: str, key_pair: di
         logger.error(
             "CZI pyramidizer failed "
             f"for {img_path}. exit_code={exit_code}. "
+            f"fallback_path_used={conf.CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION}. "
             f"error={str(exc)}\n"
             f"  stderr: {stderr_tail!r}\n"
             f"  stdout: {stdout_tail!r}"
         )
+        if conf.CZI_PYRAMIDIZER_FALLBACK_TO_OLD_CONVERSION:
+            return _convert_czi_with_legacy_policy(fileData, img_path, key_pair)
 
         return [img_path]
 
