@@ -1186,12 +1186,12 @@ def is_supported_format(fileName):
 
 def _handle_czi_with_pyramidizer(fileData: FileData, img_path: str, key_pair: dict[str, str]) -> list[str]:
     """Handle CZI files with the pyramidizer, including error handling and fallback."""
-    source_size = fileData.getTotalFileSize()
-    destination_path = czi_pyramidizer.default_pyramidized_path(img_path)
-
     if not conf.CZI_PYRAMIDIZER_ENABLED:
         logger.info("CZI pyramidizer is disabled by configuration, skipping pyramidization")
         return [img_path]
+
+    source_size = fileData.getTotalFileSize()
+    destination_path = czi_pyramidizer.default_pyramidized_path(img_path)
 
     try:
         check_result = czi_pyramidizer.check_needs_pyramid(img_path)
