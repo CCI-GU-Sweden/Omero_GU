@@ -72,6 +72,10 @@ class MiddleWare:
     def _safe_get_future_filedata_context(self, future: Future) -> Optional[FileData]:
         with self._future_filedata_mutex:
             return self._future_filedata_context.get(future, None)
+
+    def _safe_pop_future_filedata_context(self, future: Future) -> Optional[FileData]:
+        with self._future_filedata_mutex:
+            return self._future_filedata_context.pop(future, None)
             
 
     def _future_complete_callback(self, future):
@@ -79,6 +83,8 @@ class MiddleWare:
         logger.debug("*** *** *** *** *** *** *** *** *** ***")
         logger.debug("*** *** Future complete callback *** ***")
     
+        filedata = self._safe_pop_future_filedata_context(future)
+
         if future.cancelled(): 
             logger.info("Import Image was cancelled.")
             #signal error to UI!
@@ -87,7 +93,6 @@ class MiddleWare:
         image_ids = []
         result = False
         duplicate = False
-        filedata = self._safe_get_future_filedata_context(future)
         err_msg = ""
         try:
             if filedata is None:
