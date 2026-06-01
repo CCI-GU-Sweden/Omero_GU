@@ -108,7 +108,7 @@ class ServerEventManager:
 
     @classmethod
     def send_progress_event(cls,fileName,progress):
-        cls._create_and_put_event(fileName,PROGRESS,"Upploading to Omero: " + str(progress) + "%")
+        cls._create_and_put_event(fileName,PROGRESS,"Uploading to Omero: " + str(progress) + "%")
 
     @classmethod
     def send_importing_event(cls,fileName):
