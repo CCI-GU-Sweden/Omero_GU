@@ -59,7 +59,7 @@ RUN set -eux; \
         libbz2-dev \
         libstdc++6 \
         libgcc-s1 \
-        default-jre-headless \
+        default-jdk-headless \
         htop; \
     if ! apt-get install -y \
         libopencv-core406 \
@@ -112,9 +112,6 @@ RUN chmod 777 -R ${APP_HOME}
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-#test bioio and bioio-bioformats
-COPY tests/data/test_image.czi /tmp/test_image.czi
-RUN python -c "from bioio import BioImage; import bioio_bioformats; img = BioImage('/tmp/test_image.czi', reader=bioio_bioformats.Reader); print(img.scenes)"
 
 RUN ldd /usr/local/bin/czi-pyramidizer | grep -E "opencv|not found" || true
 
@@ -123,4 +120,9 @@ RUN czi-pyramidizer --version
 EXPOSE 5000
 
 USER ${USER_NAME}
+
+#test bioio and bioio-bioformats
+COPY tests/data/test_image.czi /tmp/test_image.czi
+RUN python -c "from bioio import BioImage; import bioio_bioformats; img = BioImage('/tmp/test_image.czi', reader=bioio_bioformats.Reader); print(img.scenes)"
+
 CMD ["uwsgi","--ini","uwsgi.ini"]
