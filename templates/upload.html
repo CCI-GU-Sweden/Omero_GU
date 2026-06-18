@@ -54,21 +54,22 @@
 <br />
 <h5 class="title is-5 has-text-primary">Select Files to Import</h5>
 <div class="ml-5">
-    <div id="upload-form">
+    <div id="upload-form" style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
         <input type="file" id="file-input" name="files" multiple style="display: none;" />
         <button class="button is-rounded is-small" id="custom-file-input">Select Files</button>
         <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none;">
         <button class="button is-rounded is-small" type="button" id="select-folder-button">Select Folder</button>
         <button class="button is-rounded is-small" id="clear-button" class="action-button">Clear List</button>
-        <button class="button is-rounded is-small is-primary" type="button" id="import-button" disabled>Import</button>
-        <span id="file-count-label">No files selected for import</span>
+        <span id="file-count-label" style="flex:1; min-width:240px;">No files selected for import</span>
+        <button class="button is-rounded is-small is-danger" id="disconnect-button" style="display:none;">Disconnect</button>
     </div>
     <div id="file-list-div">
         <div id="file-list">
         </div>
     </div>
+    <button class="button is-rounded is-small is-primary" type="button" id="import-button" disabled>Import</button>
 </div>
-<button class="button is-rounded is-small" id="disconnect-button" style="display:none;">Disconnect</button>
+
 
 <!-- External Scripts -->
 <script>

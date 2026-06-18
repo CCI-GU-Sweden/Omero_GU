@@ -59,7 +59,9 @@ CZI_PYRAMIDIZER_MAX_TOP_LEVEL: int = 1024
 CZI_PYRAMIDIZER_MODE: str = "IfNeeded"
 
 USER_VARIABLES = ["Sample", "User", "PI", "Preparation", "Lens ID"]
-
+MICROSCOPE_ID_TO_NAME = {}
+TRUSTED_PROXY_IPS = []
+MICROSCOPE_IP_TO_NAME = {}
 
 def _getenv_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
@@ -90,6 +92,9 @@ try:
 
     GENERATE_THUMBNAILS = getattr(config, "GENERATE_THUMBNAILS", GENERATE_THUMBNAILS)
     USER_VARIABLES = getattr(config, "USER_VARIABLES", USER_VARIABLES)
+    MICROSCOPE_ID_TO_NAME = getattr(config, "MICROSCOPE_ID_TO_NAME", MICROSCOPE_ID_TO_NAME)
+    TRUSTED_PROXY_IPS = getattr(config, "TRUSTED_PROXY_IPS", TRUSTED_PROXY_IPS)
+    MICROSCOPE_IP_TO_NAME = getattr(config, "MICROSCOPE_IP_TO_NAME", MICROSCOPE_IP_TO_NAME)
 
 except ImportError:
     pass
