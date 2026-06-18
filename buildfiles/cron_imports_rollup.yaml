@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: imports-rollup
+  namespace: core-omero-test
+spec:
+  # Run 15 min after the server-restart CronJob.
+  schedule: "15 6 * * 1-5"
+  timeZone: Europe/Stockholm
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: psql-rollup
+              image: postgres:15
+              env:
+                - name: PGHOST
+                  valueFrom:
+                    secretKeyRef:
+                      name: omero-db-credentials
+                      key: host
+                - name: PGPORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: omero-db-credentials
+                      key: port
+                - name: PGDATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: omero-db-credentials
+                      key: database
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: omero-db-credentials
+                      key: username
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: omero-db-credentials
+                      key: password
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  psql -v ON_ERROR_STOP=1 <<'ENDSQL'
+                  -- Aggregate the previous calendar day, then compact those rows.
+                  -- All three CTEs run in a single transaction against the same
+                  -- snapshot, so the DELETE and INSERT are always consistent.
+                  WITH agg AS (
+                      SELECT
+                          DATE(time)::timestamp                        AS agg_time,
+                          username,
+                          groupname,
+                          scope,
+                          SUM(file_count)::int                        AS file_count,
+                          SUM(total_file_size_mb)::double precision    AS total_file_size_mb,
+                          SUM(import_time_s)::double precision         AS import_time_s
+                      FROM imports
+                      WHERE time >= (CURRENT_DATE - 1)::timestamp
+                        AND time  <  CURRENT_DATE::timestamp
+                      GROUP BY DATE(time), username, groupname, scope
+                  ),
+                  del AS (
+                      DELETE FROM imports
+                      WHERE time >= (CURRENT_DATE - 1)::timestamp
+                        AND time  <  CURRENT_DATE::timestamp
+                  )
+                  INSERT INTO imports
+                      (time, username, groupname, scope, file_count, total_file_size_mb, import_time_s)
+                  SELECT agg_time, username, groupname, scope, file_count, total_file_size_mb, import_time_s
+                  FROM agg;
+                  ENDSQL
+                  # See buildfiles/secret_db_credentials.yaml to create the Secret.
