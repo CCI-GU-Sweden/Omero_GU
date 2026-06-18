@@ -108,10 +108,13 @@ COPY logback.xml ${APP_HOME}
 COPY requirements.txt ${APP_HOME}
 COPY uwsgi.ini ${APP_HOME}
 
-
 RUN chmod 777 -R ${APP_HOME}
 
 RUN pip install --no-cache-dir -r requirements.txt
+
+#test bioio and bioio-bioformats
+COPY tests/data/test_image.czi /tmp/test_image.czi
+RUN python -c "from bioio import BioImage; import bioio_bioformats; img = BioImage('/tmp/test_image.czi', reader=bioio_bioformats.Reader); print(img.scenes)"
 
 RUN ldd /usr/local/bin/czi-pyramidizer | grep -E "opencv|not found" || true
 
