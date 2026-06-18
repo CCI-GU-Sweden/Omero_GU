@@ -464,8 +464,8 @@ def get_ome_metadata(path: Path, include_ome_xml: bool=False, include_raw_metada
             md["Lens Immersion"] = objective.get("Immersion")
             md["Objective Model"] = objective.get("Model")
 
-    # Acquisition date and description are child elements rather than Pixels
-    # attributes.
+        # Acquisition date and description are child elements rather than Pixels
+        # attributes.
         if image is not None:
             acq_date = image.find("ome:AcquisitionDate", ns)
             desc = image.find("ome:Description", ns)
@@ -473,8 +473,8 @@ def get_ome_metadata(path: Path, include_ome_xml: bool=False, include_raw_metada
             md["Acquisition date"] = acq_date.text if acq_date is not None else None
             md["Description"] = desc.text if desc is not None else None
 
-    # Channel metadata can indicate the image modality. Use the first available
-    # channel descriptor as a coarse "Image type" value.
+        # Channel metadata can indicate the image modality. Use the first available
+        # channel descriptor as a coarse "Image type" value.
         channels = []
         if pixels is not None:
             for ch in pixels.findall("ome:Channel", ns):
