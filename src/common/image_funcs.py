@@ -37,7 +37,7 @@ from common import conf
 from common import czi_pyramidizer
 from common import logger
 from common.file_data import FileData
-from omerofrontend.exceptions import MetaDataError, ImageNotSupported
+from omerofrontend.exceptions import MetaDataError
 from typing import Any
 
 def get_timezone_aware_iso_str(dt: datetime.datetime) -> str:
