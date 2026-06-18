@@ -20,12 +20,14 @@ import datetime
 from zoneinfo import ZoneInfo
 import tzlocal
 import re
+from ipaddress import ip_address
 from dateutil import parser
 from pathlib import Path
 from rsciio import tia, emd, mrc
 import numpy as np
 import tifffile
 import xml.etree.ElementTree as ET
+from flask import request
 from ome_types import model
 from ome_types.model import Microscope_Type, Pixels_DimensionOrder
 
@@ -35,11 +37,8 @@ from common import conf
 from common import czi_pyramidizer
 from common import logger
 from common.file_data import FileData
-from omerofrontend.exceptions import MetaDataError, ImageNotSupported
+from omerofrontend.exceptions import MetaDataError
 from typing import Any
-
-#Let's use the czi tools to extract the metadata
-from pylibCZIrw import czi as pyczi
 
 def get_timezone_aware_iso_str(dt: datetime.datetime) -> str:
     
@@ -306,183 +305,420 @@ def pair_mrc_xml(files: list): #list of filename
         
     return list(paired_files.values()) + unpaired_files
 
-def mapping(microscope):
-    #Map potential name to the more convential name
-    micro_mapping = {#LM
-                     '2842001059':'LSM 980',
-                     'LSM 880, AxioObserver':'LSM 880',
-                     'LSM 710, Axio Examiner': 'LSM 710',
-                     'LSM 700, AxioObserver': 'LSM 700',
-                     'Celldiscoverer 7':'CD7',
-                     '4652000027-1': 'CD7',
-                     'Elyra 7 DUOLINK':'Elyra 7',
-                     'Axio Imager.Z2':'Imager',
-                     'Axio Observer.Z1 / 7':'Observer',
-                     #EM
-                     'TALOS': 'Talos L120C',
-                     'Talos': 'Talos L120C',
-                     'Microscope TalosL120C 120 kV D5838 CryoTwin':'Talos L120C',
-                     'i':'Talos L120C',
-                     'Gemini':'Gemini SEM 450',
-                     'GeminiSEM 450':'Gemini SEM 450',
-                     #Other
-                     None:'Undefined',
-                     }
-    
-    if microscope in micro_mapping.keys():
-        microscope = micro_mapping[microscope]
-    
-    return microscope
 
-def get_info_metadata_from_czi(img_path : Path) -> dict:
-    """
-    Extract important metadata from a CZI image file.
-    
-    This function opens a CZI image file, reads its metadata, and extracts
-    specific information such as microscope details, lens properties,
-    image type, pixel size, image dimensions, and other relevant metadata.
-    
-    Args:
-        img_path : The file path to the CZI image.
-    
-    Returns:
-        ImageMetadata: A dictionnary containing the extracted metadata.
-    
-    Raises:
-        FileNotFoundError: If the specified image file does not exist.
-        ValueError: If the file is not a valid CZI image or if metadata extraction fails.
-    """
-    
-    if not img_path.exists():
-        raise FileNotFoundError(f"The file {img_path} does not exist.")
-    
+def is_valid_ip(value: Any) -> bool:
+    if value is None:
+        return False
     try:
-        with pyczi.open_czi(str(img_path)) as czidoc:
+        ip_address(str(value).strip())
+        return True
+    except ValueError:
+        return False
+
+
+def _normalize_ip(value: Any) -> str | None:
+    if not is_valid_ip(value):
+        return None
+    return str(ip_address(str(value).strip()))
+
+
+def get_client_ip() -> str | None:
+    """Return the client IP, honoring X-Forwarded-For only for trusted proxies."""
+    try:
+        remote_addr = request.remote_addr
+        forwarded_for = request.headers.get("X-Forwarded-For", "")
+    except RuntimeError:
+        # No active Flask request context.
+        return None
+
+    trusted_proxies = {
+        normalized
+        for proxy in conf.TRUSTED_PROXY_IPS
+        if (normalized := _normalize_ip(proxy)) is not None
+    }
+
+    remote_ip = _normalize_ip(remote_addr)
+    if remote_ip is None:
+        return None
+
+    # Explicitly disable forwarded header parsing when no trusted proxies are configured.
+    if not trusted_proxies:
+        return remote_ip
+
+    if remote_ip in trusted_proxies and forwarded_for:
+        for candidate in forwarded_for.split(","):
+            normalized_candidate = _normalize_ip(candidate)
+            if normalized_candidate is not None:
+                return normalized_candidate
+
+    return remote_ip
+
+def mapping(microscope, client_ip: str | None = None):
+    """Map microscope metadata value to canonical name, with optional IP fallback."""
+    micro_mapping = conf.MICROSCOPE_ID_TO_NAME
+    mapped_name = micro_mapping.get(microscope, microscope)
+
+    # Use IP fallback only when metadata did not provide a meaningful mapping.
+    if mapped_name in [None, "", "Undefined", "Instrument:0"]:
+        ip_mapping = {
+            normalized_ip: name
+            for raw_ip, name in conf.MICROSCOPE_IP_TO_NAME.items()
+            if (normalized_ip := _normalize_ip(raw_ip)) is not None
+        }
+
+        resolved_ip = _normalize_ip(client_ip) if client_ip is not None else get_client_ip()
+        if resolved_ip is not None and resolved_ip in ip_mapping:
+            return ip_mapping[resolved_ip]
+
+    return mapped_name
+
+def get_ome_metadata(path: Path, include_ome_xml: bool=False, include_raw_metadata: bool=False) -> dict:
+    """Extract a compact metadata dictionary from BioFormats OME-XML.
+
+    Parameters
+    ----------
+    path:
+        Image file path accepted by ``bioio``/BioFormats.
+    include_ome_xml:
+        Include the generated OME-XML string in the return dictionary. This is
+        mainly useful while debugging parser behavior.
+    include_raw_metadata:
+        Include the raw BioFormats metadata XML in the return dictionary. This
+        can be large, so it is disabled by default.
+
+    Returns
+    -------
+    dict
+        Normalized metadata fields used by the application prototype.
+    """
+
+    if not path.exists():
+        raise FileNotFoundError(f"The file {path} does not exist.")
+
+    # Invalid/placeholder files should fail fast without spinning up BioFormats.
+    if path.stat().st_size == 0:
+        raise ValueError(f"Error opening or reading metadata: {path.as_posix()}")
+
+    try:
+        from bioio import BioImage #lazy import
+        import bioio_bioformats
+        import xml.etree.ElementTree as ET
+
+        # BioImage initializes the BioFormats reader and exposes common normalized
+        # metadata such as physical pixel sizes and scene counts.
+        img = BioImage(path, reader=bioio_bioformats.Reader)
+
+        md = {} #final dictionary to hold the metadata we want to extract
+
+        # Directly read the most important metadata from the BioImage object. These
+        # values can later be overwritten by explicit OME-XML values when present.
+        md["Physical pixel size X"] = img.physical_pixel_sizes.X
+        md["Physical pixel size Y"] = img.physical_pixel_sizes.Y
+        md["Physical pixel size Z"] = img.physical_pixel_sizes.Z
+
+        # Convert the parsed OME model back to XML so we can access fields that are
+        # not exposed as first-class BioImage attributes.
+        ome_xml = img.ome_metadata.to_xml()
+
+        root = ET.fromstring(ome_xml)
+        ns = {"ome": root.tag.split("}")[0].strip("{")}
+
+        # OME-XML usually has one Image/Pixels block for the active image and one
+        # Instrument block describing objective and microscope metadata.
+        image = root.find("ome:Image", ns)
+        pixels = image.find("ome:Pixels", ns) if image is not None else None
+        instrument = root.find("ome:Instrument", ns)
+        objective = instrument.find("ome:Objective", ns) if instrument is not None else None
+
+        # Image sizes and physical sizes are stored as attributes on Pixels. Only
+        # copy axes that are present because not every format records every axis.
+        if pixels is not None:
+            for axis in ["X", "Y", "Z", "C", "T", "S", "M", "H"]:
+                value = pixels.get(f"Size{axis}")
+                if value is not None:
+                    md[f"Image Size {axis}"] = int(value)
+
+            for axis in ["X", "Y", "Z"]:
+                value = pixels.get(f"PhysicalSize{axis}")
+                if value is not None:
+                    md[f"Physical pixel size {axis}"] = round(float(value), 4)
+
+        if "Image Size S" not in md: #fall back to counting the number of scenes if SizeS is not available
+            md["Image Size S"] = len(img.scenes)
+
+        # Objective details are optional in OME-XML. Prefer the nominal
+        # magnification, then calibrated magnification if nominal is missing.
+        if objective is not None:
+            lens_mag = (
+                objective.get("NominalMagnification")
+                or objective.get("CalibratedMagnification")
+            )
+
+            if lens_mag is not None:
+                md["Lens Magnification"] = int(float(lens_mag))
+
+            lens_na = objective.get("LensNA")
+            if lens_na is not None:
+                md["Lens NA"] = round(float(lens_na), 2)
+
+            md["Lens Immersion"] = objective.get("Immersion")
+            md["Objective Model"] = objective.get("Model")
+
+        # Acquisition date and description are child elements rather than Pixels
+        # attributes.
+        if image is not None:
+            acq_date = image.find("ome:AcquisitionDate", ns)
+            desc = image.find("ome:Description", ns)
+
+            md["Acquisition date"] = acq_date.text if acq_date is not None else None
+            md["Description"] = desc.text if desc is not None else None
+
+        # Channel metadata can indicate the image modality. Use the first available
+        # channel descriptor as a coarse "Image type" value.
+        channels = []
+        if pixels is not None:
+            for ch in pixels.findall("ome:Channel", ns):
+                channels.append({
+                    "AcquisitionMode": ch.get("AcquisitionMode"),
+                    "IlluminationType": ch.get("IlluminationType"),
+                    "ContrastMethod": ch.get("ContrastMethod"),
+                })
+
+        md["Image type"] = next(
+            (
+                c["AcquisitionMode"] or c["IlluminationType"] or c["ContrastMethod"]
+                for c in channels
+                if c["AcquisitionMode"] or c["IlluminationType"] or c["ContrastMethod"]
+            ),
+            None,
+        )
+
+        # OME Instrument metadata is not always populated. If it only contains the
+        # generated placeholder ID, treat the microscope as unknown.
+        if instrument is not None:
+            microscope = instrument.get("Model") or instrument.get("Manufacturer") or instrument.get("ID")
+            if microscope == "Instrument:0":
+                microscope = None
+            md["Microscope"] = mapping(microscope)
+        else:
+            md["Microscope"] = mapping(None)
+
+        md["Comment"] = None
+
+        md["Metadata source"] = "OME-XML via BioFormats"
+        #for debugging purposes
+        if include_ome_xml:
+            md["ome_xml"] = ome_xml
+        if include_raw_metadata:
+            md["raw_metadata"] = img.metadata.to_xml()
+
+        return md
+    except Exception as e:
+        logger.error(f"Error opening or reading metadata: {str(e)}")
+        raise ValueError(f"Error opening or reading metadata: {path.as_posix()}")
+
+
+def get_extra_czi_metadata(path: Path) -> dict:
+    """Extract CZI metadata that may be missing from generated OME-XML.
+
+    The Zeiss CZI metadata schema varies by acquisition software. This function
+    inspects the application name/version and then reads the microscope name
+    from the location used by that software generation.
+    """
+    from pylibCZIrw import czi as pyczi #lazy import
+
+    try:
+        with pyczi.open_czi(str(path)) as czidoc:
             metadata = czidoc.metadata['ImageDocument']['Metadata']
     except Exception as e:
         logger.error(f"Error opening or reading metadata: {str(e)}")
-        raise ValueError(f"Error opening or reading metadata: {img_path}")
-
-           
-    #Initialization
-    app_name = None
-    app_version = None
+        raise ValueError(f"Error opening or reading metadata: {path}")
+    
+    # Microscope name in CZI metadata is not standardized, so parse it based on
+    # the application that created the metadata.
     microscope = None
-    acq_type = None
-    lensNA = None
-    lensMag = None
-    lensImmersion = None
-    pre_processed = None
-    comment = None
-    description = None
-    creation_date = None
-                                
-    #grab the correct version of the metadata
     app = metadata['Information'].get('Application', None)
     if app is not None: #security check
         app_name = app['Name']
         app_version = app['Version']
         logger.debug('Metadata made with %s version %s' %(app_name, app_version))
-        #Another way will be to grab the IP address of the room and map it
-        #microscope name, based on the version of the metadata
-        if 'ZEN' in app['Name'] and app['Version'].startswith("3."): #CD7, 980, Elyra
+
+        # ZEN 3.x stores the user-facing microscope name when available, but
+        # some files only have a generic name or camera name.
+        if 'ZEN' in app_name and app_version.startswith("3."): #CD7, 980, Elyra
             microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('UserDefinedName', None)
             if microscope is None:
                 microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
             if microscope is None:
                 microscope = metadata['Scaling']['AutoScaling'].get('CameraName', None)
 
-        elif 'ZEN' in app['Name'] and app['Version'].startswith("2.6"): #Observer, Imager
+        # ZEN 2.6 and AIM write the microscope name to different fields.
+        elif 'ZEN' in app_name and app_version.startswith("2.6"): #Observer, Imager
             microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
             
-        elif 'AIM' in app['Name']: #700, 880, 710
+        elif 'AIM' in app_name: #700, 880, 710
             microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('System', None)
 
+        # Normalize the raw microscope value and preserve document-level notes.
         microscope = mapping(microscope)
-            
-        logger.debug('Image made on %s' %(microscope))
-        #pixel size (everything in the scaling)
-        physical_pixel_sizes = {}
-        for dim in metadata['Scaling']['Items']['Distance']:
-            physical_pixel_sizes[dim['@Id']] = round(float(dim['Value'])*1e+6, 4)
-            
-        #image dimension
-        dims = metadata['Information']['Image']
-        size = {}
-        for d in dims.keys():
-            if 'Size' in d: #just the different Size (X,Y,Z,C,M,H...)
-                size[d] = int(dims[d])
-        logger.debug('Image with dimension %s and pixel size of %s' %(size, physical_pixel_sizes))
-            
-        # Acquisition type (not fully correct with elyra)
-        acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel']
-        if isinstance(acq_type, list):
-            acq_type = acq_type[0].get('ChannelType', acq_type[0].get('AcquisitionMode', None))
-            if acq_type == 'Unspecified':
-                acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel'][0].get('AcquisitionMode', None)
-        elif isinstance(acq_type, dict):
-            acq_type = acq_type.get('AcquisitionMode', None)
-        logger.debug('Image acquired with a %s mode' %(acq_type))
-            
-        #lens info
-        obj_settings = dict_crawler(metadata, "ObjectiveSettings")[0]
-        if isinstance(obj_settings, dict):
-            lensImmersion = obj_settings.get("Medium", "Other")
-            lensImmersion = lensImmersion if lensImmersion in model.Objective_Immersion._value2member_map_ else "Other"
-
-        lensNA = metadata['Information']['Instrument']['Objectives']['Objective'].get('LensNA', None)
-        if lensNA is not None: 
-            lensNA = round(float(lensNA), 2)
-        lensMag = metadata['Information']['Instrument']['Objectives']['Objective'].get('NominalMagnification', None)
-        if lensMag is not None: 
-            lensMag = int(lensMag)
-        logger.debug('Objective lens used has a magnification of %s, a NA of %s and an immersion of %s' %(lensMag, lensNA, lensImmersion))
-            
-        #processing (if any)
-        processing = metadata['Information'].get('Processing', None)
-        if processing is not None:
-            pre_processed = list(processing.keys())
-            logger.debug('Image preprocessed with %s' %(pre_processed))
-            
-        #other
         comment = metadata['Information']['Document'].get('Comment', None)
         description = metadata['Information']['Document'].get('Description', None)
-        #creation_date = metadata['Information']['Document'].get('CreationDate', None)
-        date_object = parser.isoparse(metadata['Information']['Document'].get('CreationDate', None))
-        creation_date = date_object.strftime(conf.DATE_TIME_FMT)
-        logger.debug(
-                        f"Image\n    Comment: {comment if comment else 'No comment'},\n" 
-                        f"Description: {description if description else 'No description'},\n"
-                        f"Creation date: {creation_date if creation_date else 'No creation date'}"
-                    )    
     else:
         return {}
-         
-    logger.debug("_"*25)
+    return {'Microscope':microscope, 'Comment':comment, 'Description':description}
 
-    mini_metadata = {'Microscope':microscope,
-                     'Lens Magnification': lensMag,
-                     'Lens NA': lensNA,
-                     'Lens Immersion': lensImmersion,
-                     'Image type':acq_type,
-                     'Physical pixel size':physical_pixel_sizes,
-                     'Image Size':size,
-                     'Comment':comment,
-                     'Description':description,
-                     'Acquisition date': creation_date,
-                     }
-    # Unpack Physical pixel size
-    for axis, value in physical_pixel_sizes.items():
-        mini_metadata[f'Physical pixel size {axis}'] = value
+# legacy code. Can remove if we are sure that the get_ome_metadata function is working well.
+# The get_extra_czi_metadata function can be used as a fallback to extract the microscope name when it is missing from the OME-XML metadata.
+
+# def get_info_metadata_from_czi(img_path : Path) -> dict:
+#     """
+#     Extract important metadata from a CZI image file.
     
-    # Unpack Image Size
-    for axis, value in size.items():
-        mini_metadata[f'Image Size {axis[-1]}'] = value
+#     This function opens a CZI image file, reads its metadata, and extracts
+#     specific information such as microscope details, lens properties,
+#     image type, pixel size, image dimensions, and other relevant metadata.
     
-    del mini_metadata['Physical pixel size']
-    del mini_metadata['Image Size']
+#     Args:
+#         img_path : The file path to the CZI image.
     
-    return mini_metadata       
+#     Returns:
+#         ImageMetadata: A dictionnary containing the extracted metadata.
+    
+#     Raises:
+#         FileNotFoundError: If the specified image file does not exist.
+#         ValueError: If the file is not a valid CZI image or if metadata extraction fails.
+#     """
+    
+#     if not img_path.exists():
+#         raise FileNotFoundError(f"The file {img_path} does not exist.")
+    
+#     try:
+#         with pyczi.open_czi(str(img_path)) as czidoc:
+#             metadata = czidoc.metadata['ImageDocument']['Metadata']
+#     except Exception as e:
+#         logger.error(f"Error opening or reading metadata: {str(e)}")
+#         raise ValueError(f"Error opening or reading metadata: {img_path}")
+
+           
+#     #Initialization
+#     app_name = None
+#     app_version = None
+#     microscope = None
+#     acq_type = None
+#     lensNA = None
+#     lensMag = None
+#     lensImmersion = None
+#     pre_processed = None
+#     comment = None
+#     description = None
+#     creation_date = None
+                                
+#     #grab the correct version of the metadata
+#     app = metadata['Information'].get('Application', None)
+#     if app is not None: #security check
+#         app_name = app['Name']
+#         app_version = app['Version']
+#         logger.debug('Metadata made with %s version %s' %(app_name, app_version))
+#         #Another way will be to grab the IP address of the room and map it
+#         #microscope name, based on the version of the metadata
+#         if 'ZEN' in app['Name'] and app['Version'].startswith("3."): #CD7, 980, Elyra
+#             microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('UserDefinedName', None)
+#             if microscope is None:
+#                 microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
+#             if microscope is None:
+#                 microscope = metadata['Scaling']['AutoScaling'].get('CameraName', None)
+
+#         elif 'ZEN' in app['Name'] and app['Version'].startswith("2.6"): #Observer, Imager
+#             microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('@Name', None)
+            
+#         elif 'AIM' in app['Name']: #700, 880, 710
+#             microscope = metadata['Information']['Instrument']['Microscopes']['Microscope'].get('System', None)
+
+#         microscope = mapping(microscope)
+            
+#         logger.debug('Image made on %s' %(microscope))
+#         #pixel size (everything in the scaling)
+#         physical_pixel_sizes = {}
+#         for dim in metadata['Scaling']['Items']['Distance']:
+#             physical_pixel_sizes[dim['@Id']] = round(float(dim['Value'])*1e+6, 4)
+            
+#         #image dimension
+#         dims = metadata['Information']['Image']
+#         size = {}
+#         for d in dims.keys():
+#             if 'Size' in d: #just the different Size (X,Y,Z,C,M,H...)
+#                 size[d] = int(dims[d])
+#         logger.debug('Image with dimension %s and pixel size of %s' %(size, physical_pixel_sizes))
+            
+#         # Acquisition type (not fully correct with elyra)
+#         acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel']
+#         if isinstance(acq_type, list):
+#             acq_type = acq_type[0].get('ChannelType', acq_type[0].get('AcquisitionMode', None))
+#             if acq_type == 'Unspecified':
+#                 acq_type = metadata['Information']['Image']['Dimensions']['Channels']['Channel'][0].get('AcquisitionMode', None)
+#         elif isinstance(acq_type, dict):
+#             acq_type = acq_type.get('AcquisitionMode', None)
+#         logger.debug('Image acquired with a %s mode' %(acq_type))
+            
+#         #lens info
+#         obj_settings = dict_crawler(metadata, "ObjectiveSettings")[0]
+#         if isinstance(obj_settings, dict):
+#             lensImmersion = obj_settings.get("Medium", "Other")
+#             lensImmersion = lensImmersion if lensImmersion in model.Objective_Immersion._value2member_map_ else "Other"
+
+#         lensNA = metadata['Information']['Instrument']['Objectives']['Objective'].get('LensNA', None)
+#         if lensNA is not None: 
+#             lensNA = round(float(lensNA), 2)
+#         lensMag = metadata['Information']['Instrument']['Objectives']['Objective'].get('NominalMagnification', None)
+#         if lensMag is not None: 
+#             lensMag = int(lensMag)
+#         logger.debug('Objective lens used has a magnification of %s, a NA of %s and an immersion of %s' %(lensMag, lensNA, lensImmersion))
+            
+#         #processing (if any)
+#         processing = metadata['Information'].get('Processing', None)
+#         if processing is not None:
+#             pre_processed = list(processing.keys())
+#             logger.debug('Image preprocessed with %s' %(pre_processed))
+            
+#         #other
+#         comment = metadata['Information']['Document'].get('Comment', None)
+#         description = metadata['Information']['Document'].get('Description', None)
+#         #creation_date = metadata['Information']['Document'].get('CreationDate', None)
+#         date_object = parser.isoparse(metadata['Information']['Document'].get('CreationDate', None))
+#         creation_date = date_object.strftime(conf.DATE_TIME_FMT)
+#         logger.debug(
+#                         f"Image\n    Comment: {comment if comment else 'No comment'},\n" 
+#                         f"Description: {description if description else 'No description'},\n"
+#                         f"Creation date: {creation_date if creation_date else 'No creation date'}"
+#                     )    
+#     else:
+#         return {}
+         
+#     logger.debug("_"*25)
+
+#     mini_metadata = {'Microscope':microscope,
+#                      'Lens Magnification': lensMag,
+#                      'Lens NA': lensNA,
+#                      'Lens Immersion': lensImmersion,
+#                      'Image type':acq_type,
+#                      'Physical pixel size':physical_pixel_sizes,
+#                      'Image Size':size,
+#                      'Comment':comment,
+#                      'Description':description,
+#                      'Acquisition date': creation_date,
+#                      }
+#     # Unpack Physical pixel size
+#     for axis, value in physical_pixel_sizes.items():
+#         mini_metadata[f'Physical pixel size {axis}'] = value
+    
+#     # Unpack Image Size
+#     for axis, value in size.items():
+#         mini_metadata[f'Image Size {axis[-1]}'] = value
+    
+#     del mini_metadata['Physical pixel size']
+#     del mini_metadata['Image Size']
+    
+#     return mini_metadata       
 
 def pixel_type_to_ome(string:str):
     if string == "Gray8":
@@ -1235,28 +1471,27 @@ def file_format_splitter(fileData : FileData) -> tuple[list[str], dict[str,str]]
     ext = fileData.getMainFileExtension().lower()
     img_path = fileData.getMainFileTempPath()
     logger.info(f"Received file is of format {ext}")
-    if ext == "czi": #Light microscope format - CarlZeissImage
-        key_pair = get_info_metadata_from_czi(Path(img_path))
-        converted_path = _handle_czi_with_pyramidizer(fileData, img_path, key_pair)
-    
-    elif ext == "tif": #Tif, but only SEM-TIF or Fibics-TIF are supported
+    key_pair = {} #initialize
+
+    #start with the EM format, not supported by bioformats
+    if ext == "tif": #Tif, but only SEM-TIF or Fibics-TIF are supported
         converted_path, key_pair = convert_tif_to_ometiff(img_path)
-    
     elif ext == "mrc":
         atlasPair = {}
         atlasPair[fileData.getDictFileExtension()] = fileData.getDictFileTempPath()
         atlasPair[fileData.getMainFileExtension()] = img_path
         converted_path, key_pair = convert_atlas_to_ometiff(atlasPair)
-
-    #these formats need to be converted locally due to no bioformats support
     elif ext == "emi": #Electron microscope format
         converted_path, key_pair = convert_emi_to_ometiff(img_path)
     elif ext == "emd": #Electron microscope format
         converted_path, key_pair = convert_emd_to_ometiff(img_path)
 
-
-    else:
-        raise ImageNotSupported(f"Image format not supported: {ext}")
+    else: #Other formats are expected to be supported by bioformats
+        key_pair = get_ome_metadata(Path(img_path))
+        converted_path = [img_path]
+        if ext == "czi": #Light microscope format - CarlZeissImage can have extra metadata
+            key_pair.update(get_extra_czi_metadata(Path(img_path)))
+            converted_path = _handle_czi_with_pyramidizer(fileData, img_path, key_pair)
     
     #security
     if isinstance(converted_path, str):

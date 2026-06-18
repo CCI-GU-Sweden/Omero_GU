@@ -59,7 +59,29 @@ CZI_PYRAMIDIZER_MAX_TOP_LEVEL: int = 1024
 CZI_PYRAMIDIZER_MODE: str = "IfNeeded"
 
 USER_VARIABLES = ["Sample", "User", "PI", "Preparation", "Lens ID"]
-
+MICROSCOPE_ID_TO_NAME = {
+    # Light microscopy
+    '2842001059': 'LSM 980',
+    'LSM 880, AxioObserver': 'LSM 880',
+    'LSM 710, Axio Examiner': 'LSM 710',
+    'LSM 700, AxioObserver': 'LSM 700',
+    'Celldiscoverer 7': 'CD7',
+    '4652000027-1': 'CD7',
+    'Elyra 7 DUOLINK': 'Elyra 7',
+    'Axio Imager.Z2': 'Imager',
+    'Axio Observer.Z1 / 7': 'Observer',
+    # Electron microscopy
+    'TALOS': 'Talos L120C',
+    'Talos': 'Talos L120C',
+    'Microscope TalosL120C 120 kV D5838 CryoTwin': 'Talos L120C',
+    'i': 'Talos L120C',
+    'Gemini': 'Gemini SEM 450',
+    'GeminiSEM 450': 'Gemini SEM 450',
+    # Fallback
+    None: 'Undefined',
+}
+TRUSTED_PROXY_IPS = []
+MICROSCOPE_IP_TO_NAME = {}
 
 def _getenv_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
@@ -90,6 +112,9 @@ try:
 
     GENERATE_THUMBNAILS = getattr(config, "GENERATE_THUMBNAILS", GENERATE_THUMBNAILS)
     USER_VARIABLES = getattr(config, "USER_VARIABLES", USER_VARIABLES)
+    MICROSCOPE_ID_TO_NAME = getattr(config, "MICROSCOPE_ID_TO_NAME", MICROSCOPE_ID_TO_NAME)
+    TRUSTED_PROXY_IPS = getattr(config, "TRUSTED_PROXY_IPS", TRUSTED_PROXY_IPS)
+    MICROSCOPE_IP_TO_NAME = getattr(config, "MICROSCOPE_IP_TO_NAME", MICROSCOPE_IP_TO_NAME)
 
 except ImportError:
     pass
