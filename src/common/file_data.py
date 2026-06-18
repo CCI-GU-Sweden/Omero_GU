@@ -15,9 +15,9 @@ class FileData:
         self.annotations: Optional[dict[str,str]] = None
         self.username: Optional[str] = None
         for f in fileBaseNames:
-            basename = f #only last part of path, like 'filename.ext'
+            basename = os.path.basename(os.path.normpath(f))
             self.originalFileNames.append(basename)
-            ext = f.split('.')[-1]
+            ext = basename.split('.')[-1]
             if not ext == "ser" and not ext == "xml":
                 self.mainFileExtension: str = ext
                 self.mainFileName: str = basename
@@ -39,7 +39,7 @@ class FileData:
         
     def setTempFilePaths(self, paths: list[str]):
         self.tempPaths = paths
-        self.basePath = os.path.dirname(paths[0])
+        self.basePath = os.path.dirname(paths[0]) if paths else ""
         
     def getTempFilePaths(self) -> list[str]:
         return self.tempPaths
@@ -54,20 +54,20 @@ class FileData:
         return self.basePath
 
     def getMainFileTempPath(self) -> str:
-        main_p = ""
+        target_name = os.path.basename(os.path.normpath(self.getMainFileName()))
         for p in self.tempPaths:
-            if self.getMainFileName() in str(p):
-                main_p = p
-        
-        return main_p
+            if os.path.basename(os.path.normpath(str(p))) == target_name:
+                return p
+
+        return ""
 
     def getDictFileTempPath(self):
-        dict_p = ""
+        target_name = os.path.basename(os.path.normpath(self.getDictFileName()))
         for p in self.tempPaths:
-            if self.getDictFileName() in str(p):
-                dict_p = p
-        
-        return dict_p
+            if os.path.basename(os.path.normpath(str(p))) == target_name:
+                return p
+
+        return ""
     
     def setUserName(self, username: str):
         self.username = username

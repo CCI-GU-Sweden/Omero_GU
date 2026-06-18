@@ -395,119 +395,127 @@ def get_ome_metadata(path: Path, include_ome_xml: bool=False, include_raw_metada
     if not path.exists():
         raise FileNotFoundError(f"The file {path} does not exist.")
 
-    from bioio import BioImage #lazy import
-    import bioio_bioformats
-    import xml.etree.ElementTree as ET
+    # Invalid/placeholder files should fail fast without spinning up BioFormats.
+    if path.stat().st_size == 0:
+        raise ValueError(f"Error opening or reading metadata: {path.as_posix()}")
 
-    # BioImage initializes the BioFormats reader and exposes common normalized
-    # metadata such as physical pixel sizes and scene counts.
-    img = BioImage(path, reader=bioio_bioformats.Reader)
+    try:
+        from bioio import BioImage #lazy import
+        import bioio_bioformats
+        import xml.etree.ElementTree as ET
 
-    md = {} #final dictionary to hold the metadata we want to extract
+        # BioImage initializes the BioFormats reader and exposes common normalized
+        # metadata such as physical pixel sizes and scene counts.
+        img = BioImage(path, reader=bioio_bioformats.Reader)
+
+        md = {} #final dictionary to hold the metadata we want to extract
 
     # Directly read the most important metadata from the BioImage object. These
     # values can later be overwritten by explicit OME-XML values when present.
-    md["Physical pixel size X"] = img.physical_pixel_sizes.X
-    md["Physical pixel size Y"] = img.physical_pixel_sizes.Y
-    md["Physical pixel size Z"] = img.physical_pixel_sizes.Z
+        md["Physical pixel size X"] = img.physical_pixel_sizes.X
+        md["Physical pixel size Y"] = img.physical_pixel_sizes.Y
+        md["Physical pixel size Z"] = img.physical_pixel_sizes.Z
 
     # Convert the parsed OME model back to XML so we can access fields that are
     # not exposed as first-class BioImage attributes.
-    ome_xml = img.ome_metadata.to_xml()
+        ome_xml = img.ome_metadata.to_xml()
 
-    root = ET.fromstring(ome_xml)
-    ns = {"ome": root.tag.split("}")[0].strip("{")}
+        root = ET.fromstring(ome_xml)
+        ns = {"ome": root.tag.split("}")[0].strip("{")}
 
     # OME-XML usually has one Image/Pixels block for the active image and one
     # Instrument block describing objective and microscope metadata.
-    image = root.find("ome:Image", ns)
-    pixels = image.find("ome:Pixels", ns) if image is not None else None
-    instrument = root.find("ome:Instrument", ns)
-    objective = instrument.find("ome:Objective", ns) if instrument is not None else None
+        image = root.find("ome:Image", ns)
+        pixels = image.find("ome:Pixels", ns) if image is not None else None
+        instrument = root.find("ome:Instrument", ns)
+        objective = instrument.find("ome:Objective", ns) if instrument is not None else None
 
     # Image sizes and physical sizes are stored as attributes on Pixels. Only
     # copy axes that are present because not every format records every axis.
-    if pixels is not None:
-        for axis in ["X", "Y", "Z", "C", "T", "S", "M", "H"]:
-            value = pixels.get(f"Size{axis}")
-            if value is not None:
-                md[f"Image Size {axis}"] = int(value)
+        if pixels is not None:
+            for axis in ["X", "Y", "Z", "C", "T", "S", "M", "H"]:
+                value = pixels.get(f"Size{axis}")
+                if value is not None:
+                    md[f"Image Size {axis}"] = int(value)
 
-        for axis in ["X", "Y", "Z"]:
-            value = pixels.get(f"PhysicalSize{axis}")
-            if value is not None:
-                md[f"Physical pixel size {axis}"] = round(float(value), 4)
+            for axis in ["X", "Y", "Z"]:
+                value = pixels.get(f"PhysicalSize{axis}")
+                if value is not None:
+                    md[f"Physical pixel size {axis}"] = round(float(value), 4)
 
-    if "Image Size S" not in md: #fall back to counting the number of scenes if SizeS is not available
-        md["Image Size S"] = len(img.scenes)
+        if "Image Size S" not in md: #fall back to counting the number of scenes if SizeS is not available
+            md["Image Size S"] = len(img.scenes)
 
     # Objective details are optional in OME-XML. Prefer the nominal
     # magnification, then calibrated magnification if nominal is missing.
-    if objective is not None:
-        lens_mag = (
-            objective.get("NominalMagnification")
-            or objective.get("CalibratedMagnification")
-        )
+        if objective is not None:
+            lens_mag = (
+                objective.get("NominalMagnification")
+                or objective.get("CalibratedMagnification")
+            )
 
-        if lens_mag is not None:
-            md["Lens Magnification"] = int(float(lens_mag))
+            if lens_mag is not None:
+                md["Lens Magnification"] = int(float(lens_mag))
 
-        lens_na = objective.get("LensNA")
-        if lens_na is not None:
-            md["Lens NA"] = round(float(lens_na), 2)
+            lens_na = objective.get("LensNA")
+            if lens_na is not None:
+                md["Lens NA"] = round(float(lens_na), 2)
 
-        md["Lens Immersion"] = objective.get("Immersion")
-        md["Objective Model"] = objective.get("Model")
+            md["Lens Immersion"] = objective.get("Immersion")
+            md["Objective Model"] = objective.get("Model")
 
     # Acquisition date and description are child elements rather than Pixels
     # attributes.
-    if image is not None:
-        acq_date = image.find("ome:AcquisitionDate", ns)
-        desc = image.find("ome:Description", ns)
+        if image is not None:
+            acq_date = image.find("ome:AcquisitionDate", ns)
+            desc = image.find("ome:Description", ns)
 
-        md["Acquisition date"] = acq_date.text if acq_date is not None else None
-        md["Description"] = desc.text if desc is not None else None
+            md["Acquisition date"] = acq_date.text if acq_date is not None else None
+            md["Description"] = desc.text if desc is not None else None
 
     # Channel metadata can indicate the image modality. Use the first available
     # channel descriptor as a coarse "Image type" value.
-    channels = []
-    if pixels is not None:
-        for ch in pixels.findall("ome:Channel", ns):
-            channels.append({
-                "AcquisitionMode": ch.get("AcquisitionMode"),
-                "IlluminationType": ch.get("IlluminationType"),
-                "ContrastMethod": ch.get("ContrastMethod"),
-            })
+        channels = []
+        if pixels is not None:
+            for ch in pixels.findall("ome:Channel", ns):
+                channels.append({
+                    "AcquisitionMode": ch.get("AcquisitionMode"),
+                    "IlluminationType": ch.get("IlluminationType"),
+                    "ContrastMethod": ch.get("ContrastMethod"),
+                })
 
-    md["Image type"] = next(
-        (
-            c["AcquisitionMode"] or c["IlluminationType"] or c["ContrastMethod"]
-            for c in channels
-            if c["AcquisitionMode"] or c["IlluminationType"] or c["ContrastMethod"]
-        ),
-        None,
-    )
+        md["Image type"] = next(
+            (
+                c["AcquisitionMode"] or c["IlluminationType"] or c["ContrastMethod"]
+                for c in channels
+                if c["AcquisitionMode"] or c["IlluminationType"] or c["ContrastMethod"]
+            ),
+            None,
+        )
 
     # OME Instrument metadata is not always populated. If it only contains the
     # generated placeholder ID, treat the microscope as unknown.
-    if instrument is not None:
-        microscope = instrument.get("Model") or instrument.get("Manufacturer") or instrument.get("ID")
-        if microscope == "Instrument:0":
-            microscope = None
-        md["Microscope"] = mapping(microscope)
-    else:
-        md["Microscope"] = mapping(None)
+        if instrument is not None:
+            microscope = instrument.get("Model") or instrument.get("Manufacturer") or instrument.get("ID")
+            if microscope == "Instrument:0":
+                microscope = None
+            md["Microscope"] = mapping(microscope)
+        else:
+            md["Microscope"] = mapping(None)
 
-    md["Comment"] = None
+        md["Comment"] = None
 
-    md["Metadata source"] = "OME-XML via BioFormats"
-    #for debugging purposes
-    if include_ome_xml:
-        md["ome_xml"] = ome_xml
-    if include_raw_metadata:
-        md["raw_metadata"] = img.metadata.to_xml()
+        md["Metadata source"] = "OME-XML via BioFormats"
+        #for debugging purposes
+        if include_ome_xml:
+            md["ome_xml"] = ome_xml
+        if include_raw_metadata:
+            md["raw_metadata"] = img.metadata.to_xml()
 
-    return md
+        return md
+    except Exception as e:
+        logger.error(f"Error opening or reading metadata: {str(e)}")
+        raise ValueError(f"Error opening or reading metadata: {path.as_posix()}")
 
 
 def get_extra_czi_metadata(path: Path) -> dict:
