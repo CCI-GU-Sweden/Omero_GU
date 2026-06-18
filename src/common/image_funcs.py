@@ -430,8 +430,8 @@ def get_ome_metadata(path: Path, include_ome_xml: bool=False, include_raw_metada
         instrument = root.find("ome:Instrument", ns)
         objective = instrument.find("ome:Objective", ns) if instrument is not None else None
 
-    # Image sizes and physical sizes are stored as attributes on Pixels. Only
-    # copy axes that are present because not every format records every axis.
+        # Image sizes and physical sizes are stored as attributes on Pixels. Only
+        # copy axes that are present because not every format records every axis.
         if pixels is not None:
             for axis in ["X", "Y", "Z", "C", "T", "S", "M", "H"]:
                 value = pixels.get(f"Size{axis}")
@@ -446,8 +446,8 @@ def get_ome_metadata(path: Path, include_ome_xml: bool=False, include_raw_metada
         if "Image Size S" not in md: #fall back to counting the number of scenes if SizeS is not available
             md["Image Size S"] = len(img.scenes)
 
-    # Objective details are optional in OME-XML. Prefer the nominal
-    # magnification, then calibrated magnification if nominal is missing.
+        # Objective details are optional in OME-XML. Prefer the nominal
+        # magnification, then calibrated magnification if nominal is missing.
         if objective is not None:
             lens_mag = (
                 objective.get("NominalMagnification")
