@@ -410,21 +410,21 @@ def get_ome_metadata(path: Path, include_ome_xml: bool=False, include_raw_metada
 
         md = {} #final dictionary to hold the metadata we want to extract
 
-    # Directly read the most important metadata from the BioImage object. These
-    # values can later be overwritten by explicit OME-XML values when present.
+        # Directly read the most important metadata from the BioImage object. These
+        # values can later be overwritten by explicit OME-XML values when present.
         md["Physical pixel size X"] = img.physical_pixel_sizes.X
         md["Physical pixel size Y"] = img.physical_pixel_sizes.Y
         md["Physical pixel size Z"] = img.physical_pixel_sizes.Z
 
-    # Convert the parsed OME model back to XML so we can access fields that are
-    # not exposed as first-class BioImage attributes.
+        # Convert the parsed OME model back to XML so we can access fields that are
+        # not exposed as first-class BioImage attributes.
         ome_xml = img.ome_metadata.to_xml()
 
         root = ET.fromstring(ome_xml)
         ns = {"ome": root.tag.split("}")[0].strip("{")}
 
-    # OME-XML usually has one Image/Pixels block for the active image and one
-    # Instrument block describing objective and microscope metadata.
+        # OME-XML usually has one Image/Pixels block for the active image and one
+        # Instrument block describing objective and microscope metadata.
         image = root.find("ome:Image", ns)
         pixels = image.find("ome:Pixels", ns) if image is not None else None
         instrument = root.find("ome:Instrument", ns)
