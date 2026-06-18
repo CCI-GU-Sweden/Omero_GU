@@ -38,7 +38,12 @@ ARG CZI_PYRAMIDIZER_SHA256
 ENV PYTHONUNBUFFERED=1 \
     #OMERO_USER=omero \
     APP_HOME=/app/omero \
-    USER_NAME=cci
+    USER_NAME=cci \
+    XDG_CACHE_HOME=/app/omero/.cache
+
+RUN mkdir -p /app/omero/.cache \
+    && chgrp -R 0 /app/omero \
+    && chmod -R g=u /app/omero
 
 # Install dependencies
 RUN set -eux; \
@@ -111,7 +116,6 @@ COPY uwsgi.ini ${APP_HOME}
 RUN chmod 777 -R ${APP_HOME}
 
 RUN pip install --no-cache-dir -r requirements.txt
-
 
 RUN ldd /usr/local/bin/czi-pyramidizer | grep -E "opencv|not found" || true
 
