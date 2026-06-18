@@ -493,8 +493,8 @@ def get_ome_metadata(path: Path, include_ome_xml: bool=False, include_raw_metada
             None,
         )
 
-    # OME Instrument metadata is not always populated. If it only contains the
-    # generated placeholder ID, treat the microscope as unknown.
+        # OME Instrument metadata is not always populated. If it only contains the
+        # generated placeholder ID, treat the microscope as unknown.
         if instrument is not None:
             microscope = instrument.get("Model") or instrument.get("Manufacturer") or instrument.get("ID")
             if microscope == "Instrument:0":
