@@ -19,8 +19,11 @@ def test_get_ome_metadata_from_czi_value_error():
     fileName = 'tests/data/fakefile.czi'
     with pytest.raises(ValueError) as excinfo:  
         get_ome_metadata(Path(fileName))
-    assert str(excinfo.value) == f"Error opening or reading metadata: {fileName}"  
-    assert True
+    err = str(excinfo.value)
+    assert err.startswith(f"Error opening or reading metadata: {fileName}")
+    assert "Cause:" in err
+    assert "File is empty (0 bytes)" in err
+    assert "[BioFormats/JVM]" in err
     
 def test_get_ome_metadata_from_czi_metadata():
     fileName = 'tests/data/test_image.czi'
