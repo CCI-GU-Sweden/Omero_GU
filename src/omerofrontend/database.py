@@ -7,6 +7,15 @@ from common import conf
 
 _db_mutex = Lock()
 
+def _connect():
+    return psycopg.connect(
+        dbname=conf.PG_DB_NAME,
+        user=conf.DB_USERNAME,
+        password=conf.DB_PASSWORD,
+        host=conf.DB_HOST,
+        port=conf.DB_PORT
+    )
+
 
 class DatabaseHandler:
     
@@ -75,7 +84,7 @@ class PostgresDatabaseHandler(DatabaseHandler):
     #SQL functions
     def initialize_database(self):
         try:
-            with _db_mutex, psycopg.connect(dbname=conf.PG_DB_NAME,user=conf.DB_USERNAME, password=conf.DB_USERNAME, host=conf.DB_HOST, port=conf.DB_PORT) as conn:
+            with _db_mutex, _connect() as conn:
                 with conn.cursor() as cursor:
                     logger.info("Creating database if it does not already exist")
                     cursor.execute('''
@@ -96,7 +105,7 @@ class PostgresDatabaseHandler(DatabaseHandler):
 
     def insert_import_data(self,time, username, groupname, scope, file_count, total_file_size_mb, import_time_s):
         try:
-            with _db_mutex, psycopg.connect(dbname=conf.PG_DB_NAME,user=conf.DB_USERNAME, password=conf.DB_USERNAME, host=conf.DB_HOST, port=conf.DB_PORT) as conn:
+            with _db_mutex, _connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute('''
                         INSERT INTO imports (time, username, groupname, scope, file_count, total_file_size_mb, import_time_s)
@@ -109,7 +118,7 @@ class PostgresDatabaseHandler(DatabaseHandler):
         
     def get_all_imports(self):#pyright: ignore[reportIncompatibleMethodOverride]
         try:
-            with _db_mutex, psycopg.connect(dbname=conf.PG_DB_NAME,user=conf.DB_USERNAME, password=conf.DB_USERNAME, host=conf.DB_HOST, port=conf.DB_PORT) as conn:
+            with _db_mutex, _connect() as conn:
                 with conn.cursor() as cursor: 
                     cursor.execute('SELECT * FROM imports')
                     rows = cursor.fetchall()
