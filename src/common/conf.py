@@ -19,11 +19,12 @@ IMPORT_LOG_FILE_STEM = "import_log"
 IMPORT_LOG_FILE_EXTENSION = ".log"
 IMPORT_LOGBACK_FILE = "logback.xml"
 
-
+#Filestatistics database connection settings
 PG_DB_NAME = 'omerofilestats'
-
-DB_USERNAME = "gu_cci_postgres"
-DB_PASSWORD = "gu_cci_postgres"
+DB_USERNAME = None
+DB_PASSWORD = None
+DB_HOST = "localhost"
+DB_PORT = 5432
 
 SECRET_KEY = "s3cr3t"
 
@@ -32,13 +33,10 @@ LOGGER_NAME = "omero_logger"
 LOG_LEVEL = logging.DEBUG
 
 FILE_IMPORT_THREADS = 8
-
 GENERATE_THUMBNAILS = False
 
 #configs for local running
 USE_TEST_URL = True
-DB_HOST = "localhost"
-DB_PORT = 5432
 DB_HANDLER = "postgres"
 
 MAX_SIZE_FULL_UPLOAD = 1024 * 1024 * 30 # 30 MB in bytes
@@ -131,6 +129,13 @@ USE_FAKE_REDIS = _getenv_bool("USE_FAKE_REDIS", USE_FAKE_REDIS)
 SQL_DB_DIR = "database"
 SQL_DB_NAME = 'omero_imports.db'
 
+#Grab the filestatistics database connection settings from environment variables if they exist
+PG_DB_NAME = os.getenv("PGDATABASE", PG_DB_NAME)
+DB_USERNAME = os.getenv("PGUSER", DB_USERNAME)
+DB_PASSWORD = os.getenv("PGPASSWORD", DB_PASSWORD)
+DB_HOST = os.getenv("PGHOST", DB_HOST)
+DB_PORT = os.getenv("PGPORT", DB_PORT)
+
 if USE_TEST_URL:
     OMERO_HOST = 'omero-cli.test.gu.se'
     OMERO_BASE_URL = 'https://omero-web-test.apps.k8s.gu.se'
@@ -142,7 +147,6 @@ OMERO_PORT = '4064'
 
 OMERO_LOGIN_URL = f'{OMERO_BASE_URL}/oauth/?url=%2Fwebclient%2F'
 OMERO_SESSION_TOKEN_URL = f'{OMERO_BASE_URL}/oauth/sessiontoken'
-
 
 UPLOAD_FOLDER = 'uploads'
 STATIC_FOLDER = 'static'
