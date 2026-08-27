@@ -143,14 +143,23 @@ USER ${USER_NAME}
 # Test bioio and bioio-bioformats while building the image.
 RUN python - <<'PY'
 import os
-from bioio import BioImage
-import bioio_bioformats
+import sys
+
+sys.path.insert(0, os.path.join(os.environ["APP_HOME"], "src"))
+from common import conf
 
 print("XDG_CACHE_HOME =", os.environ.get("XDG_CACHE_HOME"))
 print("JGO_CACHE_DIR =", os.environ.get("JGO_CACHE_DIR"))
 print("SCYJAVA_CACHE_DIR =", os.environ.get("SCYJAVA_CACHE_DIR"))
 print("CJDK_CACHE_DIR =", os.environ.get("CJDK_CACHE_DIR"))
 print("BIOFORMATS_MEMO_DIR =", os.environ.get("BIOFORMATS_MEMO_DIR"))
+
+if not conf.USE_BIOIO:
+    print("Skipping BioIO/BioFormats build check because USE_BIOIO is False")
+    raise SystemExit(0)
+
+from bioio import BioImage
+import bioio_bioformats
 
 img = BioImage("/tmp/test_image.czi", reader=bioio_bioformats.Reader)
 print("Scenes:", img.scenes)

@@ -5,7 +5,7 @@ ipykernel==6.28.0
 ipython==8.15.0
 omero-py==5.21.2
 pandas==2.2.3
-uwsgi==2.0.29
+uwsgi==2.0.31
 rosettasciio==0.6
 ome-types==0.6.3
 mistune==3.1.3
