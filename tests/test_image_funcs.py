@@ -24,7 +24,8 @@ def test_get_ome_metadata_from_czi_value_error():
     assert "Cause:" in err
     assert "File is empty (0 bytes)" in err
     assert "[BioFormats/JVM]" in err
-    
+
+@pytest.mark.skipif(not conf.USE_BIOIO, reason="BioIO/BioFormats metadata reader is disabled")
 def test_get_ome_metadata_from_czi_metadata():
     fileName = 'tests/data/test_image.czi'
     meta_data = get_ome_metadata(Path(fileName))
